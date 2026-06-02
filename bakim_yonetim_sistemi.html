@@ -8470,9 +8470,9 @@ async function onLoggedIn(user){
   currentUser = user;
   // Profili getir
   const pr = await fetchProfile();
-  if(pr.error){
-    // Oturum anahtarı geçersiz/ağ hatası → yanlışlıkla "onaysız" gösterme; temiz girişe yönlendir
-    console.warn('Profil doğrulanamadı:', pr.error);
+  // Hata VEYA boş sonuç → oturum bozuk demektir; "onaysız" gösterme, temiz girişe düş
+  if(pr.error || !pr.data){
+    console.warn('Profil doğrulanamadı:', pr.error || 'bos sonuc');
     try{ if(sb) await sb.auth.signOut(); }catch(e){}
     currentUser = null; currentProfile = null;
     hidePendingOverlay();
@@ -8481,8 +8481,8 @@ async function onLoggedIn(user){
     return;
   }
   currentProfile = pr.data;
-  // Onay kontrolü: hesap yönetici tarafından onaylanmadıysa erişim yok
-  if(!currentProfile || !currentProfile.approved){
+  // Onay kontrolü: yalnızca gerçek "approved=false" kaydı varsa onay bekletme ekranı
+  if(!currentProfile.approved){
     showPendingOverlay();
     return;
   }
