@@ -2172,7 +2172,7 @@ function toggleTheme(){
   applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
 }
 
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); scheduleCloudSync(); }
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync(); }
 function saveKpiStore(){ localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig)); scheduleCloudSync(); }
 
 function _defaultKpiSet(){
@@ -8359,6 +8359,7 @@ function applyRemoteData(d){
   db = d.db;
   if(d.kpiConfig) kpiConfig = d.kpiConfig;
   ensureDbShape();
+  _lastSnapshot = _snapshot(); // uzak değişiklik bizim değil → loglama
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
   const sec = document.querySelector('.section.active')?.id || 'dashboard';
@@ -8368,6 +8369,79 @@ function applyRemoteData(d){
 }
 // Modal kapandığında bekleyen güncellemeyi uygula
 document.addEventListener('hidden.bs.modal', ()=>{ if(_pendingRemote){ const d=_pendingRemote; _pendingRemote=null; applyRemoteData(d); } });
+
+// ── Aktivite günlüğü (admin için): ekleme/silme/güncelleme takibi ──
+const _LOG_SECTIONS = {
+  machines:'Makineler', failures:'Arızalar', maintenance:'Bakımlar', parts:'Yedek Parçalar',
+  workorders:'İş Emirleri', stock:'Stok', fixtures:'Fikstürler', taskSets:'Bakım Setleri',
+  planForms:'Planlı Bakım Formları', manualActions:'Manuel Aksiyonlar', oee:'OEE'
+};
+let _lastSnapshot = null;
+function _snapshot(){ try{ return JSON.parse(JSON.stringify(db)); }catch(e){ return null; } }
+function _itemLabel(it){
+  if(!it) return '?';
+  return it.name || it.partName || it.title || it.woNo || it.code || it.no || it.machineName || it.id || '?';
+}
+function _diffDb(oldDb, newDb){
+  const changes=[];
+  Object.keys(_LOG_SECTIONS).forEach(sec=>{
+    const o=(oldDb&&oldDb[sec])||[], n=(newDb&&newDb[sec])||[];
+    if(!Array.isArray(o)||!Array.isArray(n)) return;
+    const oMap=new Map(o.map(x=>[x.id,x])), nMap=new Map(n.map(x=>[x.id,x]));
+    const added=[], removed=[], changed=[];
+    nMap.forEach((v,k)=>{ if(!oMap.has(k)) added.push(v); else if(JSON.stringify(oMap.get(k))!==JSON.stringify(v)) changed.push(v); });
+    oMap.forEach((v,k)=>{ if(!nMap.has(k)) removed.push(v); });
+    const label=_LOG_SECTIONS[sec];
+    if(added.length)   changes.push({section:label, action:'ekledi',     count:added.length,   detail:added.slice(0,6).map(_itemLabel).join(', ')});
+    if(changed.length) changes.push({section:label, action:'güncelledi', count:changed.length, detail:changed.slice(0,6).map(_itemLabel).join(', ')});
+    if(removed.length) changes.push({section:label, action:'sildi',      count:removed.length, detail:removed.slice(0,6).map(_itemLabel).join(', ')});
+  });
+  return changes;
+}
+function logActivity(){
+  if(!cloudReady || !sb || !currentUser){ _lastSnapshot=_snapshot(); return; }
+  const changes = _lastSnapshot ? _diffDb(_lastSnapshot, db) : [];
+  _lastSnapshot = _snapshot();
+  if(!changes.length) return;
+  const rows = changes.map(c=>({ user_id: currentUser.id, user_email: currentUser.email, section: c.section, action: c.action, count: c.count, detail: c.detail }));
+  try{ sb.from('activity_log').insert(rows).then(({error})=>{ if(error) console.warn('logActivity', error); }); }catch(e){ console.warn('logActivity', e); }
+}
+
+// ── Admin: Aktivite Geçmişi modalı ──
+function injectActivityModal(){
+  if(document.getElementById('activityModal')) return;
+  const html = `<div id="activityModal" style="position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:1rem" onclick="if(event.target===this)closeActivityLog()">
+    <div style="width:100%;max-width:680px;max-height:85vh;overflow:auto;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:14px;padding:1.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <h5 style="margin:0"><i class="bi bi-clock-history me-2"></i>Aktivite Geçmişi</h5>
+        <div style="display:flex;gap:.5rem">
+          <button onclick="openActivityLog()" class="btn btn-sm btn-outline-secondary" title="Yenile"><i class="bi bi-arrow-clockwise"></i></button>
+          <button onclick="closeActivityLog()" class="btn btn-sm btn-outline-secondary">Kapat</button>
+        </div>
+      </div>
+      <div id="activityList"></div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeActivityLog(){ const m=document.getElementById('activityModal'); if(m) m.style.display='none'; }
+async function openActivityLog(){
+  injectActivityModal();
+  document.getElementById('activityModal').style.display='flex';
+  const list=document.getElementById('activityList');
+  list.innerHTML='<div style="color:var(--muted)">Yükleniyor…</div>';
+  const { data, error } = await sb.from('activity_log').select('*').order('at',{ascending:false}).limit(300);
+  if(error){ list.innerHTML='<div style="color:#e53935">Hata: '+error.message+'</div>'; return; }
+  if(!data || !data.length){ list.innerHTML='<div style="color:var(--muted)">Henüz kayıt yok.</div>'; return; }
+  list.innerHTML = data.map(r=>{
+    let dt=r.at; try{ dt=new Date(r.at).toLocaleString('tr-TR'); }catch(e){}
+    const col = r.action==='sildi'?'#e53935':(r.action==='güncelledi'?'#fb8c00':'#43a047');
+    const icon = r.action==='sildi'?'bi-trash':(r.action==='güncelledi'?'bi-pencil':'bi-plus-circle');
+    return `<div style="padding:.55rem .7rem;border:1px solid var(--border,#30363d);border-radius:8px;margin-bottom:.45rem">
+      <div style="font-size:.72rem;color:var(--muted)"><i class="bi bi-person-circle me-1"></i>${r.user_email||'?'} · ${dt}</div>
+      <div style="font-size:.86rem;margin-top:2px"><i class="bi ${icon} me-1" style="color:${col}"></i><b>${r.section}</b> — <span style="color:${col}">${r.count} kayıt ${r.action}</span>${r.detail?` <span style="color:var(--muted)">(${r.detail})</span>`:''}</div>
+    </div>`;
+  }).join('');
+}
 
 // ── Auth UI ──
 function injectAuthUI(){
@@ -8560,6 +8634,7 @@ async function _onLoggedIn(user){
     cloudReady = true;
     await cloudPush();
   }
+  _lastSnapshot = _snapshot(); // günlük için başlangıç anlık görüntüsü
   hideAuthOverlay();
   hidePendingOverlay();
   bootAppUI();
@@ -8684,7 +8759,8 @@ async function changePassword(){
 function injectSyncBar(){
   if(document.getElementById('syncBar')) return;
   const adminBtn = (currentProfile && currentProfile.is_admin)
-    ? `<button onclick="openAdminPanel()" class="btn btn-sm btn-warning" style="padding:0 .5rem;font-size:.72rem">Onaylar <span id="pendingCount" class="badge bg-danger" style="display:none">0</span></button>`
+    ? `<button onclick="openAdminPanel()" class="btn btn-sm btn-warning" style="padding:0 .5rem;font-size:.72rem">Onaylar <span id="pendingCount" class="badge bg-danger" style="display:none">0</span></button>
+       <button onclick="openActivityLog()" class="btn btn-sm btn-outline-info" style="padding:0 .5rem;font-size:.72rem" title="Aktivite Geçmişi"><i class="bi bi-clock-history"></i> Geçmiş</button>`
     : '';
   const pwBtn = `<button onclick="openPwModal()" class="btn btn-sm btn-outline-secondary" title="Şifre Değiştir" style="padding:0 .45rem;font-size:.72rem"><i class="bi bi-key-fill"></i></button>`;
   const html = `<div id="syncBar" style="position:fixed;bottom:10px;left:10px;z-index:9000;display:flex;align-items:center;gap:.5rem;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:20px;padding:.25rem .7rem;font-size:.75rem;box-shadow:0 2px 10px rgba(0,0,0,.35)">
