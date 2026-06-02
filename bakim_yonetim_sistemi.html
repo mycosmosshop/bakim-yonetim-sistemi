@@ -1221,13 +1221,14 @@ select option{background:#0d1117}
           <div class="col-md-6"><label class="form-label">Departman</label><input type="text" class="form-control" id="mMachDept"></div>
           <div class="col-md-6"><label class="form-label">Kurulum Tarihi</label><input type="date" class="form-control" id="mMachDate"></div>
           <div class="col-md-6">
-            <label class="form-label">Kritiklik</label>
+            <label class="form-label">Önem (taban) <i class="bi bi-info-circle" title="Bu, makinenin üretim önemidir (taban). Tablodaki nihai Kritiklik = bu önem ile arıza/duruş verisinden gelen risk puanının yükseği."></i></label>
             <select class="form-select" id="mMachCrit">
               <option value="critical">🔴 Kritik — Üretim tamamen durur</option>
               <option value="high">🟠 Yüksek — Ciddi üretim kaybı</option>
               <option value="medium" selected>🟡 Orta — Kısmi etki</option>
               <option value="low">🟢 Düşük — Minimal etki</option>
             </select>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:3px">Tablodaki <b>Kritiklik</b> otomatik: bu önem + arıza/duruş riskinin yükseği.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label">Durum</label>
@@ -2375,6 +2376,38 @@ function machMetrics(mid){
   };
 }
 
+// ── Veriye dayalı kritiklik (Risk skoru) + Hibrit nihai kritiklik ──
+const _CRIT_RANK = { low:1, medium:2, high:3, critical:4 };
+const _RANK_KEY  = { 1:'low', 2:'medium', 3:'high', 4:'critical' };
+
+// 0–100 risk puanı: arıza sıklığı(30) + duruş(30) + düşük kullanılabilirlik(20) + kritik parça(20)
+function machRiskScore(mid){
+  const mx = machMetrics(mid);
+  const now = new Date(); const yearAgo = new Date(now.getTime()-365*24*3600*1000);
+  const recentF = db.failures.filter(f=>f.machineId===mid && new Date(f.startTime)>=yearAgo);
+  const failCount = recentF.length;
+  const downH = recentF.reduce((s,f)=>s+downtimeH(f),0);
+  const avail = parseFloat(mx.avail);
+  const critParts = (db.parts||[]).filter(p=>p.machineId===mid && p.isCritical).length;
+  const sFreq  = Math.min(30, failCount*6);
+  const sDown  = Math.min(30, downH/48*30);
+  const sAvail = Math.min(20, Math.max(0,(99.5-avail))/9.5*20);
+  const sPart  = Math.min(20, critParts*4);
+  const score  = Math.round(sFreq+sDown+sAvail+sPart);
+  const band   = score>=75?'critical':score>=50?'high':score>=25?'medium':'low';
+  return { score, band, failCount, downH:+downH.toFixed(1), avail, critParts,
+           parts:{ freq:Math.round(sFreq), down:Math.round(sDown), avail:Math.round(sAvail), part:Math.round(sPart) } };
+}
+
+// Nihai kritiklik = max(elle seçilen önem tabanı, veri risk bandı)
+function effectiveCrit(m){
+  const base   = _CRIT_RANK[m.criticality] || 2;
+  const r      = machRiskScore(m.id);
+  const rRank  = _CRIT_RANK[r.band] || 1;
+  const rank   = Math.max(base, rRank);
+  return { key:_RANK_KEY[rank], rank, risk:r, base, escalated: rRank>base };
+}
+
 // ── Fleet-wide KPI calculations ──
 function calcFleetKPIs(forLoc){
   const loc = forLoc !== undefined ? forLoc : gLocFilter;
@@ -2723,7 +2756,7 @@ function renderDashboard(){
   // ── Fixed info cards (always shown) ──
   const fixedCards = [
     {icon:'bi-cpu-fill',     color:'#00bcd4', val:_dashM.length,
-     sub:_dashM.filter(m=>m.criticality==='critical').length+' kritik', label:'Toplam Makine', fixed:true},
+     sub:_dashM.filter(m=>effectiveCrit(m).key==='critical').length+' kritik', label:'Toplam Makine', fixed:true},
     {icon:'bi-exclamation-triangle-fill', color:actF>0?'#e53935':'#43a047', val:actF,
      sub:'devam eden', label:'Aktif Arıza', fixed:true},
     {icon:'bi-calendar-x',  color:overdue>0?'#e53935':'#43a047', val:overdue,
@@ -3111,7 +3144,7 @@ function renderMachines(){
   const lf=document.getElementById('mLocF')?.value||'';
   const list=db.machines.filter(m=>{
     const ms=(!srch||m.name.toLowerCase().includes(srch)||(m.model||'').toLowerCase().includes(srch)||(m.location||'').toLowerCase().includes(srch));
-    return ms&&(!sf||m.status===sf)&&(!cf||m.criticality===cf)&&(!lf||m.location===lf)&&(!gLocFilter||m.location===gLocFilter);
+    return ms&&(!sf||m.status===sf)&&(!cf||effectiveCrit(m).key===cf)&&(!lf||m.location===lf)&&(!gLocFilter||m.location===gLocFilter);
   });
 
   const _mAll = locMachines();
@@ -3133,7 +3166,7 @@ function renderMachines(){
       <td><div style="font-size:.82rem">${m.model||'—'}</div></td>
       <td style="font-size:.82rem">${m.location||'—'}</td>
       <td style="font-size:.82rem">${m.dept||'—'}</td>
-      <td><span class="${CRIT_CL[m.criticality]||''}">${CRIT_LBL[m.criticality]||m.criticality}</span></td>
+      <td>${(()=>{ const ec=effectiveCrit(m); const r=ec.risk; return `<span class="${CRIT_CL[ec.key]||''}" title="Otomatik (hibrit) kritiklik&#10;Risk puanı: ${r.score}/100&#10;• Arıza: ${r.parts.freq}  • Duruş: ${r.parts.down}  • Kullanılabilirlik: ${r.parts.avail}  • Kritik parça: ${r.parts.part}&#10;Taban önem: ${CRIT_LBL[m.criticality]||'—'}">${CRIT_LBL[ec.key]}${ec.escalated?' <i class="bi bi-arrow-up-short" style="color:#e53935"></i>':''}</span>`; })()}</td>
       <td><span class="${STATUS_M[m.status]||''}">${STATUS_ML[m.status]||m.status}</span></td>
       <td style="font-size:.82rem;color:#69f0ae">${mx.mtbf}h</td>
       <td style="font-size:.82rem;color:#fb8c00">${mx.mttr}h</td>
