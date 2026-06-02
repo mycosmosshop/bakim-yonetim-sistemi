@@ -316,6 +316,7 @@ select option{background:#0d1117}
     <a href="#" data-sec="fixtures"><i class="bi bi-bounding-box-circles"></i>Fikstür-Kalıp</a>
     <a href="#" data-sec="planforms"><i class="bi bi-clipboard2-check-fill" style="color:#26c6da"></i>Plan Formları</a>
     <a href="#" data-sec="reports"><i class="bi bi-file-earmark-bar-graph-fill" style="color:#ab47bc"></i>Raporlar</a>
+    <a href="#" data-sec="instructions"><i class="bi bi-book-fill" style="color:#66bb6a"></i>Talimatlar</a>
     <hr class="sb-divider">
     <a href="#" onclick="openKpiSettings();return false"><i class="bi bi-sliders"></i>KPI Hedefleri</a>
     <a href="#" onclick="openFormSettings();return false"><i class="bi bi-file-earmark-text"></i>Form Ayarları</a>
@@ -912,6 +913,74 @@ select option{background:#0d1117}
         </tr></thead>
         <tbody id="fixBody"></tbody>
       </table>
+    </div>
+  </div>
+</section>
+
+<section id="instructions" class="section">
+  <div class="page-hdr">
+    <div><h2><i class="bi bi-book-fill me-2" style="color:#66bb6a"></i>Talimatlar</h2><small>Sistem kuralları ve hesaplama yöntemleri</small></div>
+  </div>
+
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.3rem"><i class="bi bi-shield-exclamation me-2" style="color:#fb8c00"></i>Kritiklik Nasıl Hesaplanır?</h4>
+    <p style="color:var(--muted);font-size:.9rem">
+      Makine listesindeki <b>Kritiklik</b> değeri otomatik ve <b>hibrit</b> hesaplanır. İki bileşenin <b>yükseği</b> nihai kritikliği belirler:
+    </p>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1rem;height:100%">
+          <h6 style="color:#42a5f5"><i class="bi bi-person-gear me-1"></i>1) Önem (taban) — elle</h6>
+          <p style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem">Makinenin üretim önemidir; makine düzenleme ekranından seçilir:</p>
+          <ul style="font-size:.85rem;margin-bottom:0">
+            <li>🔴 <b>Kritik</b> — Üretim tamamen durur</li>
+            <li>🟠 <b>Yüksek</b> — Ciddi üretim kaybı</li>
+            <li>🟡 <b>Orta</b> — Kısmi etki</li>
+            <li>🟢 <b>Düşük</b> — Minimal etki</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:1rem;height:100%">
+          <h6 style="color:#e53935"><i class="bi bi-activity me-1"></i>2) Risk puanı (0–100) — veriden</h6>
+          <p style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem">Son 12 ayın arıza ve duruş verisinden otomatik hesaplanır:</p>
+          <table class="table table-dark table-sm mb-0" style="font-size:.83rem">
+            <thead><tr><th>Faktör</th><th>Maks. Puan</th><th>Kural</th></tr></thead>
+            <tbody>
+              <tr><td>Arıza sıklığı (12 ay)</td><td>30</td><td>her arıza +6</td></tr>
+              <tr><td>Toplam duruş süresi</td><td>30</td><td>48 saat ve üzeri = 30</td></tr>
+              <tr><td>Düşük kullanılabilirlik</td><td>20</td><td>%99.5 → 0, %90 → 20</td></tr>
+              <tr><td>Kritik yedek parça sayısı</td><td>20</td><td>her biri +4</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <h6 style="margin-top:.5rem"><i class="bi bi-bar-chart-steps me-1" style="color:#ab47bc"></i>Risk puanı → Bant dönüşümü</h6>
+    <div class="d-flex gap-2 flex-wrap mb-3">
+      <span class="crit-low"   style="background:rgba(105,240,174,.12);border:1px solid #69f0ae44;border-radius:8px;padding:.35rem .7rem;font-size:.85rem">0 – 24 → Düşük</span>
+      <span class="crit-medium" style="background:rgba(255,235,59,.12);border:1px solid #ffeb3b44;border-radius:8px;padding:.35rem .7rem;font-size:.85rem">25 – 49 → Orta</span>
+      <span class="crit-high"  style="background:rgba(255,152,0,.12);border:1px solid #ff980044;border-radius:8px;padding:.35rem .7rem;font-size:.85rem">50 – 74 → Yüksek</span>
+      <span class="crit-critical" style="background:rgba(255,82,82,.12);border:1px solid #ff525244;border-radius:8px;padding:.35rem .7rem;font-size:.85rem">75 – 100 → Kritik</span>
+    </div>
+
+    <div style="background:rgba(26,35,126,.15);border:1px solid #3949ab55;border-radius:10px;padding:.9rem 1.1rem">
+      <h6 style="color:#7986cb"><i class="bi bi-calculator me-1"></i>Nihai Kural</h6>
+      <p style="font-size:.92rem;margin-bottom:.4rem"><b>Nihai Kritiklik = max( Önem tabanı , Risk bandı )</b></p>
+      <ul style="font-size:.85rem;margin-bottom:0;color:var(--muted)">
+        <li>Önemli bir makine hiç arızalanmasa bile seçilen önem tabanının <b>altına düşmez</b>.</li>
+        <li>Önemi düşük seçilmiş bir makine çok arızalanır/uzun durursa, risk puanı onu otomatik <b>yukarı çeker</b> (yanında <i class="bi bi-arrow-up-short" style="color:#e53935"></i> oku belirir).</li>
+        <li>Kritiklik hücresinin üstüne gelince risk puanı ve faktör dağılımı <b>ipucu (tooltip)</b> olarak görünür.</li>
+      </ul>
+    </div>
+
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.9rem 1.1rem;margin-top:1rem">
+      <h6><i class="bi bi-lightbulb me-1" style="color:#ffca28"></i>Örnek</h6>
+      <p style="font-size:.85rem;margin-bottom:0;color:var(--muted)">
+        "Slicer" makinesinin önem tabanı <b>Orta</b> seçilmiş. Son 12 ayda 4 arıza + uzun duruş yaşandığı için risk puanı <b>54 (Yüksek bandı)</b> çıktı.
+        Nihai kritiklik = max(Orta, Yüksek) = <span class="crit-high">Yüksek</span> <i class="bi bi-arrow-up-short" style="color:#e53935"></i>.
+      </p>
     </div>
   </div>
 </section>
