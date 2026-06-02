@@ -8302,10 +8302,11 @@ function setSyncStatus(state){
   el.innerHTML = `<i class="bi ${ic}" style="color:${col}"></i> <span>${txt}</span>`;
 }
 
+// ORTAK veri: tüm onaylı kullanıcılar aynı satırı (id=1) okur/yazar
 async function cloudPull(){
-  if(!sb || !currentUser) return null;
+  if(!sb) return null;
   try{
-    const { data, error } = await sb.from('cmms_data').select('data').eq('user_id', currentUser.id).maybeSingle();
+    const { data, error } = await sb.from('shared_data').select('data').eq('id', 1).maybeSingle();
     if(error){ console.warn('cloudPull', error); return null; }
     return data ? data.data : null;
   }catch(e){ console.warn('cloudPull', e); return null; }
@@ -8316,9 +8317,9 @@ async function cloudPush(){
   setSyncStatus('pending');
   try{
     const payload = { db, kpiConfig };
-    const { error } = await sb.from('cmms_data').upsert(
-      { user_id: currentUser.id, data: payload, updated_at: new Date().toISOString() },
-      { onConflict: 'user_id' }
+    const { error } = await sb.from('shared_data').upsert(
+      { id: 1, data: payload, updated_at: new Date().toISOString(), updated_by: currentUser.id },
+      { onConflict: 'id' }
     );
     setSyncStatus(error ? 'error' : 'ok');
     if(error) console.warn('cloudPush', error);
@@ -8331,6 +8332,39 @@ function scheduleCloudSync(){
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(cloudPush, 1200);
 }
+
+// ── Canlı senkron (Realtime): başka kullanıcı değişiklik yapınca ekranı güncelle ──
+let _rtChannel = null, _pendingRemote = null;
+function subscribeRealtime(){
+  if(!sb || _rtChannel) return;
+  try{
+    _rtChannel = sb.channel('shared_data_rt')
+      .on('postgres_changes', { event:'*', schema:'public', table:'shared_data' }, payload=>{
+        const row = payload.new;
+        if(!row || !row.data) return;
+        if(currentUser && row.updated_by === currentUser.id) return; // kendi değişikliğimiz, atla
+        applyRemoteData(row.data);
+      })
+      .subscribe();
+  }catch(e){ console.warn('realtime', e); }
+}
+
+function applyRemoteData(d){
+  if(!d || !d.db) return;
+  // Bir modal/form açıksa kullanıcıyı bölme; kapanınca uygula
+  if(document.querySelector('.modal.show')){ _pendingRemote = d; return; }
+  db = d.db;
+  if(d.kpiConfig) kpiConfig = d.kpiConfig;
+  ensureDbShape();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
+  const sec = document.querySelector('.section.active')?.id || 'dashboard';
+  try{ updateSelects(); }catch(e){}
+  try{ nav(sec); }catch(e){}
+  try{ toast('Veriler güncellendi (başka kullanıcı değişiklik yaptı)','info'); }catch(e){}
+}
+// Modal kapandığında bekleyen güncellemeyi uygula
+document.addEventListener('hidden.bs.modal', ()=>{ if(_pendingRemote){ const d=_pendingRemote; _pendingRemote=null; applyRemoteData(d); } });
 
 // ── Auth UI ──
 function injectAuthUI(){
@@ -8675,6 +8709,7 @@ function bootAppUI(){
       a.addEventListener('click',e=>{ e.preventDefault(); nav(a.dataset.sec); });
     });
     injectSyncBar();
+    subscribeRealtime(); // başka kullanıcıların değişikliklerini canlı al
     setInterval(checkNotifications, 5*60*1000); // her 5 dk bildirim kontrolü
     _appBooted = true;
   }
