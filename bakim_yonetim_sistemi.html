@@ -1596,7 +1596,7 @@ select option{background:#0d1117}
       <div class="modal-body" id="partSuggestBody" style="max-height:72vh;overflow-y:auto;padding:.75rem 1rem"></div>
       <div class="modal-footer gap-2">
         <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Kapat</button>
-        <button class="btn btn-outline-light btn-sm" onclick="_toggleAllPartSugg()"><i class="bi bi-check2-square me-1"></i>Tümünü Seç / Kaldır</button>
+        <button class="btn btn-outline-primary btn-sm" onclick="_toggleAllPartSugg()"><i class="bi bi-check2-square me-1"></i>Tümünü Seç / Kaldır</button>
         <button class="btn btn-warning btn-sm text-dark" onclick="_savePartSuggestions()"><i class="bi bi-plus-circle me-1"></i>Seçilenleri Listeye Ekle</button>
       </div>
     </div>
@@ -3631,7 +3631,7 @@ function _psSuggItemHtml(machId, machName, p, alreadyIn, catColor){
   return `<div class="col-md-6 col-lg-4 ps-item-col">
     <div class="d-flex align-items-start gap-2 p-2 rounded" style="background:${alreadyIn?'rgba(102,187,106,.05)':'rgba(255,255,255,.03)'};border:1px solid ${alreadyIn?'rgba(102,187,106,.2)':'var(--border)'}">
       <input type="checkbox" class="form-check-input mt-1 flex-shrink-0 ps-chk" data-machid="${machId}" data-machname="${machName.replace(/"/g,'&quot;')}" data-partname="${p.n.replace(/"/g,'&quot;')}" data-partno="${(p.no||'').replace(/"/g,'&quot;')}" data-cat="${p.cat}" data-crit="${p.crit?'1':'0'}"
-        ${alreadyIn?'disabled checked':'checked'} style="width:1em;height:1em;cursor:${alreadyIn?'default':'pointer'}">
+        ${alreadyIn?'disabled checked':''} style="width:1em;height:1em;cursor:${alreadyIn?'default':'pointer'}">
       <div style="flex:1;min-width:0">
         <div style="font-size:.82rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
           ${p.crit?'🔴 ':''}${p.n}${alreadyIn?' <i class="bi bi-check-circle-fill" style="color:#66bb6a;font-size:.75rem"></i>':''}
@@ -3750,7 +3750,7 @@ function openPartSuggestModal(){
     html=`<div style="text-align:center;padding:2rem;color:var(--muted)"><i class="bi bi-emoji-neutral" style="font-size:2rem"></i><p class="mt-2">Bu lokasyon için makine eşleşmesi bulunamadı.</p></div>`;
   } else {
     html=`<div class="mb-3 p-2 rounded" style="background:rgba(255,167,38,.07);border:1px solid rgba(255,167,38,.3);font-size:.82rem;color:#ffa726">
-      <i class="bi bi-info-circle me-1"></i>Zaten listede olan parçalar işaretli ve devre dışı görünür. <strong>${totalNew}</strong> yeni öneri var.
+      <i class="bi bi-info-circle me-1"></i>Eklemek istediğin parçaları işaretle, sonra <strong>"Seçilenleri Listeye Ekle"</strong>ye bas. Tümünü seçmek için alttaki <strong>"Tümünü Seç / Kaldır"</strong> butonunu kullan. Zaten listede olanlar devre dışı görünür. <strong>${totalNew}</strong> yeni öneri var.
     </div>`+html;
   }
 
