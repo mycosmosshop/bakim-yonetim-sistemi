@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --bg: #0d1117; --bg2: #090c10; --card: #161b22;
@@ -2167,8 +2168,8 @@ function toggleTheme(){
   applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
 }
 
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); }
-function saveKpiStore(){ localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig)); }
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); scheduleCloudSync(); }
+function saveKpiStore(){ localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig)); scheduleCloudSync(); }
 
 function _defaultKpiSet(){
   const s={};
@@ -2194,11 +2195,8 @@ function getKpi(k, loc, year){
   return { enabled: true, target: KPI_DEFS[k]?.defaultTarget ?? 0 };
 }
 
-function load(){
-  const s = localStorage.getItem(STORAGE_KEY);
-  if(s){ try{ db = JSON.parse(s); }catch(e){ loadSample(); } }
-  else { loadSample(); }
-  // Ensure new arrays exist (migration guard for older saved data)
+// Ensure new arrays exist (migration guard for older saved/cloud data)
+function ensureDbShape(){
   if(!db.oee)        db.oee=[];
   if(!db.workorders) db.workorders=[];
   if(!db.stock)      db.stock=[];
@@ -2206,6 +2204,13 @@ function load(){
   if(!db.taskSets)   db.taskSets=[];
   if(!db.planForms)  db.planForms=[];
   if(!db.manualActions) db.manualActions=[];
+}
+
+function load(){
+  const s = localStorage.getItem(STORAGE_KEY);
+  if(s){ try{ db = JSON.parse(s); }catch(e){ loadSample(); } }
+  else { loadSample(); }
+  ensureDbShape();
   // Load KPI config
   const ks = localStorage.getItem(STORAGE_KPI_KEY);
   if(ks){ try{ kpiConfig = JSON.parse(ks); _migrateKpiConfig(); }catch(e){ initKpiConfig(); } }
@@ -8267,21 +8272,200 @@ function toast(msg, type='success'){
 }
 
 // ══════════════════════════════════════════
-//  INIT
+//  CLOUD SYNC (Supabase)
 // ══════════════════════════════════════════
-document.addEventListener('DOMContentLoaded',()=>{
-  applyTheme(localStorage.getItem(STORAGE_THEME_KEY) || 'dark', false, false);
-  load();
+const SUPABASE_URL  = 'https://bgraqliedgmksqdbddkp.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJncmFxbGllZGdta3NxZGJkZGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODA4MDEsImV4cCI6MjA5NTk1NjgwMX0.htOoBiFUfUsUgkUrbB0BZEanZR5lioYjJYVjobo2oO0';
+let sb = null, currentUser = null, cloudReady = false, _syncTimer = null, _appBooted = false;
+
+function initSupabase(){
+  try{
+    if(window.supabase && SUPABASE_URL && SUPABASE_ANON){
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth:{ persistSession:true, autoRefreshToken:true } });
+      return true;
+    }
+  }catch(e){ console.error('Supabase init', e); }
+  return false;
+}
+
+function setSyncStatus(state){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  const map = {
+    ok:      ['bi-cloud-check',     '#43a047', 'Senkron'],
+    pending: ['bi-cloud-arrow-up',  '#fb8c00', 'Kaydediliyor…'],
+    error:   ['bi-cloud-slash',     '#e53935', 'Senkron hatası'],
+    offline: ['bi-cloud-slash',     '#8b949e', 'Çevrimdışı'],
+  };
+  const [ic,col,txt] = map[state] || map.offline;
+  el.innerHTML = `<i class="bi ${ic}" style="color:${col}"></i> <span>${txt}</span>`;
+}
+
+async function cloudPull(){
+  if(!sb || !currentUser) return null;
+  try{
+    const { data, error } = await sb.from('cmms_data').select('data').eq('user_id', currentUser.id).maybeSingle();
+    if(error){ console.warn('cloudPull', error); return null; }
+    return data ? data.data : null;
+  }catch(e){ console.warn('cloudPull', e); return null; }
+}
+
+async function cloudPush(){
+  if(!sb || !currentUser) return;
+  setSyncStatus('pending');
+  try{
+    const payload = { db, kpiConfig };
+    const { error } = await sb.from('cmms_data').upsert(
+      { user_id: currentUser.id, data: payload, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    setSyncStatus(error ? 'error' : 'ok');
+    if(error) console.warn('cloudPush', error);
+  }catch(e){ setSyncStatus('error'); console.warn('cloudPush', e); }
+}
+
+function scheduleCloudSync(){
+  if(!cloudReady) return;
+  setSyncStatus('pending');
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(cloudPush, 1200);
+}
+
+// ── Auth UI ──
+function injectAuthUI(){
+  if(document.getElementById('authOverlay')) return;
+  const html = `
+  <div id="authOverlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:var(--bg2,#090c10);padding:1rem">
+    <div style="width:100%;max-width:380px;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:14px;padding:2rem;box-shadow:0 12px 40px rgba(0,0,0,.5)">
+      <div style="text-align:center;margin-bottom:1.4rem">
+        <i class="bi bi-gear-wide-connected" style="font-size:2.2rem;color:var(--blue,#0288d1)"></i>
+        <h4 style="margin:.5rem 0 0">CMMS Pro</h4>
+        <div style="color:var(--muted,#8b949e);font-size:.85rem">Bakım Yönetim Sistemi</div>
+      </div>
+      <div id="authError" style="display:none;background:#b71c1c;color:#fff;padding:.55rem .8rem;border-radius:8px;font-size:.82rem;margin-bottom:.9rem"></div>
+      <div id="authInfo" style="display:none;background:#01579b;color:#fff;padding:.55rem .8rem;border-radius:8px;font-size:.82rem;margin-bottom:.9rem"></div>
+      <div class="mb-2">
+        <label style="font-size:.8rem;color:var(--muted)">E-posta</label>
+        <input id="authEmail" type="email" class="form-control" autocomplete="username" placeholder="ornek@mail.com">
+      </div>
+      <div class="mb-3">
+        <label style="font-size:.8rem;color:var(--muted)">Şifre</label>
+        <input id="authPass" type="password" class="form-control" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button id="authLoginBtn" class="btn btn-primary w-100 mb-2">Giriş Yap</button>
+      <button id="authSignupBtn" class="btn btn-outline-secondary w-100">Yeni Hesap Oluştur</button>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  document.getElementById('authLoginBtn').addEventListener('click', ()=>doAuth('login'));
+  document.getElementById('authSignupBtn').addEventListener('click', ()=>doAuth('signup'));
+  document.getElementById('authPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doAuth('login'); });
+}
+function showAuthOverlay(){ injectAuthUI(); const o=document.getElementById('authOverlay'); if(o) o.style.display='flex'; }
+function hideAuthOverlay(){ const o=document.getElementById('authOverlay'); if(o) o.style.display='none'; }
+function _authMsg(id,msg){ const e=document.getElementById(id); if(e){ e.textContent=msg; e.style.display=msg?'block':'none'; } }
+
+async function doAuth(mode){
+  const email = document.getElementById('authEmail').value.trim();
+  const pass  = document.getElementById('authPass').value;
+  _authMsg('authError',''); _authMsg('authInfo','');
+  if(!email || !pass){ _authMsg('authError','E-posta ve şifre gerekli.'); return; }
+  if((pass||'').length < 6){ _authMsg('authError','Şifre en az 6 karakter olmalı.'); return; }
+  if(!sb){ _authMsg('authError','Sunucu bağlantısı kurulamadı.'); return; }
+  try{
+    if(mode==='signup'){
+      const { data, error } = await sb.auth.signUp({ email, password: pass });
+      if(error){ _authMsg('authError', error.message); return; }
+      if(!data.session){ _authMsg('authInfo','Hesap oluşturuldu. E-posta onayı gerekiyorsa gelen kutunu kontrol et, sonra giriş yap.'); return; }
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      if(error){ _authMsg('authError', error.message); return; }
+    }
+    // Başarılı oturum → onAuthStateChange devralır
+  }catch(e){ _authMsg('authError', e.message||'Beklenmeyen hata'); }
+}
+
+async function doLogout(){
+  if(confirm('Çıkış yapılsın mı?')){
+    if(sb) await sb.auth.signOut();
+    location.reload();
+  }
+}
+
+async function onLoggedIn(user){
+  currentUser = user;
+  const cloud = await cloudPull();
+  if(cloud && cloud.db){
+    // Buluttaki veri ana kaynak
+    db = cloud.db;
+    if(cloud.kpiConfig) kpiConfig = cloud.kpiConfig;
+    ensureDbShape();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
+    cloudReady = true;
+  } else {
+    // İlk giriş / boş bulut → yereldeki (veya örnek) veriyi yükle ve buluta taşı
+    load();
+    cloudReady = true;
+    await cloudPush();
+  }
+  hideAuthOverlay();
+  bootAppUI();
+  setSyncStatus('ok');
+}
+
+function injectSyncBar(){
+  if(document.getElementById('syncBar')) return;
+  const html = `<div id="syncBar" style="position:fixed;bottom:10px;left:10px;z-index:9000;display:flex;align-items:center;gap:.5rem;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:20px;padding:.25rem .7rem;font-size:.75rem;box-shadow:0 2px 10px rgba(0,0,0,.35)">
+    <span id="syncStatus" style="display:flex;align-items:center;gap:.3rem;color:var(--muted)"></span>
+    <span style="opacity:.35">|</span>
+    <span style="color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="bi bi-person-circle"></i> ${(currentUser&&currentUser.email)||''}</span>
+    <button onclick="doLogout()" class="btn btn-sm btn-outline-secondary" style="padding:0 .5rem;font-size:.72rem">Çıkış</button>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+  setSyncStatus('ok');
+}
+
+// ══════════════════════════════════════════
+//  APP BOOT (UI)
+// ══════════════════════════════════════════
+function bootAppUI(){
   loadNotifs();
   updateNotifBadge();
   updateSelects();
-  document.querySelectorAll('[data-sec]').forEach(a=>{
-    a.addEventListener('click',e=>{ e.preventDefault(); nav(a.dataset.sec); });
-  });
+  if(!_appBooted){
+    document.querySelectorAll('[data-sec]').forEach(a=>{
+      a.addEventListener('click',e=>{ e.preventDefault(); nav(a.dataset.sec); });
+    });
+    injectSyncBar();
+    setInterval(checkNotifications, 5*60*1000); // her 5 dk bildirim kontrolü
+    _appBooted = true;
+  }
   nav('dashboard');
   setTimeout(_updateLocBadges, 100); // ilk yüklemede badge'leri yerleştir
-  // Check notifications on load and every 5 minutes
-  setInterval(checkNotifications, 5*60*1000);
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async ()=>{
+  applyTheme(localStorage.getItem(STORAGE_THEME_KEY) || 'dark', false, false);
+  if(!initSupabase()){
+    // Supabase yüklenemedi → yalnızca yerel (çevrimdışı) mod
+    load(); bootAppUI(); setSyncStatus('offline');
+    return;
+  }
+  // Oturum değişimlerini izle (giriş/çıkış/oto-yenileme)
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(session && session.user && !currentUser){ onLoggedIn(session.user); }
+  });
+  // Mevcut oturum var mı?
+  const { data } = await sb.auth.getSession();
+  if(data && data.session && data.session.user){
+    if(!currentUser) await onLoggedIn(data.session.user);
+  } else {
+    showAuthOverlay();
+  }
 });
 </script>
 </body>
