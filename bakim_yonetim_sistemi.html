@@ -8453,19 +8453,35 @@ async function doLogout(){
   }
 }
 
-async function fetchProfile(){
-  if(!sb || !currentUser) return null;
-  try{
-    const { data, error } = await sb.from('profiles').select('approved,is_admin,email').eq('id', currentUser.id).maybeSingle();
-    if(error){ console.warn('fetchProfile', error); return null; }
-    return data;
-  }catch(e){ console.warn('fetchProfile', e); return null; }
+// Profili getir. Dönüş: {data} (satır veya null) ya da {error}. Geçici hatalarda yeniden dener.
+async function fetchProfile(retries=2){
+  if(!sb || !currentUser) return { error:'no-session' };
+  for(let i=0;i<=retries;i++){
+    try{
+      const { data, error } = await sb.from('profiles').select('approved,is_admin,email').eq('id', currentUser.id).maybeSingle();
+      if(error){ console.warn('fetchProfile', error); if(i<retries){ await new Promise(r=>setTimeout(r,700)); continue; } return { error }; }
+      return { data };
+    }catch(e){ console.warn('fetchProfile', e); if(i<retries){ await new Promise(r=>setTimeout(r,700)); continue; } return { error:e }; }
+  }
+  return { error:'unknown' };
 }
 
 async function onLoggedIn(user){
   currentUser = user;
+  // Profili getir
+  const pr = await fetchProfile();
+  if(pr.error){
+    // Oturum anahtarı geçersiz/ağ hatası → yanlışlıkla "onaysız" gösterme; temiz girişe yönlendir
+    console.warn('Profil doğrulanamadı:', pr.error);
+    try{ if(sb) await sb.auth.signOut(); }catch(e){}
+    currentUser = null; currentProfile = null;
+    hidePendingOverlay();
+    showAuthOverlay();
+    _authMsg('authError','Oturum doğrulanamadı. Lütfen tekrar giriş yapın.');
+    return;
+  }
+  currentProfile = pr.data;
   // Onay kontrolü: hesap yönetici tarafından onaylanmadıysa erişim yok
-  currentProfile = await fetchProfile();
   if(!currentProfile || !currentProfile.approved){
     showPendingOverlay();
     return;
