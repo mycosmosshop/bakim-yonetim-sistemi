@@ -8276,7 +8276,52 @@ function fillAntet(formName, docNo, revNo){
   document.getElementById('pRevNo').textContent    = revNo;
 }
 
-function printFailureForm(id){
+// ── Yazdırma tarihi: elle veya otomatik ──
+let _printDateOverride = null;
+function _genDate(){ return _printDateOverride || new Date().toLocaleString('tr-TR'); }
+let _pendingPrint = null;
+function _nowLocalInput(){
+  const d=new Date(); const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function injectPrintDateModal(){
+  if(document.getElementById('printDateModal')) return;
+  const html=`<div id="printDateModal" style="position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:1rem" onclick="if(event.target===this)closePrintDate()">
+    <div style="width:100%;max-width:400px;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:14px;padding:1.5rem">
+      <h5 style="margin:0 0 .3rem"><i class="bi bi-printer me-2"></i>Yazdırma Tarihi</h5>
+      <p style="font-size:.83rem;color:var(--muted)">Formdaki "oluşturulma" tarih/saatini elle girebilir ya da otomatik güncel kullanabilirsin.</p>
+      <input id="printDateInput" type="datetime-local" class="form-control mb-3">
+      <div class="d-flex gap-2">
+        <button onclick="confirmPrintAuto()" class="btn btn-outline-secondary flex-grow-1"><i class="bi bi-clock me-1"></i>Otomatik (şimdi)</button>
+        <button onclick="confirmPrintManual()" class="btn btn-primary flex-grow-1"><i class="bi bi-printer me-1"></i>Bu tarihle Yazdır</button>
+      </div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closePrintDate(){ const m=document.getElementById('printDateModal'); if(m) m.style.display='none'; }
+function _askPrintDate(genAndPrint){
+  _pendingPrint = genAndPrint;
+  injectPrintDateModal();
+  document.getElementById('printDateInput').value = _nowLocalInput();
+  document.getElementById('printDateModal').style.display='flex';
+}
+function confirmPrintAuto(){
+  _printDateOverride = null;
+  closePrintDate();
+  if(_pendingPrint){ const fn=_pendingPrint; _pendingPrint=null; setTimeout(fn, 50); }
+}
+function confirmPrintManual(){
+  const v = document.getElementById('printDateInput').value;
+  if(v){ try{ _printDateOverride = new Date(v).toLocaleString('tr-TR'); }catch(e){ _printDateOverride=null; } }
+  else { _printDateOverride = null; }
+  closePrintDate();
+  if(_pendingPrint){ const fn=_pendingPrint; _pendingPrint=null; setTimeout(fn, 50); }
+}
+
+function printFailureForm(id){ _askPrintDate(()=>_renderFailureForm(id)); }
+function printMaintForm(id){ _askPrintDate(()=>_renderMaintForm(id)); }
+
+function _renderFailureForm(id){
   const f = db.failures.find(x=>x.id===id); if(!f) return;
   const m = db.machines.find(x=>x.id===f.machineId)||{};
   loadFormSettings();
@@ -8305,13 +8350,13 @@ function printFailureForm(id){
       <div class="print-sign-box"><div class="print-sign-lbl">Teslim Alan / Operatör</div><div class="print-sign-line" style="margin-top:40px">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
     </div>
     <div style="margin-top:14px;font-size:9px;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:6px">
-      Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${new Date().toLocaleString('tr-TR')} tarihinde oluşturulmuştur.
+      Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${_genDate()} tarihinde oluşturulmuştur.
     </div>`;
   const pa = document.getElementById('printArea');
   pa.style.display='block'; window.print(); pa.style.display='none';
 }
 
-function printMaintForm(id){
+function _renderMaintForm(id){
   const p = db.maintenance.find(x=>x.id===id); if(!p) return;
   const m = db.machines.find(x=>x.id===p.machineId)||{};
   loadFormSettings();
@@ -8338,7 +8383,7 @@ function printMaintForm(id){
       <div class="print-sign-box"><div class="print-sign-lbl">Makine Operatörü / Teslim Alan</div><div class="print-sign-line" style="margin-top:40px">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
     </div>
     <div style="margin-top:14px;font-size:9px;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:6px">
-      Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${new Date().toLocaleString('tr-TR')} tarihinde oluşturulmuştur.
+      Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${_genDate()} tarihinde oluşturulmuştur.
     </div>`;
   const pa = document.getElementById('printArea');
   pa.style.display='block'; window.print(); pa.style.display='none';
