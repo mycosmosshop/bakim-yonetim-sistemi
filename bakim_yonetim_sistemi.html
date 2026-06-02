@@ -8377,17 +8377,25 @@ async function doAuth(mode){
   if(!email || !pass){ _authMsg('authError','E-posta ve şifre gerekli.'); return; }
   if((pass||'').length < 6){ _authMsg('authError','Şifre en az 6 karakter olmalı.'); return; }
   if(!sb){ _authMsg('authError','Sunucu bağlantısı kurulamadı.'); return; }
+  const btn = document.getElementById(mode==='signup'?'authSignupBtn':'authLoginBtn');
+  if(btn) btn.disabled = true;
   try{
+    let user = null;
     if(mode==='signup'){
       const { data, error } = await sb.auth.signUp({ email, password: pass });
       if(error){ _authMsg('authError', error.message); return; }
       if(!data.session){ _authMsg('authInfo','Hesap oluşturuldu. E-posta onayı gerekiyorsa gelen kutunu kontrol et, sonra giriş yap.'); return; }
+      user = data.user;
     } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
       if(error){ _authMsg('authError', error.message); return; }
+      user = data.user;
     }
-    // Başarılı oturum → onAuthStateChange devralır
+    // Başarılı → arayüzü doğrudan aç (kırılgan event guard'ına bağlı kalma)
+    currentUser = null;
+    if(user) await onLoggedIn(user);
   }catch(e){ _authMsg('authError', e.message||'Beklenmeyen hata'); }
+  finally{ if(btn) btn.disabled = false; }
 }
 
 async function forgotPassword(){
@@ -8466,7 +8474,14 @@ async function fetchProfile(retries=2){
   return { error:'unknown' };
 }
 
+let _loginBusy = false;
 async function onLoggedIn(user){
+  if(_loginBusy) return;
+  _loginBusy = true;
+  try{ await _onLoggedIn(user); }
+  finally{ _loginBusy = false; }
+}
+async function _onLoggedIn(user){
   currentUser = user;
   // Profili getir
   const pr = await fetchProfile();
