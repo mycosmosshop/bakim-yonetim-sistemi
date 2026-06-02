@@ -8462,16 +8462,23 @@ async function doLogout(){
 }
 
 // Profili getir. Dönüş: {data} (satır veya null) ya da {error}. Geçici hatalarda yeniden dener.
-async function fetchProfile(retries=2){
-  if(!sb || !currentUser) return { error:'no-session' };
+async function fetchProfile(retries=5){
+  if(!sb) return { error:'no-client' };
+  let lastErr = null;
   for(let i=0;i<=retries;i++){
+    // Her denemede oturumu tazele (token yeni girişten sonra tam oturmamış olabilir)
+    try{ const { data:sess } = await sb.auth.getSession(); if(sess && sess.session && sess.session.user) currentUser = sess.session.user; }catch(e){}
+    if(!currentUser){ if(i<retries){ await new Promise(r=>setTimeout(r,600)); continue; } return { error:'no-session' }; }
     try{
       const { data, error } = await sb.from('profiles').select('approved,is_admin,email').eq('id', currentUser.id).maybeSingle();
-      if(error){ console.warn('fetchProfile', error); if(i<retries){ await new Promise(r=>setTimeout(r,700)); continue; } return { error }; }
-      return { data };
-    }catch(e){ console.warn('fetchProfile', e); if(i<retries){ await new Promise(r=>setTimeout(r,700)); continue; } return { error:e }; }
+      if(error){ console.warn('fetchProfile error', error); lastErr = error; }
+      else if(data){ return { data }; }            // başarı
+      // data boş → token henüz oturmamış olabilir, yeniden dene
+      else { console.warn('fetchProfile bos, yeniden deneniyor ('+(i+1)+')'); }
+    }catch(e){ console.warn('fetchProfile exc', e); lastErr = e; }
+    if(i<retries){ await new Promise(r=>setTimeout(r,600)); }
   }
-  return { error:'unknown' };
+  return lastErr ? { error:lastErr } : { data:null };
 }
 
 let _loginBusy = false;
