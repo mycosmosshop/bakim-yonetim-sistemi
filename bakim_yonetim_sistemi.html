@@ -8277,7 +8277,7 @@ function toast(msg, type='success'){
 // ══════════════════════════════════════════
 const SUPABASE_URL  = 'https://bgraqliedgmksqdbddkp.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJncmFxbGllZGdta3NxZGJkZGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODA4MDEsImV4cCI6MjA5NTk1NjgwMX0.htOoBiFUfUsUgkUrbB0BZEanZR5lioYjJYVjobo2oO0';
-let sb = null, currentUser = null, currentProfile = null, cloudReady = false, _syncTimer = null, _appBooted = false;
+let sb = null, currentUser = null, currentProfile = null, cloudReady = false, _syncTimer = null, _appBooted = false, _recoveryMode = false;
 
 function initSupabase(){
   try{
@@ -8355,11 +8355,15 @@ function injectAuthUI(){
       </div>
       <button id="authLoginBtn" class="btn btn-primary w-100 mb-2">Giriş Yap</button>
       <button id="authSignupBtn" class="btn btn-outline-secondary w-100">Yeni Hesap Oluştur</button>
+      <div style="text-align:center;margin-top:.9rem">
+        <a href="#" id="authForgot" style="font-size:.8rem;color:var(--blue,#0288d1);text-decoration:none">Şifremi unuttum</a>
+      </div>
     </div>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
   document.getElementById('authLoginBtn').addEventListener('click', ()=>doAuth('login'));
   document.getElementById('authSignupBtn').addEventListener('click', ()=>doAuth('signup'));
+  document.getElementById('authForgot').addEventListener('click', e=>{ e.preventDefault(); forgotPassword(); });
   document.getElementById('authPass').addEventListener('keydown', e=>{ if(e.key==='Enter') doAuth('login'); });
 }
 function showAuthOverlay(){ injectAuthUI(); const o=document.getElementById('authOverlay'); if(o) o.style.display='flex'; }
@@ -8384,6 +8388,62 @@ async function doAuth(mode){
     }
     // Başarılı oturum → onAuthStateChange devralır
   }catch(e){ _authMsg('authError', e.message||'Beklenmeyen hata'); }
+}
+
+async function forgotPassword(){
+  const email = document.getElementById('authEmail').value.trim();
+  _authMsg('authError',''); _authMsg('authInfo','');
+  if(!email){ _authMsg('authError','Önce e-posta adresini yaz, sonra "Şifremi unuttum"a bas.'); return; }
+  if(!sb){ _authMsg('authError','Sunucu bağlantısı kurulamadı.'); return; }
+  try{
+    const redirectTo = location.origin + location.pathname;
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if(error){ _authMsg('authError', error.message); return; }
+    _authMsg('authInfo','Şifre sıfırlama bağlantısı '+email+' adresine gönderildi. E-postandaki linke tıklayıp yeni şifreni belirle.');
+  }catch(e){ _authMsg('authError', e.message||'Hata'); }
+}
+
+// E-postadaki sıfırlama linkine tıklanınca açılan "yeni şifre" ekranı
+function showResetOverlay(){
+  hideAuthOverlay();
+  if(!document.getElementById('resetOverlay')){
+    const html = `<div id="resetOverlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:var(--bg2,#090c10);padding:1rem">
+      <div style="width:100%;max-width:380px;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:14px;padding:2rem">
+        <div style="text-align:center;margin-bottom:1.2rem">
+          <i class="bi bi-shield-lock-fill" style="font-size:2rem;color:var(--blue,#0288d1)"></i>
+          <h4 style="margin:.5rem 0 0">Yeni Şifre Belirle</h4>
+        </div>
+        <div id="resetMsg" style="display:none;padding:.55rem .8rem;border-radius:8px;font-size:.82rem;margin-bottom:.9rem"></div>
+        <div class="mb-2">
+          <label style="font-size:.8rem;color:var(--muted)">Yeni şifre</label>
+          <input id="resetPw" type="password" class="form-control" autocomplete="new-password" placeholder="En az 6 karakter">
+        </div>
+        <div class="mb-3">
+          <label style="font-size:.8rem;color:var(--muted)">Yeni şifre (tekrar)</label>
+          <input id="resetPw2" type="password" class="form-control" autocomplete="new-password" placeholder="••••••••">
+        </div>
+        <button id="resetSaveBtn" onclick="submitReset()" class="btn btn-primary w-100">Şifreyi Kaydet</button>
+      </div></div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  document.getElementById('resetOverlay').style.display='flex';
+}
+function _resetMsg(msg, ok){ const e=document.getElementById('resetMsg'); if(!e) return; e.textContent=msg; e.style.display=msg?'block':'none'; e.style.background=ok?'#1b5e20':'#b71c1c'; e.style.color='#fff'; }
+
+async function submitReset(){
+  const p1=document.getElementById('resetPw').value, p2=document.getElementById('resetPw2').value;
+  if(!p1||!p2){ _resetMsg('Lütfen iki alanı da doldur.'); return; }
+  if(p1.length<6){ _resetMsg('Şifre en az 6 karakter olmalı.'); return; }
+  if(p1!==p2){ _resetMsg('Şifreler eşleşmiyor.'); return; }
+  if(!sb){ _resetMsg('Bağlantı yok.'); return; }
+  const btn=document.getElementById('resetSaveBtn'); if(btn) btn.disabled=true;
+  try{
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if(error){ _resetMsg(error.message); if(btn) btn.disabled=false; return; }
+    _resetMsg('Şifren güncellendi ✓ Giriş ekranına yönlendiriliyorsun…', true);
+    if(sb) await sb.auth.signOut();
+    setTimeout(()=>{ location.replace(location.origin + location.pathname); }, 1400);
+  }catch(e){ _resetMsg(e.message||'Hata'); if(btn) btn.disabled=false; }
 }
 
 async function doLogout(){
@@ -8594,10 +8654,15 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     load(); bootAppUI(); setSyncStatus('offline');
     return;
   }
-  // Oturum değişimlerini izle (giriş/çıkış/oto-yenileme)
+  // Şifre sıfırlama linkinden mi gelindi?
+  const _isRecovery = (location.hash+location.search).includes('type=recovery');
+  // Oturum değişimlerini izle (giriş/çıkış/oto-yenileme/şifre kurtarma)
   sb.auth.onAuthStateChange((event, session)=>{
+    if(event === 'PASSWORD_RECOVERY'){ _recoveryMode = true; showResetOverlay(); return; }
+    if(_recoveryMode) return;
     if(session && session.user && !currentUser){ onLoggedIn(session.user); }
   });
+  if(_isRecovery){ _recoveryMode = true; showResetOverlay(); return; }
   // Mevcut oturum var mı?
   const { data } = await sb.auth.getSession();
   if(data && data.session && data.session.user){
