@@ -8276,7 +8276,7 @@ function toast(msg, type='success'){
 // ══════════════════════════════════════════
 const SUPABASE_URL  = 'https://bgraqliedgmksqdbddkp.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJncmFxbGllZGdta3NxZGJkZGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODA4MDEsImV4cCI6MjA5NTk1NjgwMX0.htOoBiFUfUsUgkUrbB0BZEanZR5lioYjJYVjobo2oO0';
-let sb = null, currentUser = null, cloudReady = false, _syncTimer = null, _appBooted = false;
+let sb = null, currentUser = null, currentProfile = null, cloudReady = false, _syncTimer = null, _appBooted = false;
 
 function initSupabase(){
   try{
@@ -8392,8 +8392,23 @@ async function doLogout(){
   }
 }
 
+async function fetchProfile(){
+  if(!sb || !currentUser) return null;
+  try{
+    const { data, error } = await sb.from('profiles').select('approved,is_admin,email').eq('id', currentUser.id).maybeSingle();
+    if(error){ console.warn('fetchProfile', error); return null; }
+    return data;
+  }catch(e){ console.warn('fetchProfile', e); return null; }
+}
+
 async function onLoggedIn(user){
   currentUser = user;
+  // Onay kontrolü: hesap yönetici tarafından onaylanmadıysa erişim yok
+  currentProfile = await fetchProfile();
+  if(!currentProfile || !currentProfile.approved){
+    showPendingOverlay();
+    return;
+  }
   const cloud = await cloudPull();
   if(cloud && cloud.db){
     // Buluttaki veri ana kaynak
@@ -8410,20 +8425,99 @@ async function onLoggedIn(user){
     await cloudPush();
   }
   hideAuthOverlay();
+  hidePendingOverlay();
   bootAppUI();
   setSyncStatus('ok');
 }
 
+// ── Onay bekleme ekranı ──
+function showPendingOverlay(){
+  hideAuthOverlay();
+  if(!document.getElementById('pendingOverlay')){
+    const html = `<div id="pendingOverlay" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:var(--bg2,#090c10);padding:1rem">
+      <div style="max-width:420px;text-align:center;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:14px;padding:2.2rem">
+        <i class="bi bi-hourglass-split" style="font-size:2.4rem;color:var(--orange,#fb8c00)"></i>
+        <h4 style="margin:.6rem 0">Onay Bekleniyor</h4>
+        <p style="color:var(--muted,#8b949e);font-size:.9rem">Hesabınız oluşturuldu ancak sisteme erişim için <b>yönetici onayı</b> gerekiyor. Onaylandıktan sonra giriş yapabilirsiniz.</p>
+        <button onclick="doLogout()" class="btn btn-outline-secondary btn-sm mt-2">Çıkış Yap</button>
+      </div></div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  document.getElementById('pendingOverlay').style.display='flex';
+}
+function hidePendingOverlay(){ const o=document.getElementById('pendingOverlay'); if(o) o.style.display='none'; }
+
+// ── Admin: kullanıcı onayları ──
+function injectAdminModal(){
+  if(document.getElementById('adminModal')) return;
+  const html = `<div id="adminModal" style="position:fixed;inset:0;z-index:99998;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6);padding:1rem" onclick="if(event.target===this)closeAdminPanel()">
+    <div style="width:100%;max-width:560px;max-height:85vh;overflow:auto;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:14px;padding:1.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <h5 style="margin:0"><i class="bi bi-people-fill me-2"></i>Kullanıcı Onayları</h5>
+        <button onclick="closeAdminPanel()" class="btn btn-sm btn-outline-secondary">Kapat</button>
+      </div>
+      <div id="adminUserList"></div>
+    </div></div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+function closeAdminPanel(){ const m=document.getElementById('adminModal'); if(m) m.style.display='none'; }
+
+async function openAdminPanel(){
+  injectAdminModal();
+  const list = document.getElementById('adminUserList');
+  document.getElementById('adminModal').style.display='flex';
+  list.innerHTML = '<div style="color:var(--muted)">Yükleniyor…</div>';
+  const { data, error } = await sb.from('profiles').select('id,email,approved,is_admin,created_at').order('created_at',{ascending:false});
+  if(error){ list.innerHTML = '<div style="color:#e53935">Hata: '+error.message+'</div>'; return; }
+  if(!data || !data.length){ list.innerHTML = '<div style="color:var(--muted)">Kullanıcı yok.</div>'; return; }
+  list.innerHTML = data.map(u=>{
+    const me = u.id === currentUser.id;
+    const badge = u.approved
+      ? '<span class="badge bg-success">Onaylı</span>'
+      : '<span class="badge bg-warning text-dark">Bekliyor</span>';
+    const adminTag = u.is_admin ? ' <span class="badge bg-primary">Admin</span>' : '';
+    const action = u.approved
+      ? (me || u.is_admin ? '' : `<button onclick="setApproval('${u.id}',false)" class="btn btn-sm btn-outline-danger">Onayı Kaldır</button>`)
+      : `<button onclick="setApproval('${u.id}',true)" class="btn btn-sm btn-success">Onayla</button>`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.6rem;border:1px solid var(--border,#30363d);border-radius:8px;margin-bottom:.5rem">
+      <div style="min-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'(e-posta yok)'}${adminTag}</div><div style="font-size:.75rem;color:var(--muted)">${badge}</div></div>
+      <div>${action}</div>
+    </div>`;
+  }).join('');
+}
+
+async function setApproval(id, value){
+  const { error } = await sb.from('profiles').update({ approved: value }).eq('id', id);
+  if(error){ toast('İşlem başarısız: '+error.message,'danger'); return; }
+  toast(value ? 'Kullanıcı onaylandı' : 'Onay kaldırıldı');
+  openAdminPanel();
+  refreshPendingCount();
+}
+
+async function refreshPendingCount(){
+  const el = document.getElementById('pendingCount');
+  if(!el || !sb) return;
+  const { count, error } = await sb.from('profiles').select('id', { count:'exact', head:true }).eq('approved', false);
+  if(error){ return; }
+  if(count && count>0){ el.textContent = count; el.style.display='inline-block'; }
+  else { el.style.display='none'; }
+}
+
 function injectSyncBar(){
   if(document.getElementById('syncBar')) return;
+  const adminBtn = (currentProfile && currentProfile.is_admin)
+    ? `<button onclick="openAdminPanel()" class="btn btn-sm btn-warning" style="padding:0 .5rem;font-size:.72rem">Onaylar <span id="pendingCount" class="badge bg-danger" style="display:none">0</span></button>`
+    : '';
   const html = `<div id="syncBar" style="position:fixed;bottom:10px;left:10px;z-index:9000;display:flex;align-items:center;gap:.5rem;background:var(--card,#161b22);border:1px solid var(--border,#30363d);border-radius:20px;padding:.25rem .7rem;font-size:.75rem;box-shadow:0 2px 10px rgba(0,0,0,.35)">
     <span id="syncStatus" style="display:flex;align-items:center;gap:.3rem;color:var(--muted)"></span>
     <span style="opacity:.35">|</span>
     <span style="color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><i class="bi bi-person-circle"></i> ${(currentUser&&currentUser.email)||''}</span>
+    ${adminBtn}
     <button onclick="doLogout()" class="btn btn-sm btn-outline-secondary" style="padding:0 .5rem;font-size:.72rem">Çıkış</button>
   </div>`;
   document.body.insertAdjacentHTML('beforeend', html);
   setSyncStatus('ok');
+  if(currentProfile && currentProfile.is_admin) refreshPendingCount();
 }
 
 // ══════════════════════════════════════════
