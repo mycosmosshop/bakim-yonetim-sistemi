@@ -360,6 +360,19 @@ select option{background:#0d1117}
       <button class="btn btn-sm btn-outline-success" id="fsBtn" onclick="toggleFullscreen()" title="Tam Ekran"><i class="bi bi-arrows-fullscreen"></i></button>
     </div>
   </div>
+  <div class="card-dark mb-3 py-2 px-3 d-flex flex-wrap align-items-center gap-2">
+    <span style="font-size:.8rem;color:var(--muted)"><i class="bi bi-calendar-range me-1"></i>Tarih Aralığı:</span>
+    <input type="date" id="dashFrom" class="form-control form-control-sm" style="width:150px" onchange="renderDashboard()" title="Başlangıç">
+    <span style="color:var(--muted)">–</span>
+    <input type="date" id="dashTo" class="form-control form-control-sm" style="width:150px" onchange="renderDashboard()" title="Bitiş">
+    <div class="d-flex gap-1 flex-wrap">
+      <button class="btn btn-sm btn-outline-secondary" onclick="setDashPreset('month')">Bu Ay</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="setDashPreset('30')">Son 30 Gün</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="setDashPreset('year')">Bu Yıl</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="setDashPreset('all')">Tümü</button>
+    </div>
+    <span id="dashRangeInfo" style="font-size:.75rem;color:var(--muted);margin-left:auto"></span>
+  </div>
   <div id="dWarningBanner"></div>
   <div class="row g-3 mb-4" id="dKpi"></div>
   <div class="row g-3 mb-4">
@@ -2447,13 +2460,40 @@ function downtimeH(f){
   return Math.max(0,(end - new Date(f.startTime))/3600000);
 }
 
+// ── Dashboard tarih aralığı (yalnızca dashboard render'ı sırasında aktif) ──
+let _dashRange = { from:null, to:null };
+let _dashRangeActive = false;
+function _dfFilter(f){
+  if(!_dashRangeActive || (!_dashRange.from && !_dashRange.to)) return true;
+  const t = new Date(f.startTime);
+  if(_dashRange.from && t < _dashRange.from) return false;
+  if(_dashRange.to && t > _dashRange.to) return false;
+  return true;
+}
+function _dmFilter(p){
+  if(!_dashRangeActive || (!_dashRange.from && !_dashRange.to)) return true;
+  const t = new Date(p.comp || p.sched || Date.now());
+  if(_dashRange.from && t < _dashRange.from) return false;
+  if(_dashRange.to && t > _dashRange.to) return false;
+  return true;
+}
+function _windowHours(installDate){
+  let start = new Date(installDate), end = new Date();
+  if(_dashRangeActive){
+    if(_dashRange.from && _dashRange.from > start) start = _dashRange.from;
+    if(_dashRange.to && _dashRange.to < end) end = _dashRange.to;
+  }
+  return Math.max(1,(end - start)/3600000);
+}
+function dashFails(){ return locFails().filter(_dfFilter); }
+
 function machMetrics(mid){
   const machine = db.machines.find(m=>m.id===mid);
-  const allF = db.failures.filter(f=>f.machineId===mid);
+  const allF = db.failures.filter(f=>f.machineId===mid && _dfFilter(f));
   const closedF = allF.filter(f=>f.status==='closed');
   const totalDown = allF.reduce((s,f)=>s+downtimeH(f),0);
   const installDate = machine ? new Date(machine.installDate||'2020-01-01') : new Date('2020-01-01');
-  const totalH = Math.max(1,(new Date()-installDate)/3600000);
+  const totalH = _windowHours(installDate);
   const operH = Math.max(0,totalH-totalDown);
   const mtbf = closedF.length>0 ? operH/closedF.length : operH;
   const mttr = closedF.length>0 ? totalDown/closedF.length : 0;
@@ -2507,13 +2547,13 @@ function calcFleetKPIs(forLoc){
   const loc = forLoc !== undefined ? forLoc : gLocFilter;
   const _mids = loc ? new Set(db.machines.filter(m=>m.location===loc).map(m=>m.id)) : null;
   const _ml = _mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines;
-  const _lf = _mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures;
-  const _lm = _mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance;
+  const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
+  const _lm = (_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter);
   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0;
   _ml.forEach(m=>{
     const mx = machMetrics(m.id);
     sumAvail += parseFloat(mx.avail);
-    const mFails = db.failures.filter(f=>f.machineId===m.id);
+    const mFails = db.failures.filter(f=>f.machineId===m.id && _dfFilter(f));
     if(mFails.length>0){
       sumMtbf += parseFloat(mx.mtbf);
       sumMttr += parseFloat(mx.mttr);
@@ -2646,7 +2686,7 @@ function getLast12Months(){
 function renderDashCharts(){
   const months = getLast12Months();
   const labels = months.map(d=>d.toLocaleString('tr-TR',{month:'short',year:'2-digit'}));
-  const _dF = locFails();
+  const _dF = dashFails();
   const _dM = locMachines();
   // Failure Frequency
   const fCounts = months.map(d=>{
@@ -2809,7 +2849,34 @@ function renderAnalyticsCharts(){
 // ══════════════════════════════════════════
 //  DASHBOARD
 // ══════════════════════════════════════════
+function _isoDate(d){ const z=new Date(d.getTime()-d.getTimezoneOffset()*60000); return z.toISOString().slice(0,10); }
+function _readDashRange(){
+  const f=document.getElementById('dashFrom')?.value;
+  const t=document.getElementById('dashTo')?.value;
+  _dashRange.from = f ? new Date(f+'T00:00:00') : null;
+  _dashRange.to   = t ? new Date(t+'T23:59:59') : null;
+  const info=document.getElementById('dashRangeInfo');
+  if(info){
+    info.textContent = (!_dashRange.from && !_dashRange.to)
+      ? 'Tüm zamanlar'
+      : `${_dashRange.from?_dashRange.from.toLocaleDateString('tr-TR'):'…'} – ${_dashRange.to?_dashRange.to.toLocaleDateString('tr-TR'):'…'}`;
+  }
+}
+function setDashPreset(p){
+  const now=new Date(); let from=null,to=null;
+  if(p==='month'){ from=new Date(now.getFullYear(),now.getMonth(),1); to=now; }
+  else if(p==='30'){ from=new Date(now.getTime()-30*86400000); to=now; }
+  else if(p==='year'){ from=new Date(now.getFullYear(),0,1); to=now; }
+  const fe=document.getElementById('dashFrom'), te=document.getElementById('dashTo');
+  if(fe) fe.value = from? _isoDate(from):'';
+  if(te) te.value = to? _isoDate(to):'';
+  renderDashboard();
+}
+
 function renderDashboard(){
+  _readDashRange();
+  _dashRangeActive = true;
+  try{
   document.getElementById('dashDate').textContent =
     new Date().toLocaleString('tr-TR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('todayShort').textContent =
@@ -2912,7 +2979,7 @@ function renderDashboard(){
   }).join('') : '<p style="color:var(--muted);text-align:center;padding:1rem;font-size:.85rem">Yaklaşan bakım yok</p>';
 
   // Recent failures
-  const rec = [...locFails()].sort((a,b)=>new Date(b.startTime)-new Date(a.startTime)).slice(0,6);
+  const rec = [...dashFails()].sort((a,b)=>new Date(b.startTime)-new Date(a.startTime)).slice(0,6);
   document.getElementById('dRecent').innerHTML = rec.length ? rec.map(f=>`
     <div class="upcoming-item">
       <div><div style="font-size:.875rem;font-weight:600">${mName(f.machineId)}</div>
@@ -2924,7 +2991,7 @@ function renderDashboard(){
   `).join('') : '<p style="color:var(--muted);text-align:center;padding:1rem;font-size:.85rem">Kayıtlı arıza yok</p>';
 
   // ── TPM / IATF 8.5.1.5 Dashboard Widget ──
-  const _allF = locFails();
+  const _allF = dashFails();
   const _allM = locMaint();
   const _allP = (()=>{const _lp=locMids();return _lp?db.parts.filter(p=>_lp.has(p.machineId)):db.parts;})();
   const recurringCount = _allF.filter(f=>f.recurring).length;
@@ -3018,6 +3085,7 @@ function renderDashboard(){
   else if(pfWEl) pfWEl.innerHTML='';
 
   renderDashCharts();
+  } finally { _dashRangeActive = false; }
 }
 
 // ══════════════════════════════════════════
