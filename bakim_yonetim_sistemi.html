@@ -8281,9 +8281,12 @@ function openKpiDetail(key){
   const rangeLabel = (!_dashRange.from && !_dashRange.to)
     ? 'Tüm zamanlar'
     : `${_dashRange.from?_dashRange.from.toLocaleDateString('tr-TR'):'…'} – ${_dashRange.to?_dashRange.to.toLocaleDateString('tr-TR'):'…'}`;
+  const locLabel = gLocFilter || 'Tüm Lokasyonlar';
 
   document.getElementById('kpiDetailTitle').innerHTML =
-    `<i class="bi ${def.icon} me-2" style="color:${fleetEv.color}"></i>${def.label} — Detay <span style="font-size:.75rem;font-weight:400;color:var(--muted)"><i class="bi bi-calendar-range ms-1 me-1"></i>${rangeLabel}</span>`;
+    `<i class="bi ${def.icon} me-2" style="color:${fleetEv.color}"></i>${def.label} — Detay
+     <span style="font-size:.75rem;font-weight:400;color:var(--muted)"><i class="bi bi-geo-alt-fill ms-1 me-1" style="color:#42a5f5"></i>${locLabel}</span>
+     <span style="font-size:.75rem;font-weight:400;color:var(--muted)"><i class="bi bi-calendar-range ms-1 me-1"></i>${rangeLabel}</span>`;
 
   document.getElementById('kpiDetailBody').innerHTML = `
     <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1.2rem;padding:.8rem 1rem;background:rgba(255,255,255,.04);border-radius:8px;border:1px solid var(--border)">
@@ -8302,7 +8305,7 @@ function openKpiDetail(key){
       </div>
     </div>
     <div style="margin-bottom:1.2rem;padding:.8rem 1rem;background:rgba(38,198,218,.07);border:1px solid rgba(38,198,218,.3);border-radius:8px">
-      <div style="font-size:.72rem;color:#26c6da;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.06em"><i class="bi bi-calculator me-1"></i>Hesaplama (seçili dönem: ${rangeLabel})</div>
+      <div style="font-size:.72rem;color:#26c6da;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.06em"><i class="bi bi-calculator me-1"></i>Hesaplama · ${locLabel} · ${rangeLabel}</div>
       <div style="font-size:.9rem;font-family:monospace;color:#e0e0e0">${calcText}</div>
       <div style="font-size:.72rem;color:var(--muted);margin-top:.35rem">Aşağıdaki tablo her makinenin bu döneme ait değerlerini gösterir.</div>
     </div>
