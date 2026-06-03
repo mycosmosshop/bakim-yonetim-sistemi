@@ -306,6 +306,7 @@ select option{background:#0d1117}
   </div>
   <div class="sb-nav">
     <a href="#" data-sec="dashboard" class="active"><i class="bi bi-speedometer2"></i>Dashboard</a>
+    <a href="#" data-sec="personnel"><i class="bi bi-person-badge-fill" style="color:#26c6da"></i>Saha / Personel</a>
     <a href="#" data-sec="machines"><i class="bi bi-cpu-fill"></i>Makineler</a>
     <a href="#" data-sec="failures"><i class="bi bi-exclamation-triangle-fill"></i>Arızalar</a>
     <a href="#" data-sec="maintenance"><i class="bi bi-calendar-check-fill"></i>Planlı Bakım</a>
@@ -935,6 +936,17 @@ select option{background:#0d1117}
         <tbody id="fixBody"></tbody>
       </table>
     </div>
+  </div>
+</section>
+
+<section id="personnel" class="section">
+  <div class="page-hdr">
+    <div><h2><i class="bi bi-person-badge-fill me-2" style="color:#26c6da"></i>Saha / Personel</h2><small>Hızlı arıza bildirimi, bakım ve iş emri işlemleri</small></div>
+  </div>
+  <div id="personnelQuick" class="row g-3 mb-3"></div>
+  <div class="row g-3">
+    <div class="col-lg-6"><div class="card-dark"><p class="text-muted mb-2" style="font-size:.85rem"><i class="bi bi-calendar-check me-1"></i>Yaklaşan / Gecikmiş Bakımlar</p><div id="personnelMaint"></div></div></div>
+    <div class="col-lg-6"><div class="card-dark"><p class="text-muted mb-2" style="font-size:.85rem"><i class="bi bi-exclamation-triangle me-1"></i>Açık Arızalar</p><div id="personnelFails"></div></div></div>
   </div>
 </section>
 
@@ -2285,7 +2297,20 @@ function _updateFsBtn(){
 document.addEventListener('fullscreenchange', _updateFsBtn);
 document.addEventListener('webkitfullscreenchange', _updateFsBtn);
 
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync(); }
+// ── Yetki (rol) yardımcıları ──
+function _userRole(){ return (typeof currentProfile!=='undefined' && currentProfile && currentProfile.role) || (typeof sb!=='undefined' && !sb ? 'admin' : 'viewer'); }
+function canWrite(){
+  if(typeof sb!=='undefined' && !sb) return true;            // çevrimdışı/yerel mod
+  if(typeof currentProfile==='undefined' || !currentProfile) return false;
+  return currentProfile.approved!==false && ['admin','technician'].includes(currentProfile.role||'viewer');
+}
+function isAdminUser(){ return _userRole()==='admin' || (typeof currentProfile!=='undefined' && currentProfile && currentProfile.is_admin); }
+function requireWrite(){ if(canWrite()) return true; toast('Yalnızca görüntüleme yetkiniz var; değişiklik yapamazsınız.','warning'); return false; }
+
+function save(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — değişiklik kaydedilmedi.','warning'); return; }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync();
+}
 function saveKpiStore(){ localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig)); scheduleCloudSync(); }
 
 function _defaultKpiSet(){
@@ -2694,6 +2719,56 @@ function getLast12Months(){
     res.push(new Date(now.getFullYear(),now.getMonth()-i,1));
   }
   return res;
+}
+
+// ── Saha / Personel ekranı ──
+function renderPersonnel(){
+  const w = canWrite();
+  const qa = document.getElementById('personnelQuick'); if(!qa) return;
+  qa.innerHTML =
+    (w?'':`<div class="col-12"><div style="background:rgba(251,140,0,.1);border:1px solid #fb8c0055;color:#fb8c00;padding:.6rem .9rem;border-radius:8px;font-size:.85rem"><i class="bi bi-eye me-1"></i>Görüntüleme modundasınız (İzleyici) — işlem yapamazsınız.</div></div>`)
+    + `<div class="col-6 col-md-4"><button class="btn w-100 py-3" style="background:#e53935;color:#fff;font-size:1.05rem" ${w?'':'disabled'} onclick="openFailureModal()"><i class="bi bi-exclamation-octagon-fill d-block mb-1" style="font-size:1.6rem"></i>Arıza Bildir</button></div>
+       <div class="col-6 col-md-4"><button class="btn w-100 py-3" style="background:#43a047;color:#fff;font-size:1.05rem" ${w?'':'disabled'} onclick="openMaintModal()"><i class="bi bi-tools d-block mb-1" style="font-size:1.6rem"></i>Bakım Planla</button></div>
+       <div class="col-12 col-md-4"><button class="btn w-100 py-3" style="background:#0288d1;color:#fff;font-size:1.05rem" onclick="nav('workorders')"><i class="bi bi-card-checklist d-block mb-1" style="font-size:1.6rem"></i>İş Emirleri</button></div>`;
+
+  const due = locMaint().filter(p=>p.status==='scheduled'||p.status==='overdue').sort((a,b)=>new Date(a.sched)-new Date(b.sched));
+  document.getElementById('personnelMaint').innerHTML = due.length ? due.map(p=>{
+    const dd=daysDiff(p.sched); const ov=p.status==='overdue'||dd<0;
+    return `<div class="upcoming-item">
+      <div><div style="font-size:.9rem;font-weight:600">${mName(p.machineId)}</div>
+        <div style="font-size:.75rem;color:var(--muted)">${TYPE_PL[p.type]||p.type} · ${fmtD(p.sched)} ${ov?'<span style="color:#ff5252;font-weight:600">(gecikmiş)</span>':''}</div></div>
+      <div class="d-flex gap-1">
+        ${w?`<button class="btn btn-sm btn-success" onclick="quickCompleteMaint('${p.id}')"><i class="bi bi-check2 me-1"></i>Tamamla</button>`:''}
+        ${w?`<button class="btn btn-sm btn-outline-light" title="Düzenle" onclick='openMaintModal(${JSON.stringify(p)})'><i class="bi bi-pencil"></i></button>`:''}
+      </div>
+    </div>`;
+  }).join('') : '<p style="color:var(--muted);text-align:center;padding:1rem;font-size:.85rem">Bekleyen bakım yok 🎉</p>';
+
+  const openF = locFails().filter(f=>f.status!=='closed').sort((a,b)=>new Date(b.startTime)-new Date(a.startTime));
+  document.getElementById('personnelFails').innerHTML = openF.length ? openF.map(f=>`
+    <div class="upcoming-item">
+      <div><div style="font-size:.9rem;font-weight:600">${mName(f.machineId)}</div>
+        <div style="font-size:.75rem;color:var(--muted)">${TYPE_LBL[f.failureType]||f.failureType||''} · ${(f.desc||'—').slice(0,40)}</div></div>
+      <div>${w?`<button class="btn btn-sm btn-outline-success" onclick="quickResolveFail('${f.id}')"><i class="bi bi-check2-all me-1"></i>Çözüldü</button>`:''}</div>
+    </div>`).join('') : '<p style="color:var(--muted);text-align:center;padding:1rem;font-size:.85rem">Açık arıza yok 🎉</p>';
+}
+function quickCompleteMaint(id){
+  if(!requireWrite())return;
+  const p=db.maintenance.find(x=>x.id===id); if(!p)return;
+  if(!confirm(`${mName(p.machineId)} bakımı "tamamlandı" olarak işaretlensin mi?`))return;
+  p.status='completed'; p.comp=new Date().toISOString().slice(0,10);
+  (p.checklist||[]).forEach(t=>t.done=true);
+  maybeSpawnNextMaint(p);
+  save(); renderPersonnel(); try{ renderMaint(); }catch(e){}
+  toast('Bakım tamamlandı ✓');
+}
+function quickResolveFail(id){
+  if(!requireWrite())return;
+  const f=db.failures.find(x=>x.id===id); if(!f)return;
+  if(!confirm(`${mName(f.machineId)} arızası çözüldü/kapatıldı mı?`))return;
+  f.status='closed'; if(!f.endTime) f.endTime=new Date().toISOString();
+  save(); renderPersonnel(); try{ renderFailures(); }catch(e){}
+  toast('Arıza kapatıldı ✓');
 }
 
 function renderDashCharts(){
@@ -3379,7 +3454,7 @@ function openMachineModal(m){
   document.getElementById('mMachTitle').textContent=m?'Makine Düzenle':'Yeni Makine';
   new bootstrap.Modal(document.getElementById('modalMachine')).show();
 }
-function saveMachine(){
+function saveMachine(){ if(!requireWrite())return;
   const id=document.getElementById('mMachId').value;
   const m={id:id||uid(),name:document.getElementById('mMachName').value,
     model:document.getElementById('mMachModel').value,code:document.getElementById('mMachCode').value,
@@ -3393,7 +3468,7 @@ function saveMachine(){
   save();bootstrap.Modal.getInstance(document.getElementById('modalMachine')).hide();
   updateSelects();renderMachines();toast('Makine kaydedildi');
 }
-function delMachine(id){
+function delMachine(id){ if(!requireWrite())return;
   if(confirm('Bu makineyi silmek istediğinize emin misiniz?')){
     db.machines=db.machines.filter(m=>m.id!==id);save();updateSelects();renderMachines();
   }
@@ -3483,7 +3558,7 @@ function openFailureModal(f){
   document.getElementById('mFailTitle').textContent=f?'Arıza Düzenle':'Arıza Kaydı';
   new bootstrap.Modal(document.getElementById('modalFailure')).show();
 }
-function saveFailure(){
+function saveFailure(){ if(!requireWrite())return;
   const id=document.getElementById('mFailId').value;
   const f={id:id||uid(),machineId:document.getElementById('mFailMach').value,
     failureType:document.getElementById('mFailType').value,
@@ -3520,7 +3595,7 @@ function saveFailure(){
   save();bootstrap.Modal.getInstance(document.getElementById('modalFailure')).hide();
   renderFailures();toast('Arıza kaydedildi');
 }
-function delFailure(id){
+function delFailure(id){ if(!requireWrite())return;
   if(confirm('Bu arıza kaydını silmek istediğinize emin misiniz?')){
     db.failures=db.failures.filter(f=>f.id!==id);save();renderFailures();
   }
@@ -3622,7 +3697,7 @@ function openMaintModal(p){
   };
   new bootstrap.Modal(document.getElementById('modalMaint')).show();
 }
-function saveMaint(){
+function saveMaint(){ if(!requireWrite())return;
   const id=document.getElementById('mPId').value;
   const p={id:id||uid(),machineId:document.getElementById('mPMach').value,
     type:document.getElementById('mPType').value,sched:document.getElementById('mPSched').value,
@@ -3675,7 +3750,7 @@ function maybeSpawnNextMaint(p){
   p._spawnedNext = true;
   toast(`🔁 Periyodik: sonraki bakım ${fmtD(nextSched)} için otomatik oluşturuldu`,'info');
 }
-function delMaint(id){
+function delMaint(id){ if(!requireWrite())return;
   if(confirm('Bu bakım kaydını silmek istediğinize emin misiniz?')){
     db.maintenance=db.maintenance.filter(p=>p.id!==id);save();renderMaint();
   }
@@ -4180,7 +4255,7 @@ function _mPtMachChanged(){
   const m=(db.machines||[]).find(x=>x.id===machId);
   if(m&&m.location) document.getElementById('mPtLoc').value=m.location;
 }
-function savePart(){
+function savePart(){ if(!requireWrite())return;
   const id=document.getElementById('mPtId').value;
   const p={id:id||uid(),partName:document.getElementById('mPtName').value,
     partNo:document.getElementById('mPtNo').value,machineId:document.getElementById('mPtMach').value,
@@ -4202,7 +4277,7 @@ function savePart(){
   save();bootstrap.Modal.getInstance(document.getElementById('modalPart')).hide();
   renderParts();toast('Parça kaydedildi');
 }
-function delPart(id){
+function delPart(id){ if(!requireWrite())return;
   if(confirm('Bu parça kaydını silmek istediğinize emin misiniz?')){
     db.parts=db.parts.filter(p=>p.id!==id);save();renderParts();
   }
@@ -5045,7 +5120,7 @@ function pfAddFromTaskSets(){
   toast(added?`${added} bakım seti görevi eklendi.`:'Tüm set görevleri zaten ekli.', added?'':'warning');
 }
 
-function savePlanForm(statusParam){
+function savePlanForm(statusParam){ if(!requireWrite())return;
   const id=document.getElementById('mPfId').value;
   const title=document.getElementById('mPfTitle').value.trim();
   if(!title){toast('Form başlığı zorunlu!','danger');return;}
@@ -5330,7 +5405,7 @@ function setPfStatus(id, status){
   toast('Form aktife alındı.');
 }
 
-function delPlanForm(id){
+function delPlanForm(id){ if(!requireWrite())return;
   const f=(db.planForms||[]).find(x=>x.id===id); if(!f) return;
   if(!confirm(`"${f.title}" formunu silmek istediğinize emin misiniz?`)) return;
   db.planForms=(db.planForms||[]).filter(x=>x.id!==id); save(); renderPlanForms();
@@ -5704,7 +5779,7 @@ function openManualActionModal(id){
   new bootstrap.Modal(document.getElementById('modalManualAction')).show();
 }
 
-function saveManualAction(){
+function saveManualAction(){ if(!requireWrite())return;
   const title = document.getElementById('maTitle').value.trim();
   if(!title){ toast('Başlık zorunlu'); return; }
   if(!db.manualActions) db.manualActions=[];
@@ -6461,7 +6536,7 @@ function nav(sec){
   document.querySelectorAll('[data-sec]').forEach(a=>a.classList.remove('active'));
   const s=document.getElementById(sec); if(s)s.classList.add('active');
   const a=document.querySelector(`[data-sec="${sec}"]`); if(a)a.classList.add('active');
-  const renders={dashboard:renderDashboard,machines:renderMachines,failures:renderFailures,
+  const renders={dashboard:renderDashboard,personnel:renderPersonnel,machines:renderMachines,failures:renderFailures,
     maintenance:renderMaint,tasksets:renderTaskSets,parts:renderParts,costs:renderCosts,analytics:renderAnalytics,
     calendar:renderCalendar,
     oee:()=>{renderOee();updateOeeSelects();},
@@ -6953,7 +7028,7 @@ function openStockModal(s){
   new bootstrap.Modal(document.getElementById('modalStock')).show();
 }
 
-function saveStock(){
+function saveStock(){ if(!requireWrite())return;
   const id = document.getElementById('mStockId').value;
   const s = {
     id:       id||uid(),
@@ -6985,7 +7060,7 @@ function quickAddStock(id){
   save(); renderStock(); toast(`${v} ${s.unit} eklendi`);
 }
 
-function delStock(id){
+function delStock(id){ if(!requireWrite())return;
   if(confirm('Bu stok kalemini silmek istiyor musunuz?')){
     db.stock=(db.stock||[]).filter(s=>s.id!==id); save(); renderStock();
   }
@@ -7104,7 +7179,7 @@ function addTsTaskRow(title='',note='',mins=''){
   container.appendChild(div);
 }
 
-function saveTaskSet(){
+function saveTaskSet(){ if(!requireWrite())return;
   const id=document.getElementById('mTsId').value;
   const name=(document.getElementById('mTsName').value||'').trim();
   if(!name){toast('Set adı zorunlu!','danger');return;}
@@ -7123,7 +7198,7 @@ function saveTaskSet(){
   toast('Bakım seti kaydedildi');
 }
 
-function delTaskSet(id){
+function delTaskSet(id){ if(!requireWrite())return;
   if(confirm('Bu bakım setini silmek istediğinize emin misiniz?')){
     db.taskSets=(db.taskSets||[]).filter(ts=>ts.id!==id);
     save();renderTaskSets();toast('Bakım seti silindi','warning');
@@ -7420,7 +7495,7 @@ function toggleClTask(taskId,done){
   save();_renderClTasks(p.checklist||[]);
 }
 
-function saveChecklist(){
+function saveChecklist(){ if(!requireWrite())return;
   const p=(db.maintenance||[]).find(x=>x.id===_clPid);if(!p) return;
   const tech=(document.getElementById('clTech')?.value||'').trim();
   if(tech) p.tech=tech;
@@ -7539,7 +7614,7 @@ function openFixtureModal(f=null){
   new bootstrap.Modal(document.getElementById('modalFixture')).show();
 }
 
-function saveFixture(){
+function saveFixture(){ if(!requireWrite())return;
   const id = document.getElementById('mFixId').value;
   const no = document.getElementById('mFixNo').value.trim();
   const name = document.getElementById('mFixName').value.trim();
@@ -7573,7 +7648,7 @@ function saveFixture(){
   renderFixtures(); toast('Fikstür kaydedildi');
 }
 
-function delFixture(id){
+function delFixture(id){ if(!requireWrite())return;
   if(!confirm('Bu fikstür kaydını silmek istediğinize emin misiniz?')) return;
   db.fixtures=db.fixtures.filter(f=>f.id!==id); save(); renderFixtures();
 }
@@ -7658,7 +7733,7 @@ function openWoModal(w){
   new bootstrap.Modal(document.getElementById('modalWo')).show();
 }
 
-function saveWo(){
+function saveWo(){ if(!requireWrite())return;
   const id = document.getElementById('mWoId').value;
   const w = {
     id:          id||uid(),
@@ -7692,7 +7767,7 @@ function saveWo(){
   renderWo(); toast('İş emri kaydedildi');
 }
 
-function delWo(id){
+function delWo(id){ if(!requireWrite())return;
   if(confirm('Bu iş emrini silmek istiyor musunuz?')){
     db.workorders=(db.workorders||[]).filter(w=>w.id!==id); save(); renderWo();
   }
@@ -7921,7 +7996,7 @@ function updateOeePreview(){
   if(oel){ oel.textContent=c.OEE+'%'; oel.style.color=oc; }
 }
 
-function saveOee(){
+function saveOee(){ if(!requireWrite())return;
   const id = document.getElementById('mOeeId').value;
   const r = {
     id: id||uid(),
@@ -7943,7 +8018,7 @@ function saveOee(){
   renderOee(); toast('OEE kaydı eklendi');
 }
 
-function delOee(id){
+function delOee(id){ if(!requireWrite())return;
   if(confirm('Bu OEE kaydını silmek istiyor musunuz?')){
     db.oee=(db.oee||[]).filter(r=>r.id!==id); save(); renderOee();
   }
@@ -9179,7 +9254,7 @@ async function fetchProfile(retries=5){
     try{ const { data:sess } = await sb.auth.getSession(); if(sess && sess.session && sess.session.user) currentUser = sess.session.user; }catch(e){}
     if(!currentUser){ if(i<retries){ await new Promise(r=>setTimeout(r,600)); continue; } return { error:'no-session' }; }
     try{
-      const { data, error } = await sb.from('profiles').select('approved,is_admin,email').eq('id', currentUser.id).maybeSingle();
+      const { data, error } = await sb.from('profiles').select('approved,is_admin,role,email').eq('id', currentUser.id).maybeSingle();
       if(error){ console.warn('fetchProfile error', error); lastErr = error; }
       else if(data){ return { data }; }            // başarı
       // data boş → token henüz oturmamış olabilir, yeniden dene
@@ -9276,31 +9351,48 @@ async function openAdminPanel(){
   const list = document.getElementById('adminUserList');
   document.getElementById('adminModal').style.display='flex';
   list.innerHTML = '<div style="color:var(--muted)">Yükleniyor…</div>';
-  const { data, error } = await sb.from('profiles').select('id,email,approved,is_admin,created_at').order('created_at',{ascending:false});
+  const { data, error } = await sb.from('profiles').select('id,email,approved,is_admin,role,created_at').order('created_at',{ascending:false});
   if(error){ list.innerHTML = '<div style="color:#e53935">Hata: '+error.message+'</div>'; return; }
   if(!data || !data.length){ list.innerHTML = '<div style="color:var(--muted)">Kullanıcı yok.</div>'; return; }
+  const ROLE_LBL={admin:'Yönetici',technician:'Teknisyen',viewer:'İzleyici'};
   list.innerHTML = data.map(u=>{
     const me = u.id === currentUser.id;
-    const badge = u.approved
-      ? '<span class="badge bg-success">Onaylı</span>'
-      : '<span class="badge bg-warning text-dark">Bekliyor</span>';
-    const adminTag = u.is_admin ? ' <span class="badge bg-primary">Admin</span>' : '';
+    const role = u.role || 'viewer';
+    const badge = u.approved ? '<span class="badge bg-success">Onaylı</span>' : '<span class="badge bg-warning text-dark">Onay bekliyor</span>';
+    const roleSel = u.approved ? `<select onchange="setRole('${u.id}', this.value)" class="form-select form-select-sm" style="width:auto;display:inline-block;font-size:.78rem" ${me?'disabled title="Kendi rolünüzü değiştiremezsiniz"':''}>
+        <option value="admin" ${role==='admin'?'selected':''}>Yönetici (tam yetki)</option>
+        <option value="technician" ${role==='technician'?'selected':''}>Teknisyen (işlem)</option>
+        <option value="viewer" ${role==='viewer'?'selected':''}>İzleyici (salt-okunur)</option>
+      </select>` : '';
     const action = u.approved
-      ? (me || u.is_admin ? '' : `<button onclick="setApproval('${u.id}',false)" class="btn btn-sm btn-outline-danger">Onayı Kaldır</button>`)
+      ? (me ? '<span style="font-size:.7rem;color:var(--muted)">(siz)</span>' : `<button onclick="setApproval('${u.id}',false)" class="btn btn-sm btn-outline-danger" title="Erişimi kapat">Kapat</button>`)
       : `<button onclick="setApproval('${u.id}',true)" class="btn btn-sm btn-success">Onayla</button>`;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.6rem;border:1px solid var(--border,#30363d);border-radius:8px;margin-bottom:.5rem">
-      <div style="min-width:0"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'(e-posta yok)'}${adminTag}</div><div style="font-size:.75rem;color:var(--muted)">${badge}</div></div>
-      <div>${action}</div>
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.6rem;border:1px solid var(--border,#30363d);border-radius:8px;margin-bottom:.5rem;flex-wrap:wrap">
+      <div style="min-width:0;flex:1"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'(e-posta yok)'}</div><div style="font-size:.72rem;color:var(--muted)">${badge}${u.approved?' · '+ (ROLE_LBL[role]||role):''}</div></div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">${roleSel}${action}</div>
     </div>`;
   }).join('');
 }
 
 async function setApproval(id, value){
-  const { error } = await sb.from('profiles').update({ approved: value }).eq('id', id);
+  const upd = value ? { approved:true } : { approved:false };
+  // Yeni onaylanan varsayılan rol: Teknisyen (admin sonradan değiştirebilir)
+  if(value){
+    const { data:cur } = await sb.from('profiles').select('role').eq('id',id).maybeSingle();
+    if(!cur || !cur.role || cur.role==='viewer') upd.role='technician';
+  }
+  const { error } = await sb.from('profiles').update(upd).eq('id', id);
   if(error){ toast('İşlem başarısız: '+error.message,'danger'); return; }
-  toast(value ? 'Kullanıcı onaylandı' : 'Onay kaldırıldı');
+  toast(value ? 'Kullanıcı onaylandı (Teknisyen)' : 'Erişim kapatıldı');
   openAdminPanel();
   refreshPendingCount();
+}
+
+async function setRole(id, role){
+  const { error } = await sb.from('profiles').update({ role, is_admin: role==='admin' }).eq('id', id);
+  if(error){ toast('Rol değiştirilemedi: '+error.message,'danger'); return; }
+  toast('Rol güncellendi: '+({admin:'Yönetici',technician:'Teknisyen',viewer:'İzleyici'}[role]||role));
+  openAdminPanel();
 }
 
 async function refreshPendingCount(){
