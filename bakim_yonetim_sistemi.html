@@ -2073,6 +2073,12 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <div class="col-md-6"><label class="form-label">Makine Kartı Rev. No / Tarihi</label><input type="text" class="form-control" id="fsMknRevNo" placeholder="00 / 21.04.2026"></div>
           <div class="col-md-6"><label class="form-label">Yedek Parça Listesi Doküman No</label><input type="text" class="form-control" id="fsPtDocNo" placeholder="BYS-YP-001"></div>
           <div class="col-md-6"><label class="form-label">Yedek Parça Listesi Rev. No / Tarihi</label><input type="text" class="form-control" id="fsPtRevNo" placeholder="00 / 21.04.2026"></div>
+          <div class="col-md-6"><label class="form-label">Makine Listesi (Excel) Doküman No</label><input type="text" class="form-control" id="fsMlistDocNo" placeholder="BYS-MKL-001"></div>
+          <div class="col-md-6"><label class="form-label">Makine Listesi Rev. No / Tarihi</label><input type="text" class="form-control" id="fsMlistRevNo" placeholder="00 / 03.06.2026"></div>
+          <div class="col-md-6"><label class="form-label">Planlı Bakım Raporu (Excel) Doküman No</label><input type="text" class="form-control" id="fsBplanDocNo" placeholder="BYS-BKP-001"></div>
+          <div class="col-md-6"><label class="form-label">Planlı Bakım Raporu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsBplanRevNo" placeholder="00 / 03.06.2026"></div>
+          <div class="col-md-6"><label class="form-label">Yönetim Raporu Doküman No</label><input type="text" class="form-control" id="fsRptDocNo" placeholder="BYS-RPT-001"></div>
+          <div class="col-md-6"><label class="form-label">Yönetim Raporu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsRptRevNo" placeholder="00 / 03.06.2026"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -7003,7 +7009,7 @@ function generatePdfReport(){
   const deltaCol  = deltaFail>0?'#ef5350':deltaFail<0?'#66bb6a':'#8b949e';
 
   // Build print content
-  fillAntet(`YÖNETİM RAPORU — ${mLabel.toUpperCase()}`, 'BYS-RPT-001', formSettings.maintRevNo||'00 / '+formSettings.effDate);
+  fillAntet(`YÖNETİM RAPORU — ${mLabel.toUpperCase()}`, formSettings.rptDocNo||'BYS-RPT-001', formSettings.rptRevNo||'00 / '+formSettings.effDate);
 
   document.getElementById('printContent').innerHTML = `
     <div style="margin:14px 0 10px">
@@ -8634,6 +8640,12 @@ function loadFormSettings(){
   if(!formSettings.mknRevNo)   formSettings.mknRevNo   = '00 / '+formSettings.effDate;
   if(!formSettings.ptDocNo)    formSettings.ptDocNo    = 'BYS-YP-001';
   if(!formSettings.ptRevNo)    formSettings.ptRevNo    = '00 / '+formSettings.effDate;
+  if(!formSettings.mlistDocNo) formSettings.mlistDocNo = 'BYS-MKL-001';
+  if(!formSettings.mlistRevNo) formSettings.mlistRevNo = '00 / '+formSettings.effDate;
+  if(!formSettings.bplanDocNo) formSettings.bplanDocNo = 'BYS-BKP-001';
+  if(!formSettings.bplanRevNo) formSettings.bplanRevNo = '00 / '+formSettings.effDate;
+  if(!formSettings.rptDocNo)   formSettings.rptDocNo   = 'BYS-RPT-001';
+  if(!formSettings.rptRevNo)   formSettings.rptRevNo   = '00 / '+formSettings.effDate;
 }
 
 function openFormSettings(){
@@ -8651,6 +8663,12 @@ function openFormSettings(){
   document.getElementById('fsMknRevNo').value    = formSettings.mknRevNo||'';
   document.getElementById('fsPtDocNo').value     = formSettings.ptDocNo||'';
   document.getElementById('fsPtRevNo').value     = formSettings.ptRevNo||'';
+  document.getElementById('fsMlistDocNo').value  = formSettings.mlistDocNo||'';
+  document.getElementById('fsMlistRevNo').value  = formSettings.mlistRevNo||'';
+  document.getElementById('fsBplanDocNo').value  = formSettings.bplanDocNo||'';
+  document.getElementById('fsBplanRevNo').value  = formSettings.bplanRevNo||'';
+  document.getElementById('fsRptDocNo').value    = formSettings.rptDocNo||'';
+  document.getElementById('fsRptRevNo').value    = formSettings.rptRevNo||'';
   new bootstrap.Modal(document.getElementById('modalFormSettings')).show();
 }
 
@@ -8667,6 +8685,12 @@ function saveFormSettings(){
   formSettings.mknRevNo   = document.getElementById('fsMknRevNo').value   || '00 / '+formSettings.effDate;
   formSettings.ptDocNo    = document.getElementById('fsPtDocNo').value    || 'BYS-YP-001';
   formSettings.ptRevNo    = document.getElementById('fsPtRevNo').value    || '00 / '+formSettings.effDate;
+  formSettings.mlistDocNo = document.getElementById('fsMlistDocNo').value || 'BYS-MKL-001';
+  formSettings.mlistRevNo = document.getElementById('fsMlistRevNo').value || '00 / '+formSettings.effDate;
+  formSettings.bplanDocNo = document.getElementById('fsBplanDocNo').value || 'BYS-BKP-001';
+  formSettings.bplanRevNo = document.getElementById('fsBplanRevNo').value || '00 / '+formSettings.effDate;
+  formSettings.rptDocNo   = document.getElementById('fsRptDocNo').value   || 'BYS-RPT-001';
+  formSettings.rptRevNo   = document.getElementById('fsRptRevNo').value   || '00 / '+formSettings.effDate;
   localStorage.setItem(PRINT_FORM_KEY, JSON.stringify(formSettings));
   bootstrap.Modal.getInstance(document.getElementById('modalFormSettings')).hide();
   toast('Form ayarları kaydedildi');
@@ -8924,7 +8948,7 @@ function _exportMachineExcelImpl(){
   const list=locMachines();
   genExcelReport({
     sheet:'Makineler', formName:'MAKİNE LİSTESİ', reportTitle:'MAKİNE LİSTESİ',
-    docNo:formSettings.mknDocNo, revNo:formSettings.mknRevNo,
+    docNo:formSettings.mlistDocNo, revNo:formSettings.mlistRevNo,
     columns:[{header:'#',width:5},{header:'MAKİNE',width:26,align:'left'},{header:'MODEL / SN',width:16},{header:'LOKASYON',width:15},{header:'DEPARTMAN',width:15},{header:'KRİTİKLİK',width:12},{header:'DURUM',width:12,kind:'status'},{header:'MTBF (s)',width:11},{header:'KULLANIL. %',width:12},{header:'KURULUM',width:13}],
     rows:list.map((m,i)=>{ const mx=machMetrics(m.id); return {values:[i+1,m.name,m.model||m.serial||'—',m.location||'—',m.dept||'—',CRIT_LBL[effectiveCrit(m).key],STATUS_ML[m.status]||m.status||'—',mx.mtbf,mx.avail+'%',m.installDate?fmtD(m.installDate):'—'],statusKey:m.status}; }),
     statusIndex:6,
@@ -8969,8 +8993,8 @@ async function _exportMaintExcelImpl(){
 
   // ── ANTET (yazdırılan form düzeni: logo | form adı | doküman bilgileri) ──
   loadFormSettings();
-  const docNo   = formSettings.maintDocNo || 'BYS-BKM-001';
-  const revNo   = formSettings.maintRevNo || ('00 / '+(formSettings.effDate||''));
+  const docNo   = formSettings.bplanDocNo || 'BYS-BKP-001';
+  const revNo   = formSettings.bplanRevNo || ('00 / '+(formSettings.effDate||''));
   const effDate = formSettings.effDate || new Date().toLocaleDateString('tr-TR');
   const box=()=>({top:{style:'medium',color:{argb:'FF000000'}},left:{style:'medium',color:{argb:'FF000000'}},bottom:{style:'medium',color:{argb:'FF000000'}},right:{style:'medium',color:{argb:'FF000000'}}});
   function borderBox(r1,c1,r2,c2){ for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) ws.getRow(r).getCell(c).border=box(); }
