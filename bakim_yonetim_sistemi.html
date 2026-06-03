@@ -2486,6 +2486,7 @@ function _windowHours(installDate){
   return Math.max(1,(end - start)/3600000);
 }
 function dashFails(){ return locFails().filter(_dfFilter); }
+function dashMaint(){ return locMaint().filter(_dmFilter); }
 
 function machMetrics(mid){
   const machine = db.machines.find(m=>m.id===mid);
@@ -2596,6 +2597,13 @@ function calcFleetKPIs(forLoc){
     pmr:          hasData && _lm.length>0 ? +pmrVal.toFixed(1)       : null,
     unplanned:    hasData && _lm.length>0 ? +unplannedVal.toFixed(1) : null,
     pmc:          hasData && pmcVal!==null ? +pmcVal.toFixed(1)       : null,
+    // Ham hesaplama girdileri (detay/şeffaflık için)
+    _calc: {
+      machineCount:n, failMachineCount:cntF,
+      sumMtbf:+sumMtbf.toFixed(0), sumMttr:+sumMttr.toFixed(1), sumMttf:+sumMttf.toFixed(0), sumAvail:+sumAvail.toFixed(1),
+      plannedH:+plannedH.toFixed(1), correctiveH:+correctiveH.toFixed(1), failDownH:+failDownH.toFixed(1), totalMaintH:+totalMaintH.toFixed(1),
+      schedPlanCount:schedPlan.length, compPlan
+    }
   };
 }
 
@@ -8192,17 +8200,21 @@ function renderCalendar(){
 
 function openKpiDetail(key){
   const def = KPI_DEFS[key]; if(!def) return;
+  // Dashboard tarih aralığını uygula (kart ile detay uyuşsun)
+  _readDashRange();
+  _dashRangeActive = true;
+  try{
   const cfg = kpiConfig[key]||{};
   const target = cfg.target ?? def.defaultTarget;
 
   // Build per-machine rows
   const rows = locMachines().map(m=>{
     const mx  = machMetrics(m.id);
-    const mFails   = locFails().filter(f=>f.machineId===m.id);
+    const mFails   = dashFails().filter(f=>f.machineId===m.id);
     const closedF  = mFails.filter(f=>f.status==='closed');
-    const schedPl  = locMaint().filter(p=>p.machineId===m.id&&(p.type==='preventive'||p.type==='predictive'));
+    const schedPl  = dashMaint().filter(p=>p.machineId===m.id&&(p.type==='preventive'||p.type==='predictive'));
     const compPl   = schedPl.filter(p=>p.status==='completed').length;
-    const allMaint = locMaint().filter(p=>p.machineId===m.id);
+    const allMaint = dashMaint().filter(p=>p.machineId===m.id);
     const plannedH = allMaint.filter(p=>p.type==='preventive'||p.type==='predictive').reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
     const correctH = allMaint.filter(p=>p.type==='corrective'||p.type==='overhaul').reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
     const failDH   = mFails.reduce((s,f)=>s+downtimeH(f),0);
@@ -8238,21 +8250,40 @@ function openKpiDetail(key){
 
   // Formula explanation per KPI
   const formulas = {
-    mtbf:         'MTBF = Toplam Çalışma Süresi ÷ Arıza Sayısı',
-    mttr:         'MTTR = Toplam Durış Süresi ÷ Kapalı Arıza Sayısı',
-    mttf:         'MTTF = Kurulum Tarihi → İlk Arıza Tarihi (saat farkı)',
-    availability: 'Kullanılabilirlik = (Toplam Süre − Durış) ÷ Toplam Süre × 100',
-    pmr:          'PMR = Planlı Bakım Saati ÷ Toplam Bakım+Durış Saati × 100',
-    unplanned:    'Plansız % = (Düzeltici + Durış) ÷ Toplam Bakım Saati × 100',
-    pmc:          'PMC = Tamamlanan Planlı Bakım ÷ Planlanan Bakım × 100',
+    mtbf:         'MTBF = Σ(makine MTBF) ÷ arızalı makine sayısı  ·  (makine MTBF = çalışma süresi ÷ arıza sayısı)',
+    mttr:         'MTTR = Σ(makine MTTR) ÷ arızalı makine sayısı  ·  (makine MTTR = toplam duruş ÷ kapalı arıza)',
+    mttf:         'MTTF = Σ(kurulum → ilk arıza saat farkı) ÷ arızalı makine sayısı',
+    availability: 'Kullanılabilirlik = Σ(makine kullanılabilirlik %) ÷ makine sayısı  ·  (makine = (süre − duruş) ÷ süre × 100)',
+    pmr:          'PMR = Planlı Bakım Saati ÷ (Planlı + Düzeltici + Duruş) Saati × 100',
+    unplanned:    'Plansız % = (Düzeltici + Duruş) Saati ÷ Toplam Bakım Saati × 100',
+    pmc:          'PMC = Tamamlanan Planlı Bakım ÷ Planlanan Planlı Bakım × 100',
   };
 
   const fleet = calcFleetKPIs();
   const fleetVal = {mtbf:fleet.mtbf,mttr:fleet.mttr,mttf:fleet.mttf,availability:fleet.availability,pmr:fleet.pmr,unplanned:fleet.unplanned,pmc:fleet.pmc}[key];
   const fleetEv  = evalKpi(key, fleetVal);
 
+  // Ham rakamlarla hesaplama (seçili tarih aralığı için)
+  const c = fleet._calc || {};
+  const _u = def.unit==='%'?'%':' '+def.unit;
+  const calcText = (()=>{
+    switch(key){
+      case 'mtbf':         return `${c.sumMtbf} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
+      case 'mttr':         return `${c.sumMttr} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
+      case 'mttf':         return `${c.sumMttf} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
+      case 'availability': return `${c.sumAvail} ÷ ${c.machineCount} makine = <b>${fleetVal}%</b>`;
+      case 'pmr':          return `Planlı ${c.plannedH}h ÷ Toplam ${c.totalMaintH}h × 100 = <b>${fleetVal}%</b>`;
+      case 'unplanned':    return `(Düzeltici ${c.correctiveH}h + Duruş ${c.failDownH}h) ÷ ${c.totalMaintH}h × 100 = <b>${fleetVal}%</b>`;
+      case 'pmc':          return `Tamamlanan ${c.compPlan} ÷ Planlanan ${c.schedPlanCount} × 100 = <b>${fleetVal===null?'—':fleetVal+'%'}</b>`;
+      default:             return '';
+    }
+  })();
+  const rangeLabel = (!_dashRange.from && !_dashRange.to)
+    ? 'Tüm zamanlar'
+    : `${_dashRange.from?_dashRange.from.toLocaleDateString('tr-TR'):'…'} – ${_dashRange.to?_dashRange.to.toLocaleDateString('tr-TR'):'…'}`;
+
   document.getElementById('kpiDetailTitle').innerHTML =
-    `<i class="bi ${def.icon} me-2" style="color:${fleetEv.color}"></i>${def.label} — Makine Bazında Detay`;
+    `<i class="bi ${def.icon} me-2" style="color:${fleetEv.color}"></i>${def.label} — Detay <span style="font-size:.75rem;font-weight:400;color:var(--muted)"><i class="bi bi-calendar-range ms-1 me-1"></i>${rangeLabel}</span>`;
 
   document.getElementById('kpiDetailBody').innerHTML = `
     <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;margin-bottom:1.2rem;padding:.8rem 1rem;background:rgba(255,255,255,.04);border-radius:8px;border:1px solid var(--border)">
@@ -8270,11 +8301,16 @@ function openKpiDetail(key){
         <div style="font-size:1.5rem;font-weight:700;color:${fleetEv.color}">${fleetVal===null?'—':fleetEv.pct>=100?'✓ Tamam':fleetEv.pct.toFixed(0)+'%'}</div>
       </div>
     </div>
+    <div style="margin-bottom:1.2rem;padding:.8rem 1rem;background:rgba(38,198,218,.07);border:1px solid rgba(38,198,218,.3);border-radius:8px">
+      <div style="font-size:.72rem;color:#26c6da;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.06em"><i class="bi bi-calculator me-1"></i>Hesaplama (seçili dönem: ${rangeLabel})</div>
+      <div style="font-size:.9rem;font-family:monospace;color:#e0e0e0">${calcText}</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:.35rem">Aşağıdaki tablo her makinenin bu döneme ait değerlerini gösterir.</div>
+    </div>
     <div class="table-responsive">
       <table class="table table-dark table-hover align-middle mb-0" style="font-size:.82rem">
         <thead><tr style="font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">
           <th>Makine</th><th>Kritiklik</th><th>Değer</th><th style="min-width:140px">Hedefe Göre</th>
-          <th>Arıza</th><th>Durış (h)</th><th>Bakım</th><th>Kullanıl.</th>
+          <th>Arıza</th><th>Duruş (h)</th><th>Bakım</th><th>Kullanıl.</th>
         </tr></thead>
         <tbody>
           ${rows.map(({m,mx,val,ev,bar,mFails,closedF,schedPl,compPl,failDH})=>{
@@ -8302,6 +8338,7 @@ function openKpiDetail(key){
     </div>`;
 
   new bootstrap.Modal(document.getElementById('modalKpiDetail')).show();
+  } finally { _dashRangeActive = false; }
 }
 
 // ══════════════════════════════════════════
