@@ -357,6 +357,7 @@ select option{background:#0d1117}
       <button class="btn btn-sm btn-outline-danger" onclick="generatePdfReport()"><i class="bi bi-file-earmark-pdf me-1"></i>Yönetim Raporu</button>
       <button class="btn btn-sm btn-outline-info" onclick="openKpiSettings()"><i class="bi bi-sliders me-1"></i>KPI Hedefleri</button>
       <button class="btn btn-sm btn-outline-secondary" onclick="nav('dashboard')"><i class="bi bi-arrow-clockwise me-1"></i>Yenile</button>
+      <button class="btn btn-sm btn-outline-success" id="fsBtn" onclick="toggleFullscreen()" title="Tam Ekran"><i class="bi bi-arrows-fullscreen"></i></button>
     </div>
   </div>
   <div id="dWarningBanner"></div>
@@ -2243,6 +2244,28 @@ function applyTheme(theme='dark', persist=true, rerender=true){
 function toggleTheme(){
   applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
 }
+
+// ── Tam ekran ──
+function toggleFullscreen(){
+  const el = document.documentElement;
+  const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+  try{
+    if(!isFs){
+      (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el);
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen).call(document);
+    }
+  }catch(e){ console.warn('fullscreen', e); }
+}
+function _updateFsBtn(){
+  const b = document.getElementById('fsBtn'); if(!b) return;
+  const ic = b.querySelector('i');
+  const isFs = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+  if(isFs){ if(ic) ic.className='bi bi-fullscreen-exit'; b.title='Tam Ekrandan Çık'; }
+  else { if(ic) ic.className='bi bi-arrows-fullscreen'; b.title='Tam Ekran'; }
+}
+document.addEventListener('fullscreenchange', _updateFsBtn);
+document.addEventListener('webkitfullscreenchange', _updateFsBtn);
 
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync(); }
 function saveKpiStore(){ localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig)); scheduleCloudSync(); }
