@@ -2952,7 +2952,7 @@ function renderDashboard(){
       const noData = raw === null;
       const displayVal = noData ? '—' : raw+(def.unit==='%'?'%':' '+def.unit);
       const cardStyle = noData ? 'opacity:.45;pointer-events:none' : 'cursor:pointer';
-      return `<div class="col-xl-2 col-lg-3 col-md-4 col-6"><div class="kpi" style="${cardStyle}" ${noData?'':"onclick='openKpiDetail(\'"+ k +"\')' title='Makine bazl\u0131 detay i\u00e7in t\u0131klay\u0131n'"} >
+      return `<div class="col-xl-2 col-lg-3 col-md-4 col-6"><div class="kpi" style="${cardStyle}" ${noData?'':`onclick="openKpiDetail('${k}')" title="Makine bazl\u0131 detay i\u00e7in t\u0131klay\u0131n"`} >
         <div class="kpi-label"><i class="bi ${def.icon}" style="color:${noData?'#555':ev.color}"></i>${def.label} ${noData?'':'<i class="bi bi-info-circle" style="font-size:.65rem;color:var(--muted);margin-left:2px"></i>'}</div>
         <div class="kpi-value" style="color:${noData?'#555':ev.color};font-size:${!noData&&String(displayVal).length>6?'1.4rem':'1.9rem'}">${displayVal}</div>
         <div class="kpi-target">
