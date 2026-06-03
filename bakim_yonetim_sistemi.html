@@ -8548,33 +8548,58 @@ async function exportMaintExcel(){
   const cols=[['#',5],['MAKİNE',26],['TİP',12],['PLAN TARİHİ',14],['TAMAMLANMA',14],['TAHMİNİ (s)',11],['GERÇEKLEŞEN (s)',13],['TEKNİSYEN',20],['AÇIKLAMA',36],['MALİYET',13],['KONTROL',9],['DURUM',14]];
   ws.columns=cols.map(c=>({width:c[1]}));
 
-  // Logo (antet)
+  // ── ANTET (yazdırılan form düzeni: logo | form adı | doküman bilgileri) ──
+  loadFormSettings();
+  const docNo   = formSettings.maintDocNo || 'BYS-BKM-001';
+  const revNo   = formSettings.maintRevNo || ('00 / '+(formSettings.effDate||''));
+  const effDate = formSettings.effDate || new Date().toLocaleDateString('tr-TR');
+  const box=()=>({top:{style:'medium',color:{argb:'FF000000'}},left:{style:'medium',color:{argb:'FF000000'}},bottom:{style:'medium',color:{argb:'FF000000'}},right:{style:'medium',color:{argb:'FF000000'}}});
+  function borderBox(r1,c1,r2,c2){ for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) ws.getRow(r).getCell(c).border=box(); }
+
+  [1,2,3,4].forEach(r=>{ ws.getRow(r).height=16; });
+
+  // Sol blok: logo (A1:C4)
+  ws.mergeCells('A1:C4');
+  ws.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
+  borderBox(1,1,4,3);
   try{
     if(SANIFOAM_LOGO_B64 && SANIFOAM_LOGO_B64.indexOf('__')!==0){
       const imgId=wb.addImage({base64:SANIFOAM_LOGO_B64,extension:'png'});
-      ws.addImage(imgId,{tl:{col:0.15,row:0.15},ext:{width:240,height:58}});
+      ws.addImage(imgId,{tl:{col:0.25,row:0.6},ext:{width:215,height:50}});
     }
   }catch(e){ console.warn('logo',e); }
-  ws.getRow(1).height=50;
-  ws.mergeCells('A1:L1');
 
-  // Başlık
-  ws.mergeCells('A2:L2');
-  const tc=ws.getCell('A2'); tc.value='PLANLI BAKIM RAPORU';
-  tc.font={name:'Calibri',size:18,bold:true,color:{argb:DARK}}; tc.alignment={horizontal:'center',vertical:'middle'};
-  ws.getRow(2).height=26;
+  // Orta blok: form adı (D1:H4)
+  ws.mergeCells('D1:H4');
+  const fn=ws.getCell('D1'); fn.value='BAKIM KAYIT FORMU';
+  fn.font={name:'Calibri',size:16,bold:true,color:{argb:'FF000000'}};
+  fn.alignment={horizontal:'center',vertical:'middle'};
+  borderBox(1,4,4,8);
 
-  // Alt bilgi
-  ws.mergeCells('A3:L3');
+  // Sağ blok: doküman bilgileri (I:L, 4 satır)
+  const info=[['DOKÜMAN NO',docNo],['YÜRÜRLÜK TARİHİ',effDate],['REV. NO / TARİHİ',revNo],['SAYFA NO','1 / 1']];
+  info.forEach((it,i)=>{
+    const r=i+1;
+    ws.mergeCells(`I${r}:J${r}`); ws.mergeCells(`K${r}:L${r}`);
+    const lc=ws.getCell(`I${r}`); lc.value=it[0];
+    lc.font={name:'Calibri',size:9,bold:true,color:{argb:'FF000000'}};
+    lc.alignment={horizontal:'left',vertical:'middle',indent:1};
+    const vc=ws.getCell(`K${r}`); vc.value=it[1];
+    vc.font={name:'Calibri',size:9,color:{argb:'FF000000'}};
+    vc.alignment={horizontal:'left',vertical:'middle',indent:1};
+  });
+  borderBox(1,9,4,12);
+
+  // Rapor kapsam satırı (6)
   const loc=gLocFilter||'Tüm Lokasyonlar';
-  const sc=ws.getCell('A3');
-  sc.value=`Lokasyon: ${loc}     •     Toplam Kayıt: ${list.length}     •     Oluşturma: ${new Date().toLocaleString('tr-TR')}`;
-  sc.font={name:'Calibri',size:10,color:{argb:'FF5B6B81'}}; sc.alignment={horizontal:'center'};
-  ws.getRow(3).height=16;
-  ws.addRow([]); // 4 boşluk
+  ws.mergeCells('A6:L6');
+  const sc=ws.getCell('A6');
+  sc.value=`PLANLI BAKIM RAPORU   •   Lokasyon: ${loc}   •   Toplam Kayıt: ${list.length}   •   Oluşturma: ${new Date().toLocaleString('tr-TR')}`;
+  sc.font={name:'Calibri',size:10,bold:true,color:{argb:DARK}}; sc.alignment={horizontal:'center',vertical:'middle'};
+  ws.getRow(6).height=18;
 
-  // Başlık satırı (5)
-  const hr=ws.getRow(5);
+  // Tablo başlık satırı (7)
+  const hr=ws.getRow(7);
   cols.forEach((c,i)=>{ const cell=hr.getCell(i+1); cell.value=c[0];
     cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:DARK}};
     cell.font={bold:true,color:{argb:'FFFFFFFF'},size:10};
