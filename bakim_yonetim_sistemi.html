@@ -957,6 +957,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
 <section id="personnel" class="section">
   <div class="page-hdr">
     <div><h2><i class="bi bi-person-badge-fill me-2" style="color:#26c6da"></i>Saha / Personel</h2><small>Hızlı arıza bildirimi, bakım ve iş emri işlemleri</small></div>
+    <button id="personnelThemeBtn" type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleTheme()" title="Tema değiştir"><i class="bi bi-moon-stars-fill me-1"></i>Tema</button>
   </div>
   <div id="personnelQuick" class="row g-3 mb-3"></div>
   <div class="row g-3">
@@ -2297,10 +2298,13 @@ function _themeForCharts(cfg){
 
 function updateThemeToggle(){
   const btn = document.getElementById('themeToggleBtn');
-  if(!btn) return;
-  btn.innerHTML = currentTheme === 'dark'
+  if(btn) btn.innerHTML = currentTheme === 'dark'
     ? '<i class="bi bi-brightness-high-fill me-1"></i>Light Mode'
     : '<i class="bi bi-moon-stars-fill me-1"></i>Dark Mode';
+  const pbtn = document.getElementById('personnelThemeBtn');
+  if(pbtn) pbtn.innerHTML = currentTheme === 'dark'
+    ? '<i class="bi bi-brightness-high-fill me-1"></i>Açık Tema'
+    : '<i class="bi bi-moon-stars-fill me-1"></i>Koyu Tema';
 }
 
 function applyTheme(theme='dark', persist=true, rerender=true){
