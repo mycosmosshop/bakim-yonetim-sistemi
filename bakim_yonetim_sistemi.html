@@ -1341,6 +1341,7 @@ select option{background:#0d1117}
           </div>
           <div class="col-md-6"><label class="form-label">Üretici</label><input type="text" class="form-control" id="mMachMfg"></div>
           <div class="col-md-6"><label class="form-label">Nominal Kapasite</label><input type="text" class="form-control" id="mMachCap" placeholder="örn: 500 adet/saat"></div>
+          <div class="col-md-6"><label class="form-label">Çalışma Saati (güncel) <small class="text-muted">(saatlik bakım için)</small></label><input type="number" class="form-control" id="mMachRunHours" min="0" step="1" placeholder="örn: 1250"></div>
           <div class="col-12"><label class="form-label">Notlar</label><textarea class="form-control" id="mMachNotes" rows="2"></textarea></div>
         </div>
       </div>
@@ -1470,12 +1471,40 @@ select option{background:#0d1117}
           <div class="col-md-6"><label class="form-label">Planlanan Tarih *</label><input type="date" class="form-control" id="mPSched"></div>
           <div class="col-md-6"><label class="form-label">Tamamlanma Tarihi</label><input type="date" class="form-control" id="mPComp" oninput="calcMaintNextSched()"></div>
           <div class="col-md-6">
+            <label class="form-label">Bakım Bazı</label>
+            <select class="form-select" id="mPBasis2" onchange="_toggleMaintBasis()">
+              <option value="date">📅 Tarihe Bağlı (gün/ay/yıl)</option>
+              <option value="hour">⏱️ Çalışma Saatine Bağlı (forklift, kompresör vb.)</option>
+            </select>
+          </div>
+          <div class="col-md-6" id="mPDateRow">
             <label class="form-label">Bakım Periyodu</label>
             <div class="input-group">
               <input type="number" class="form-control" id="mPPeriod" min="1" placeholder="örn: 1" oninput="calcMaintNextSched()">
               <select class="form-select flex-grow-0" id="mPPeriodUnit" onchange="calcMaintNextSched()" style="width:75px">
                 <option value="day">Gün</option><option value="month">Ay</option><option value="year" selected>Yıl</option>
               </select>
+            </div>
+          </div>
+          <div class="col-12" id="mPHourRow" style="display:none">
+            <div style="border:1px solid #ffa72655;background:rgba(255,167,38,.06);border-radius:8px;padding:.8rem">
+              <div class="row g-2 align-items-end">
+                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.82rem">Bakım Aralığı (saat)</label><input type="number" class="form-control form-control-sm" id="mPIntervalHours" min="1" placeholder="örn: 250" oninput="_calcNextHours()"></div>
+                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.82rem">Sonraki Bakım Saati</label><input type="number" class="form-control form-control-sm" id="mPNextHours" min="0" placeholder="otomatik" oninput="_calcNextHours()"></div>
+                <div class="col-md-4"><div id="mPHourInfo" style="font-size:.8rem;color:#ffa726"></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-12">
+            <div style="border:1px solid var(--border);border-radius:8px;padding:.8rem;background:#090c10">
+              <label class="d-flex align-items-center gap-2 mb-0" style="cursor:pointer;font-size:.85rem;font-weight:600;color:#26c6da">
+                <input type="checkbox" id="mPExternal" class="form-check-input" onchange="_toggleExtService()"> <i class="bi bi-truck"></i> Dış Servis (yetkili firma yapacak)
+              </label>
+              <div id="mPExtRow" class="row g-2 mt-1" style="display:none">
+                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem">Servis Firması</label><input type="text" class="form-control form-control-sm" id="mPExtCompany" placeholder="Firma adı"></div>
+                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem">Yetkili Kişi</label><input type="text" class="form-control form-control-sm" id="mPExtContact" placeholder="Ad Soyad"></div>
+                <div class="col-md-4"><label class="form-label mb-1" style="font-size:.8rem">Telefon</label><input type="text" class="form-control form-control-sm" id="mPExtPhone" placeholder="0xxx xxx xx xx"></div>
+              </div>
             </div>
           </div>
           <div class="col-md-6"><label class="form-label">Tahmini Süre (saat)</label><input type="number" class="form-control" id="mPEst" value="0" min="0" step="0.5"></div>
@@ -2723,6 +2752,7 @@ function getLast12Months(){
 
 // ── Saha / Personel ekranı ──
 function renderPersonnel(){
+  _autoMaintStatus();
   const w = canWrite();
   const qa = document.getElementById('personnelQuick'); if(!qa) return;
   qa.innerHTML =
@@ -2736,7 +2766,7 @@ function renderPersonnel(){
     const dd=daysDiff(p.sched); const ov=p.status==='overdue'||dd<0;
     return `<div class="upcoming-item">
       <div><div style="font-size:.9rem;font-weight:600">${mName(p.machineId)}</div>
-        <div style="font-size:.75rem;color:var(--muted)">${TYPE_PL[p.type]||p.type} · ${fmtD(p.sched)} ${ov?'<span style="color:#ff5252;font-weight:600">(gecikmiş)</span>':''}</div></div>
+        <div style="font-size:.75rem;color:var(--muted)">${TYPE_PL[p.type]||p.type} · ${p.basis==='hour'?`⏱️ ${p.nextHours||0} sa`:fmtD(p.sched)} ${ov?'<span style="color:#ff5252;font-weight:600">(gecikmiş)</span>':''}${p.external?` · <span style="color:#26c6da">🚚 ${p.extCompany||'Dış servis'}</span>`:''}</div></div>
       <div class="d-flex gap-1">
         ${w?`<button class="btn btn-sm btn-success" onclick="quickCompleteMaint('${p.id}')"><i class="bi bi-check2 me-1"></i>Tamamla</button>`:''}
         ${w?`<button class="btn btn-sm btn-outline-light" title="Düzenle" onclick='openMaintModal(${JSON.stringify(p)})'><i class="bi bi-pencil"></i></button>`:''}
@@ -2965,6 +2995,7 @@ function renderDashboard(){
   _readDashRange();
   _dashRangeActive = true;
   try{
+  _autoMaintStatus();
   document.getElementById('dashDate').textContent =
     new Date().toLocaleString('tr-TR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   document.getElementById('todayShort').textContent =
@@ -3450,6 +3481,7 @@ function openMachineModal(m){
   document.getElementById('mMachStatus').value=m?(m.status||'running'):'running';
   document.getElementById('mMachMfg').value=m?(m.mfg||''):'';
   document.getElementById('mMachCap').value=m?(m.capacity||''):'';
+  document.getElementById('mMachRunHours').value=m?(m.runHours||''):'';
   document.getElementById('mMachNotes').value=m?(m.notes||''):'';
   document.getElementById('mMachTitle').textContent=m?'Makine Düzenle':'Yeni Makine';
   new bootstrap.Modal(document.getElementById('modalMachine')).show();
@@ -3462,7 +3494,9 @@ function saveMachine(){ if(!requireWrite())return;
     location:document.getElementById('mMachLoc').value,dept:document.getElementById('mMachDept').value,
     installDate:document.getElementById('mMachDate').value,criticality:document.getElementById('mMachCrit').value,
     status:document.getElementById('mMachStatus').value,mfg:document.getElementById('mMachMfg').value,
-    capacity:document.getElementById('mMachCap').value,notes:document.getElementById('mMachNotes').value};
+    capacity:document.getElementById('mMachCap').value,
+    runHours:parseInt(document.getElementById('mMachRunHours').value)||0,
+    notes:document.getElementById('mMachNotes').value};
   if(!m.name){toast('Makine adı zorunlu!','danger');return;}
   if(id){const i=db.machines.findIndex(x=>x.id===id);if(i>-1)db.machines[i]=m;}else db.machines.push(m);
   save();bootstrap.Modal.getInstance(document.getElementById('modalMachine')).hide();
@@ -3604,11 +3638,23 @@ function delFailure(id){ if(!requireWrite())return;
 // ══════════════════════════════════════════
 //  MAINTENANCE
 // ══════════════════════════════════════════
-function renderMaint(){
-  // Auto-overdue
+function _autoMaintStatus(){
   db.maintenance.forEach(p=>{
-    if(p.status==='scheduled'&&new Date(p.sched)<new Date())p.status='overdue';
+    if(p.status!=='scheduled') return;
+    if(p.basis==='hour'){ const m=db.machines.find(x=>x.id===p.machineId); if(m && p.nextHours>0 && (m.runHours||0)>=p.nextHours) p.status='overdue'; }
+    else if(p.sched && new Date(p.sched)<new Date()) p.status='overdue';
   });
+}
+function _maintWhen(p){
+  if(p.basis==='hour'){
+    const m=db.machines.find(x=>x.id===p.machineId); const cur=m?(m.runHours||0):0;
+    const rem=(p.nextHours||0)-cur;
+    return `⏱️ ${p.nextHours||0} sa<div style="font-size:.68rem;font-weight:400;color:${rem<=0?'#ff5252':'var(--muted)'}">${rem<=0?Math.abs(rem)+' sa geçti':rem+' sa kaldı'}</div>`;
+  }
+  return fmtD(p.sched);
+}
+function renderMaint(){
+  _autoMaintStatus();
   const mf=document.getElementById('pMachF').value;
   const sf=document.getElementById('pStatF').value;
   const tf=document.getElementById('pTypeF').value;
@@ -3645,9 +3691,9 @@ function renderMaint(){
       ? `<span class="ts-progress${clDone===clTotal?' all-done':''}" onclick='openChecklistModal("${p.id}")'><i class="bi bi-list-check me-1"></i>${clDone}/${clTotal}</span>`
       : `<span class="ts-no-cl" onclick='openChecklistModal("${p.id}")'><i class="bi bi-plus"></i></span>`;
     return `<tr data-pid="${p.id}">
-    <td style="font-weight:600;font-size:.85rem">${mName(p.machineId)}</td>
-    <td><span style="background:${p.type==='autonomous'?'#1b5e20':'#1c2128'};padding:2px 8px;border-radius:20px;font-size:.72rem;${p.type==='autonomous'?'color:#69f0ae':''}">${TYPE_PL[p.type]||p.type}</span>${p.verifier?`<div style="font-size:.68rem;color:#42a5f5;margin-top:2px">✔ ${p.verifier}</div>`:''}</td>
-    <td style="font-size:.82rem;${p.status==='overdue'?'color:#ff5252;font-weight:600':''}">${fmtD(p.sched)}</td>
+    <td style="font-weight:600;font-size:.85rem">${mName(p.machineId)}${p.external?`<div style="font-size:.66rem;color:#26c6da;margin-top:2px"><i class="bi bi-truck"></i> Dış: ${p.extCompany||'Servis'}</div>`:''}</td>
+    <td><span style="background:${p.type==='autonomous'?'#1b5e20':'#1c2128'};padding:2px 8px;border-radius:20px;font-size:.72rem;${p.type==='autonomous'?'color:#69f0ae':''}">${TYPE_PL[p.type]||p.type}</span>${p.basis==='hour'?'<span style="background:#5d4037;color:#ffcc80;padding:1px 6px;border-radius:10px;font-size:.66rem;margin-left:3px">⏱️ Saatlik</span>':''}${p.verifier?`<div style="font-size:.68rem;color:#42a5f5;margin-top:2px">✔ ${p.verifier}</div>`:''}</td>
+    <td style="font-size:.82rem;${p.status==='overdue'?'color:#ff5252;font-weight:600':''}">${_maintWhen(p)}</td>
     <td style="font-size:.82rem">${fmtD(p.comp)}</td>
     <td style="font-size:.82rem">${p.estDur||0}h</td>
     <td style="font-size:.82rem">${p.actDur>0?p.actDur+'h':'—'}</td>
@@ -3680,6 +3726,15 @@ function openMaintModal(p){
   document.getElementById('mPDesc').value=p?(p.desc||''):'';
   document.getElementById('mPStat').value=p?(p.status||'scheduled'):'scheduled';
   document.getElementById('mPWo').value=p?(p.wo||''):'';
+  // Saatlik bakım + dış servis
+  document.getElementById('mPBasis2').value=p?(p.basis||'date'):'date';
+  document.getElementById('mPIntervalHours').value=p?(p.intervalHours||''):'';
+  document.getElementById('mPNextHours').value=p?(p.nextHours||''):'';
+  document.getElementById('mPExternal').checked=p?(p.external||false):false;
+  document.getElementById('mPExtCompany').value=p?(p.extCompany||''):'';
+  document.getElementById('mPExtContact').value=p?(p.extContact||''):'';
+  document.getElementById('mPExtPhone').value=p?(p.extPhone||''):'';
+  _toggleMaintBasis(); _toggleExtService();
   // Load task set dropdown filtered by machine
   _fillMaintTaskSetSel(p?p.machineId:'', p?p.taskSetId:'');
   // Load checklist
@@ -3717,9 +3772,17 @@ function saveMaint(){ if(!requireWrite())return;
     condMethod:document.getElementById('mPCondMethod')?.value||'',
     verifier:document.getElementById('mPVerifier')?.value||'',
     verifyDate:document.getElementById('mPVerifyDate')?.value||'',
-    techDisc:document.getElementById('mPTechDisc')?.value||''};
+    techDisc:document.getElementById('mPTechDisc')?.value||'',
+    basis:document.getElementById('mPBasis2')?.value||'date',
+    intervalHours:parseInt(document.getElementById('mPIntervalHours')?.value)||0,
+    nextHours:parseInt(document.getElementById('mPNextHours')?.value)||0,
+    external:document.getElementById('mPExternal')?.checked||false,
+    extCompany:document.getElementById('mPExtCompany')?.value||'',
+    extContact:document.getElementById('mPExtContact')?.value||'',
+    extPhone:document.getElementById('mPExtPhone')?.value||''};
   if(!p.machineId){toast('Makine seçiniz!','danger');return;}
-  if(!p.sched){toast('Planlanan tarih zorunlu!','danger');return;}
+  if(p.basis==='hour'){ if(!p.intervalHours&&!p.nextHours){toast('Saatlik bakım için aralık veya sonraki bakım saati girin!','danger');return;} }
+  else if(!p.sched){toast('Planlanan tarih zorunlu!','danger');return;}
   if(id){const i=db.maintenance.findIndex(x=>x.id===id);if(i>-1)db.maintenance[i]=p;}else db.maintenance.push(p);
   maybeSpawnNextMaint(p);
   save();bootstrap.Modal.getInstance(document.getElementById('modalMaint')).hide();
@@ -3728,7 +3791,29 @@ function saveMaint(){ if(!requireWrite())return;
 
 // Periyodik bakım: tamamlanınca bir sonraki planlı bakımı otomatik oluştur
 function maybeSpawnNextMaint(p){
-  if(!p || p.status!=='completed' || !(p.period>0) || p._spawnedNext) return;
+  if(!p || p.status!=='completed' || p._spawnedNext) return;
+  // Saatlik (çalışma saati) bazlı
+  if(p.basis==='hour'){
+    if(!(p.intervalHours>0)) return;
+    const m=db.machines.find(x=>x.id===p.machineId);
+    const baseH=(p.nextHours>0?p.nextHours:(m?(m.runHours||0):0));
+    const nextH=baseH+p.intervalHours;
+    const dupH=db.maintenance.some(x=>x.machineId===p.machineId&&x.type===p.type&&x.status==='scheduled'&&x.basis==='hour'&&x.nextHours===nextH);
+    if(dupH){ p._spawnedNext=true; return; }
+    db.maintenance.push({
+      id:uid(), machineId:p.machineId, type:p.type, sched:null, comp:null,
+      basis:'hour', intervalHours:p.intervalHours, nextHours:nextH,
+      period:0, periodUnit:p.periodUnit||'year', estDur:p.estDur||0, actDur:0,
+      tech:p.tech||'', cost:0, desc:p.desc||'', status:'scheduled', wo:genWoNo(),
+      taskSetId:p.taskSetId||'', techDisc:p.techDisc||'',
+      external:p.external||false, extCompany:p.extCompany||'', extContact:p.extContact||'', extPhone:p.extPhone||'',
+      checklist:(p.checklist||[]).map(t=>({...t,done:false}))
+    });
+    p._spawnedNext=true;
+    toast(`🔁 Saatlik: sonraki bakım ${nextH} sa için oluşturuldu`,'info');
+    return;
+  }
+  if(!(p.period>0)) return;
   const base = new Date(p.comp || new Date());
   if(isNaN(base.getTime())) return;
   const next = new Date(base); const n = p.period;
@@ -7570,6 +7655,29 @@ function calcFixNextMaint(){
   }
 }
 
+// ── Saatlik bakım & dış servis yardımcıları ──
+function _maintSelMachine(){ const id=document.getElementById('mPMach')?.value; return db.machines.find(m=>m.id===id); }
+function _toggleMaintBasis(){
+  const basis=document.getElementById('mPBasis2')?.value||'date';
+  const hr=document.getElementById('mPHourRow'), dr=document.getElementById('mPDateRow');
+  if(hr) hr.style.display = basis==='hour'?'block':'none';
+  if(dr) dr.style.display = basis==='hour'?'none':'block';
+  if(basis==='hour') _calcNextHours();
+}
+function _calcNextHours(){
+  const m=_maintSelMachine(); const cur=m?(m.runHours||0):0;
+  const interval=parseInt(document.getElementById('mPIntervalHours')?.value)||0;
+  const nextEl=document.getElementById('mPNextHours');
+  if(nextEl && !nextEl.value && interval>0) nextEl.value=cur+interval;
+  const next=parseInt(nextEl?.value)||0;
+  const info=document.getElementById('mPHourInfo');
+  if(info) info.innerHTML = m ? `Makine güncel: <b>${cur}</b> sa${next>0?` · Kalan: <b>${next-cur}</b> sa`:''}` : '⚠ Önce makine seçin';
+}
+function _toggleExtService(){
+  const on=document.getElementById('mPExternal')?.checked;
+  const row=document.getElementById('mPExtRow'); if(row) row.style.display=on?'flex':'none';
+}
+
 function calcMaintNextSched(){
   const comp = document.getElementById('mPComp').value;
   const period = parseInt(document.getElementById('mPPeriod').value)||0;
@@ -8620,6 +8728,8 @@ function _renderMaintForm(id){
       <div class="print-field"><div class="print-field-lbl">Teknisyen / Ekip</div><div class="print-field-val">${p.tech||'—'}</div></div>
       <div class="print-field"><div class="print-field-lbl">Maliyet (₺)</div><div class="print-field-val">${fmt(p.cost)}</div></div>
     </div>
+    ${p.basis==='hour'?`<div class="print-field-full"><div class="print-field-lbl">Çalışma Saatine Bağlı Bakım</div><div class="print-field-val">Bakım aralığı: <b>${p.intervalHours||0} saat</b> &nbsp;|&nbsp; Sonraki bakım: <b>${p.nextHours||0} saat</b> &nbsp;|&nbsp; Makine güncel: <b>${(m.runHours||0)} saat</b></div></div>`:''}
+    ${p.external?`<div class="print-field-full"><div class="print-field-lbl">Dış Servis Bilgisi</div><div class="print-field-val">Firma: <b>${p.extCompany||'—'}</b> &nbsp;|&nbsp; Yetkili: ${p.extContact||'—'} &nbsp;|&nbsp; Telefon: ${p.extPhone||'—'}</div></div>`:''}
     <div class="print-field-full"><div class="print-field-lbl">Açıklama / Yapılan İşlemler</div><div class="print-field-val" style="min-height:80px">${p.desc||''}</div></div>
     <div class="print-sign-row" style="grid-template-columns:340px">
       <div class="print-sign-box"><div class="print-sign-lbl">Bakım Sorumlusu</div><div style="font-size:12px;margin-top:4px">${p.tech||''}</div><div class="print-sign-line">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
