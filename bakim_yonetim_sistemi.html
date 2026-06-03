@@ -2721,7 +2721,9 @@ function fmtPeriod(p,unit){if(!p)return '—';return `${p} ${{day:'gün',month:'
 const CRIT_LBL = {critical:'Kritik',high:'Yüksek',medium:'Orta',low:'Düşük'};
 // ── Global Location Filter ──
 let gLocFilter = '';
+let _lockedLoc = null;   // kullanıcıya atanmış lokasyon (admin değilse kilitli)
 function applyGlobalLoc(v){
+  if(_lockedLoc) v=_lockedLoc;   // atanmış lokasyon dışına çıkamaz
   gLocFilter=v;
   _updateLocBadges();
   const cur=document.querySelector('[data-sec].active')?.dataset?.sec||'dashboard';
@@ -6650,6 +6652,15 @@ function applyRoleUI(){
   const tech = (typeof isAdminUser==='function') ? (!isAdminUser() && _userRole()==='technician') : false;
   document.body.classList.toggle('tech-mode', tech);
   document.querySelectorAll('.sidebar [data-sec]').forEach(a=>{ a.style.display = (tech && a.dataset.sec!=='personnel') ? 'none' : ''; });
+  // Lokasyon kilidi: admin değilse ve lokasyon atanmışsa o lokasyona kilitle
+  const cp = (typeof currentProfile!=='undefined') ? currentProfile : null;
+  _lockedLoc = (cp && !isAdminUser() && cp.location) ? cp.location : null;
+  const sel = document.getElementById('gLocFilterEl');
+  if(_lockedLoc){
+    gLocFilter = _lockedLoc;
+    if(sel){ sel.value = _lockedLoc; sel.disabled = true; }
+  } else if(sel){ sel.disabled = false; }
+  try{ _updateLocBadges(); }catch(e){}
 }
 function nav(sec){
   if(document.body.classList.contains('tech-mode') && sec!=='personnel') sec='personnel';
@@ -9403,7 +9414,7 @@ async function fetchProfile(retries=5){
     try{ const { data:sess } = await sb.auth.getSession(); if(sess && sess.session && sess.session.user) currentUser = sess.session.user; }catch(e){}
     if(!currentUser){ if(i<retries){ await new Promise(r=>setTimeout(r,600)); continue; } return { error:'no-session' }; }
     try{
-      const { data, error } = await sb.from('profiles').select('approved,is_admin,role,email').eq('id', currentUser.id).maybeSingle();
+      const { data, error } = await sb.from('profiles').select('approved,is_admin,role,location,email').eq('id', currentUser.id).maybeSingle();
       if(error){ console.warn('fetchProfile error', error); lastErr = error; }
       else if(data){ return { data }; }            // başarı
       // data boş → token henüz oturmamış olabilir, yeniden dene
@@ -9500,10 +9511,11 @@ async function openAdminPanel(){
   const list = document.getElementById('adminUserList');
   document.getElementById('adminModal').style.display='flex';
   list.innerHTML = '<div style="color:var(--muted)">Yükleniyor…</div>';
-  const { data, error } = await sb.from('profiles').select('id,email,approved,is_admin,role,created_at').order('created_at',{ascending:false});
+  const { data, error } = await sb.from('profiles').select('id,email,approved,is_admin,role,location,created_at').order('created_at',{ascending:false});
   if(error){ list.innerHTML = '<div style="color:#e53935">Hata: '+error.message+'</div>'; return; }
   if(!data || !data.length){ list.innerHTML = '<div style="color:var(--muted)">Kullanıcı yok.</div>'; return; }
   const ROLE_LBL={admin:'Yönetici',technician:'Teknisyen',viewer:'İzleyici'};
+  const LOC_LIST=['Çerkezköy','Veliköy','Ankara','Adapazarı','Bursa','Eskişehir','Adana','Sanifoam','Ultech1','Ultech2'];
   list.innerHTML = data.map(u=>{
     const me = u.id === currentUser.id;
     const role = u.role || 'viewer';
@@ -9513,12 +9525,17 @@ async function openAdminPanel(){
         <option value="technician" ${role==='technician'?'selected':''}>Teknisyen (işlem)</option>
         <option value="viewer" ${role==='viewer'?'selected':''}>İzleyici (salt-okunur)</option>
       </select>` : '';
+    const loc = u.location || '';
+    const locSel = (u.approved && role!=='admin') ? `<select onchange="setUserLocation('${u.id}', this.value)" class="form-select form-select-sm" style="width:auto;display:inline-block;font-size:.78rem" title="Lokasyon izni">
+        <option value="" ${loc===''?'selected':''}>📍 Tüm Lokasyonlar</option>
+        ${LOC_LIST.map(L=>`<option value="${L}" ${loc===L?'selected':''}>📍 ${L}</option>`).join('')}
+      </select>` : '';
     const action = u.approved
       ? (me ? '<span style="font-size:.7rem;color:var(--muted)">(siz)</span>' : `<button onclick="setApproval('${u.id}',false)" class="btn btn-sm btn-outline-danger" title="Erişimi kapat">Kapat</button>`)
       : `<button onclick="setApproval('${u.id}',true)" class="btn btn-sm btn-success">Onayla</button>`;
     return `<div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.6rem;border:1px solid var(--border,#30363d);border-radius:8px;margin-bottom:.5rem;flex-wrap:wrap">
-      <div style="min-width:0;flex:1"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'(e-posta yok)'}</div><div style="font-size:.72rem;color:var(--muted)">${badge}${u.approved?' · '+ (ROLE_LBL[role]||role):''}</div></div>
-      <div class="d-flex align-items-center gap-2 flex-wrap">${roleSel}${action}</div>
+      <div style="min-width:0;flex:1"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'(e-posta yok)'}</div><div style="font-size:.72rem;color:var(--muted)">${badge}${u.approved?' · '+ (ROLE_LBL[role]||role):''}${(u.approved&&role!=='admin')?' · 📍 '+(loc||'Tüm'):''}</div></div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">${roleSel}${locSel}${action}</div>
     </div>`;
   }).join('');
 }
@@ -9541,6 +9558,13 @@ async function setRole(id, role){
   const { error } = await sb.from('profiles').update({ role, is_admin: role==='admin' }).eq('id', id);
   if(error){ toast('Rol değiştirilemedi: '+error.message,'danger'); return; }
   toast('Rol güncellendi: '+({admin:'Yönetici',technician:'Teknisyen',viewer:'İzleyici'}[role]||role));
+  openAdminPanel();
+}
+
+async function setUserLocation(id, loc){
+  const { error } = await sb.from('profiles').update({ location: loc }).eq('id', id);
+  if(error){ toast('Lokasyon atanamadı: '+error.message,'danger'); return; }
+  toast(loc ? ('Lokasyon atandı: '+loc) : 'Tüm lokasyonlar (kısıt yok)');
   openAdminPanel();
 }
 
