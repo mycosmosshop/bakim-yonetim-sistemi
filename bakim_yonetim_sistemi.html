@@ -8479,10 +8479,8 @@ function _renderFailureForm(id){
     <div class="print-field-full"><div class="print-field-lbl">Arıza Açıklaması</div><div class="print-field-val">${f.desc||''}</div></div>
     <div class="print-field-full"><div class="print-field-lbl">Kök Neden (Root Cause Analysis)</div><div class="print-field-val">${f.rootCause||''}</div></div>
     <div class="print-field-full"><div class="print-field-lbl">Çözüm / Yapılan İşlem</div><div class="print-field-val">${f.resolution||''}</div></div>
-    <div class="print-sign-row">
-      <div class="print-sign-box"><div class="print-sign-lbl">Kaydeden / Teknisyen</div><div style="font-size:12px;margin-top:4px">${f.tech||''}</div><div class="print-sign-line">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
-      <div class="print-sign-box"><div class="print-sign-lbl">Bakım Şefi Onayı</div><div class="print-sign-line" style="margin-top:40px">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
-      <div class="print-sign-box"><div class="print-sign-lbl">Teslim Alan / Operatör</div><div class="print-sign-line" style="margin-top:40px">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
+    <div class="print-sign-row" style="grid-template-columns:340px">
+      <div class="print-sign-box"><div class="print-sign-lbl">Bakım Sorumlusu</div><div style="font-size:12px;margin-top:4px">${f.tech||''}</div><div class="print-sign-line">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
     </div>
     <div style="margin-top:14px;font-size:9px;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:6px">
       Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${_genDate()} tarihinde oluşturulmuştur.
@@ -8512,10 +8510,8 @@ function _renderMaintForm(id){
       <div class="print-field"><div class="print-field-lbl">Maliyet (₺)</div><div class="print-field-val">${fmt(p.cost)}</div></div>
     </div>
     <div class="print-field-full"><div class="print-field-lbl">Açıklama / Yapılan İşlemler</div><div class="print-field-val" style="min-height:80px">${p.desc||''}</div></div>
-    <div class="print-sign-row">
-      <div class="print-sign-box"><div class="print-sign-lbl">Bakım Yapan / Teknisyen</div><div style="font-size:12px;margin-top:4px">${p.tech||''}</div><div class="print-sign-line">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
-      <div class="print-sign-box"><div class="print-sign-lbl">Bakım Şefi Onayı</div><div class="print-sign-line" style="margin-top:40px">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
-      <div class="print-sign-box"><div class="print-sign-lbl">Makine Operatörü / Teslim Alan</div><div class="print-sign-line" style="margin-top:40px">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
+    <div class="print-sign-row" style="grid-template-columns:340px">
+      <div class="print-sign-box"><div class="print-sign-lbl">Bakım Sorumlusu</div><div style="font-size:12px;margin-top:4px">${p.tech||''}</div><div class="print-sign-line">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
     </div>
     <div style="margin-top:14px;font-size:9px;color:#888;text-align:center;border-top:1px solid #ddd;padding-top:6px">
       Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${_genDate()} tarihinde oluşturulmuştur.
