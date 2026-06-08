@@ -417,6 +417,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
   <div class="page-hdr">
     <div><h2><i class="bi bi-cpu-fill me-2" style="color:var(--cyan)"></i>Makineler</h2><small>Makine parkuru yönetimi</small></div>
     <button class="btn btn-sm text-white" style="background:#1d6f42" onclick="exportMachineExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+    <button class="btn btn-sm text-white" style="background:#0a58ca" onclick="importMachineExcel()" title="Makine Tanıtım Kartı Excel'i (A=Kod, B=İsim)"><i class="bi bi-upload me-1"></i>Excel İçe Aktar</button>
     <button class="btn btn-primary btn-sm" onclick="openMachineModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Makine</button>
   </div>
   <div class="row g-3 mb-4" id="mStats"></div>
@@ -6915,11 +6916,45 @@ img{max-width:100%;height:auto;border-radius:3px}
 //  SELECTS & FILTERS
 // ══════════════════════════════════════════
 function updateSelects(){
-  const visibleMachines = gLocFilter ? db.machines.filter(m=>m.location===gLocFilter) : db.machines;
-  const opts  = `<option value="">— Seçiniz —</option>`+visibleMachines.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-  const fOpts = `<option value="">Tüm Makineler</option>`+visibleMachines.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  const visibleMachines = (gLocFilter ? db.machines.filter(m=>m.location===gLocFilter) : db.machines).slice()
+    .sort((a,b)=>(a.code||a.name||'').localeCompare(b.code||b.name||'','tr'));
+  const lbl=m=>`${m.code?m.code+' — ':''}${m.name||''}`;
+  const opts  = `<option value="">— Seçiniz —</option>`+visibleMachines.map(m=>`<option value="${m.id}">${lbl(m)}</option>`).join('');
+  const fOpts = `<option value="">Tüm Makineler</option>`+visibleMachines.map(m=>`<option value="${m.id}">${lbl(m)}</option>`).join('');
   ['mFailMach','mPMach','mPtMach','mTsMach'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=opts; });
   ['fMachF','pMachF','tsMachF'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=fOpts; });
+}
+function importMachineExcel(){
+  if(!requireWrite())return;
+  if(typeof ExcelJS==='undefined'){ toast('Excel kütüphanesi yüklenemedi, internet bağlantını kontrol et.','danger'); return; }
+  const input=document.createElement('input'); input.type='file'; input.accept='.xlsx,.xls';
+  input.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      try{
+        const wb=new ExcelJS.Workbook(); await wb.xlsx.load(ev.target.result);
+        const ws=wb.worksheets[0]; if(!ws){ toast('Excel sayfası bulunamadı','warning'); return; }
+        const cellTxt=v=>{ if(v==null)return ''; if(typeof v==='object'){ if(v.text!=null)return String(v.text); if(v.result!=null)return String(v.result); if(v.richText)return v.richText.map(t=>t.text).join(''); if(v.hyperlink)return String(v.text||''); return String(v.value!=null?v.value:''); } return String(v); };
+        const rows=[]; ws.eachRow(row=>{ rows.push([cellTxt(row.getCell(1).value), cellTxt(row.getCell(2).value)]); });
+        if(!rows.length){ toast('Excel boş','warning'); return; }
+        let start=0; const h0=((rows[0][0]||'')+' '+(rows[0][1]||'')).toLowerCase();
+        if(/kod|isim|makine|ad/.test(h0)) start=1;   // başlık satırını atla
+        let added=0,updated=0;
+        for(let i=start;i<rows.length;i++){
+          const code=(rows[i][0]||'').trim(), name=(rows[i][1]||'').trim();
+          if(!code && !name) continue;
+          let ex = code ? db.machines.find(x=>String(x.code||'').trim()===code) : db.machines.find(x=>String(x.name||'').trim().toLowerCase()===name.toLowerCase());
+          if(ex){ if(code)ex.code=code; if(name)ex.name=name; updated++; }
+          else { db.machines.push({id:uid(),name:name||code,code:code,model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:'Excel ile içe aktarıldı'}); added++; }
+        }
+        save(); updateSelects(); renderMachines();
+        toast(`İçe aktarıldı ✔ ${added} yeni makine, ${updated} güncellendi.`,'success');
+      }catch(err){ toast('Excel okuma hatası: '+(err.message||err),'danger'); }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  input.click();
 }
 
 // ══════════════════════════════════════════
