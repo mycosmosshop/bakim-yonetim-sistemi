@@ -514,9 +514,15 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <span class="text-muted align-self-center" style="font-size:.8rem">—</span>
       <input type="date" class="form-control form-control-sm" style="width:145px" id="pDateTo" onchange="renderMaint()" title="Plan tarihi bitiş">
     </div>
+    <div id="maintBulkBar" style="display:none;align-items:center;gap:.6rem;margin-bottom:.7rem;padding:.5rem .85rem;background:rgba(229,57,53,.1);border:1px solid #e5393955;border-radius:8px">
+      <span style="font-size:.86rem"><b id="maintSelCount">0</b> kayıt seçili</span>
+      <button class="btn btn-sm btn-danger" onclick="delMaintSelected()"><i class="bi bi-trash me-1"></i>Seçilenleri Sil</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="clearMaintSel()">Seçimi Temizle</button>
+    </div>
     <div class="table-responsive">
       <table class="table table-dark table-striped table-hover align-middle mb-0">
         <thead><tr>
+          <th style="width:34px;text-align:center"><input type="checkbox" id="maintChkAll" onclick="toggleAllMaint(this)" title="Tümünü seç"></th>
           <th>Makine</th><th>Tip</th><th>Plan Tarihi</th><th>Tamamlanma</th>
           <th>Tahmini</th><th>Gerçekleşen</th><th>Teknisyen</th><th>Açıklama</th><th>Maliyet</th><th>Kontrol</th><th>Durum</th><th></th>
         </tr></thead>
@@ -3860,6 +3866,7 @@ function renderMaint(){
       ? `<span class="ts-progress${clDone===clTotal?' all-done':''}" onclick='openChecklistModal("${p.id}")'><i class="bi bi-list-check me-1"></i>${clDone}/${clTotal}</span>`
       : `<span class="ts-no-cl" onclick='openChecklistModal("${p.id}")'><i class="bi bi-plus"></i></span>`;
     return `<tr data-pid="${p.id}">
+    <td style="text-align:center"><input type="checkbox" class="maint-chk" value="${p.id}" onclick="_maintSelChanged()"></td>
     <td style="font-weight:600;font-size:.85rem">${mName(p.machineId)}${p.external?`<div style="font-size:.66rem;color:#26c6da;margin-top:2px"><i class="bi bi-truck"></i> Dış: ${p.extCompany||'Servis'}</div>`:''}</td>
     <td><span style="background:${p.type==='autonomous'?'#1b5e20':'#1c2128'};padding:2px 8px;border-radius:20px;font-size:.72rem;${p.type==='autonomous'?'color:#69f0ae':''}">${TYPE_PL[p.type]||p.type}</span>${p.basis==='hour'?'<span style="background:#5d4037;color:#ffcc80;padding:1px 6px;border-radius:10px;font-size:.66rem;margin-left:3px">⏱️ Saatlik</span>':''}${p.verifier?`<div style="font-size:.68rem;color:#42a5f5;margin-top:2px">✔ ${p.verifier}</div>`:''}</td>
     <td style="font-size:.82rem;${p.status==='overdue'?'color:#ff5252;font-weight:600':''}">${_maintWhen(p)}</td>
@@ -3877,6 +3884,7 @@ function renderMaint(){
       <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delMaint('${p.id}')"><i class="bi bi-trash"></i></button>
     </td></tr>`;
   }).join('');
+  _maintSelChanged();
 }
 
 function openMaintModal(p){
@@ -4008,6 +4016,35 @@ function delMaint(id){ if(!requireWrite())return;
   if(confirm('Bu bakım kaydını silmek istediğinize emin misiniz?')){
     db.maintenance=db.maintenance.filter(p=>p.id!==id);save();renderMaint();
   }
+}
+// ── Planlı Bakım: toplu seçim & silme ──
+function toggleAllMaint(cb){
+  document.querySelectorAll('#pBody .maint-chk').forEach(c=>{c.checked=cb.checked;});
+  _maintSelChanged();
+}
+function _maintSelChanged(){
+  const chks=[...document.querySelectorAll('#pBody .maint-chk')];
+  const sel=chks.filter(c=>c.checked).length;
+  const bar=document.getElementById('maintBulkBar'); const cnt=document.getElementById('maintSelCount');
+  if(cnt) cnt.textContent=sel;
+  if(bar) bar.style.display = sel>0 ? 'flex' : 'none';
+  const all=document.getElementById('maintChkAll');
+  if(all){ all.checked = chks.length>0 && sel===chks.length; all.indeterminate = sel>0 && sel<chks.length; }
+}
+function clearMaintSel(){
+  document.querySelectorAll('#pBody .maint-chk').forEach(c=>{c.checked=false;});
+  const all=document.getElementById('maintChkAll'); if(all){all.checked=false;all.indeterminate=false;}
+  _maintSelChanged();
+}
+function delMaintSelected(){
+  if(!requireWrite())return;
+  const ids=[...document.querySelectorAll('#pBody .maint-chk:checked')].map(c=>c.value);
+  if(!ids.length){ toast('Önce kayıt seçin','warning'); return; }
+  if(!confirm(ids.length+' bakım kaydı silinecek. Emin misiniz?')) return;
+  const set=new Set(ids);
+  db.maintenance=db.maintenance.filter(p=>!set.has(p.id));
+  save(); renderMaint();
+  toast(ids.length+' bakım kaydı silindi ✔','success');
 }
 function autoAssignAllMachines(){
   if(!db.machines.length){toast('Henüz makine eklenmemiş!','warning');return;}
@@ -7648,20 +7685,22 @@ const SANIFOAM_TASK_SETS = [
     {id:'sfm_kesme_pres_12',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
     {id:'sfm_kesme_pres_13',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
   ]},
-  { id:'sfm_acili', name:'Açılı Kesim Makinesi — Periyodik Bakım (Testereli Kesme)', desc:'Açılı testereli kesim makinesi (pres değildir) — formdan alınan kalemler', type:'preventive', techDisc:'mechanical+electrical', tasks:[
-    {id:'sfm_acili_1',title:'Hidrolik yağ kontrol et',note:'',mins:10},
-    {id:'sfm_acili_2',title:'Soğutma fanı ve motorunu kontrol et',note:'',mins:10},
-    {id:'sfm_acili_3',title:'Hareketli gezer kafa hidrolik pompa kontrol et',note:'',mins:10},
-    {id:'sfm_acili_4',title:'Hareketli gezer kafa pompa motoru kontrol et',note:'',mins:10},
-    {id:'sfm_acili_5',title:'Hareketli kafa hidrolik silindir kontrol et',note:'',mins:10},
-    {id:'sfm_acili_6',title:'Hareketli kafa valf grubu, hortumları ve bağlantılarını kontrol et',note:'',mins:10},
-    {id:'sfm_acili_7',title:'Ana kesme hidrolik pompasını kontrol et',note:'',mins:10},
-    {id:'sfm_acili_8',title:'Ana kesme hidrolik pompa motorunu kontrol et',note:'',mins:10},
-    {id:'sfm_acili_9',title:'Ana kesme hidrolik silindirleri kontrol et',note:'',mins:10},
-    {id:'sfm_acili_10',title:'Ana kesme valf grupları, hortumları ve bağlantılarını kontrol et',note:'',mins:10},
-    {id:'sfm_acili_11',title:'Kesme ünitesi polyamidini kontrol et',note:'',mins:10},
-    {id:'sfm_acili_12',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
-    {id:'sfm_acili_13',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  { id:'sfm_acili', name:'Açılı Kesim Makinesi — Periyodik Bakım (Testereli Kesme)', desc:'Açılı testereli kesim makinesi — CNC/Dikey kesim mantığına göre bıçak/testere bazlı bakım', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_acili_1',title:'Makine bıçak gergi sistemi kontrolü',note:'',mins:10},
+    {id:'sfm_acili_2',title:'Makine bıçak vibrasyon sistemi kontrolü',note:'',mins:10},
+    {id:'sfm_acili_3',title:'Makine bıçak motoru kontrolü',note:'',mins:10},
+    {id:'sfm_acili_4',title:'Bıçak bileme ve yönlendirici (elmas) elemanları kontrolü',note:'',mins:10},
+    {id:'sfm_acili_5',title:'Açı ayar sistemi ve kızak / mil kontrolü',note:'',mins:10},
+    {id:'sfm_acili_6',title:'Makine kesim ünitesi kontrolü',note:'',mins:10},
+    {id:'sfm_acili_7',title:'Kesim ünitesi hareket sistemi kontrolü (vida, somun, kayış, zincir)',note:'',mins:10},
+    {id:'sfm_acili_8',title:'Kesim tablası ve sıkıştırma (mengene) kontrolü',note:'',mins:10},
+    {id:'sfm_acili_9',title:'Makine tabla / kafa hareket motorlarını kontrol et',note:'',mins:10},
+    {id:'sfm_acili_10',title:'Makine ölçü / konumlama sistemi kontrolü',note:'',mins:10},
+    {id:'sfm_acili_11',title:'Makine güvenlik sistemleri kontrolü',note:'',mins:10},
+    {id:'sfm_acili_12',title:'Makine kumanda elemanları kontrolü',note:'',mins:10},
+    {id:'sfm_acili_13',title:'Makine pano (elektrik) kontrol ve temizliği',note:'',mins:10},
+    {id:'sfm_acili_14',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_acili_15',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
   ]},
   { id:'sfm_cnc_kesim', name:'Dikey CNC Kesim Makinası — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — CNC Kesim', type:'preventive', techDisc:'mechanical+electrical', tasks:[
     {id:'sfm_cnc_kesim_1',title:'Makine bıçak gergi sistemi kontrolü',note:'',mins:10},
