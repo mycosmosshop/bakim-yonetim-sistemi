@@ -157,6 +157,9 @@ select option{background:#0d1117}
   body>nav,body>.main,#toastZone,.modal,.modal-backdrop,#syncBar,#authOverlay,#pendingOverlay,#resetOverlay,#adminModal,#activityModal,#pwModal,#printDateModal{display:none!important}
   #printArea{display:block!important;position:static!important;padding:20px}
   .print-pg-break{page-break-before:always}
+  .print-sign-row,.print-sign-box{page-break-inside:avoid;break-inside:avoid}
+  #printArea table tr{page-break-inside:avoid;break-inside:avoid}
+  #printArea thead{display:table-header-group}
 }
 .print-antet{display:flex;border:2px solid #000;margin-bottom:0;font-family:Arial,sans-serif}
 .print-antet-left{padding:10px 14px;border-right:2px solid #000;min-width:160px;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
@@ -9141,15 +9144,13 @@ function _renderMaintForm(id){
           <th style="border:1px solid #bbb;padding:4px 6px;width:26px">#</th>
           <th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Kontrol / Görev</th>
           <th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Açıklama</th>
-          <th style="border:1px solid #bbb;padding:4px 6px;width:62px;text-align:center">Durum</th>
-          <th style="border:1px solid #bbb;padding:4px 6px;width:92px;text-align:left">Yapan</th>
+          <th style="border:1px solid #bbb;padding:4px 6px;width:70px;text-align:center">Durum</th>
         </tr></thead>
         <tbody>${_cl.map((t,i)=>`<tr>
           <td style="border:1px solid #ccc;padding:4px 6px;text-align:center">${i+1}</td>
           <td style="border:1px solid #ccc;padding:4px 6px">${t.title||''}</td>
           <td style="border:1px solid #ccc;padding:4px 6px;color:#555">${t.note||''}</td>
           <td style="border:1px solid #ccc;padding:4px 6px;text-align:center;font-size:13px">${t.done?'☑':'☐'}</td>
-          <td style="border:1px solid #ccc;padding:4px 6px">${t.doneBy||''}</td>
         </tr>`).join('')}</tbody>
       </table>
     </div>` : '';
