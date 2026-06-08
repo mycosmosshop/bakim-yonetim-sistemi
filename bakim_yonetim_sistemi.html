@@ -417,7 +417,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
   <div class="page-hdr">
     <div><h2><i class="bi bi-cpu-fill me-2" style="color:var(--cyan)"></i>Makineler</h2><small>Makine parkuru yönetimi</small></div>
     <button class="btn btn-sm text-white" style="background:#1d6f42" onclick="exportMachineExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
-    <button class="btn btn-sm text-white" style="background:#0a58ca" onclick="importMachineExcel()" title="Makine Tanıtım Kartı Excel'i (A=Kod, B=İsim)"><i class="bi bi-upload me-1"></i>Excel İçe Aktar</button>
+    <button class="btn btn-sm text-white" style="background:#0a58ca" onclick="importMachineExcel()" title="Makine Tanıtım Kartı Excel'i (A=Kod, B=İsim) → kataloğa al"><i class="bi bi-upload me-1"></i>Excel İçe Aktar</button>
+    <button class="btn btn-sm btn-outline-info" onclick="openMachCatalog()"><i class="bi bi-collection me-1"></i>Kataloğdan Ekle</button>
     <button class="btn btn-primary btn-sm" onclick="openMachineModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Makine</button>
   </div>
   <div class="row g-3 mb-4" id="mStats"></div>
@@ -439,9 +440,15 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <option>Sanifoam</option><option>Ultech1</option><option>Ultech2</option>
       </select>
     </div>
+    <div id="machBulkBar" style="display:none;align-items:center;gap:.6rem;margin-bottom:.7rem;padding:.5rem .85rem;background:rgba(229,57,53,.1);border:1px solid #e5393955;border-radius:8px">
+      <span style="font-size:.86rem"><b id="machSelCount">0</b> makine seçili</span>
+      <button class="btn btn-sm btn-danger" onclick="delMachSelected()"><i class="bi bi-trash me-1"></i>Seçilenleri Sil</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="clearMachSel()">Seçimi Temizle</button>
+    </div>
     <div class="table-responsive">
       <table class="table table-dark table-striped table-hover align-middle mb-0">
         <thead><tr>
+          <th style="width:34px;text-align:center"><input type="checkbox" id="machChkAll" onclick="toggleAllMach(this)" title="Tümünü seç"></th>
           <th>Makine</th><th>Model / SN</th><th>Lokasyon</th><th>Departman</th>
           <th>Kritiklik</th><th>Durum</th><th>MTBF</th><th>MTTR</th>
           <th>Kullanılabilirlik</th><th>Kurulum</th><th></th>
@@ -1853,6 +1860,24 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         </div>
         <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Kapat</button>
         <button class="btn btn-success btn-sm" onclick="saveChecklist()"><i class="bi bi-check2-all me-1"></i>Kaydet</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Machine Catalog Modal -->
+<div class="modal fade" id="modalMachCatalog" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header"><h5 class="modal-title"><i class="bi bi-collection me-2" style="color:#42a5f5"></i>Makine Kataloğu <small class="text-muted" style="font-size:.7rem">(<span id="mcCount">0</span> kayıt)</small></h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:.5rem">Excel'den içe aktarılan kod/isim listesi. <b>Kod veya addan ara</b>, <b>«Ekle»</b> ile sadece istediğin makineyi listene aktar.</p>
+        <input type="text" class="form-control mb-2" id="mcSearch" placeholder="🔍 Kod veya isim ara…" oninput="renderMachCatalog()">
+        <div id="mcList" style="max-height:430px;overflow-y:auto"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-outline-success me-auto" onclick="addAllFilteredCatalog()"><i class="bi bi-plus-lg me-1"></i>Filtreli tümünü ekle</button>
+        <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Kapat</button>
       </div>
     </div>
   </div>
@@ -3681,6 +3706,7 @@ function printMachineCard(){
 //  MACHINES
 // ══════════════════════════════════════════
 function renderMachines(){
+  if(_migrateImportedMachines()){ try{ if(typeof canWrite!=='function'||canWrite()) save(); }catch(e){} }   // hatalı toplu import'u kataloğa taşı → listeyi eski haline döndür
   const srch=(document.getElementById('mSearch').value||'').toLowerCase();
   const sf=document.getElementById('mStatusF').value;
   const cf=document.getElementById('mCritF').value;
@@ -3705,6 +3731,7 @@ function renderMachines(){
     const av=parseFloat(mx.avail);
     const ac=av>=95?'#43a047':av>=85?'#fb8c00':'#e53935';
     return `<tr>
+      <td style="text-align:center"><input type="checkbox" class="mach-chk" value="${m.id}" onclick="_machSelChanged()"></td>
       <td style="font-weight:600;font-size:.875rem">${m.name}</div><div style="font-size:.72rem;color:var(--muted)">${m.code?m.code+' · ':''} ${m.serial||''}</div></td>
       <td><div style="font-size:.82rem">${m.model||'—'}</div></td>
       <td style="font-size:.82rem">${m.location||'—'}</td>
@@ -3726,6 +3753,7 @@ function renderMachines(){
         <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delMachine('${m.id}')"><i class="bi bi-trash"></i></button>
       </td></tr>`;
   }).join('');
+  _machSelChanged();
 }
 
 function openMachineModal(m){
@@ -6940,22 +6968,74 @@ function importMachineExcel(){
         if(!rows.length){ toast('Excel boş','warning'); return; }
         let start=0; const h0=((rows[0][0]||'')+' '+(rows[0][1]||'')).toLowerCase();
         if(/kod|isim|makine|ad/.test(h0)) start=1;   // başlık satırını atla
-        let added=0,updated=0;
+        if(!db.machineCatalog) db.machineCatalog=[];   // Excel'i KATALOĞA al (makine listesine DEĞİL)
+        const seen=new Set(db.machineCatalog.map(c=>(c.code||'')+'|'+(c.name||'').toLowerCase()));
+        let added=0;
         for(let i=start;i<rows.length;i++){
           const code=(rows[i][0]||'').trim(), name=(rows[i][1]||'').trim();
           if(!code && !name) continue;
-          let ex = code ? db.machines.find(x=>String(x.code||'').trim()===code) : db.machines.find(x=>String(x.name||'').trim().toLowerCase()===name.toLowerCase());
-          if(ex){ if(code)ex.code=code; if(name)ex.name=name; updated++; }
-          else { db.machines.push({id:uid(),name:name||code,code:code,model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:'Excel ile içe aktarıldı'}); added++; }
+          const k=(code||'')+'|'+(name||'').toLowerCase();
+          if(seen.has(k)) continue;
+          db.machineCatalog.push({code,name}); seen.add(k); added++;
         }
-        save(); updateSelects(); renderMachines();
-        toast(`İçe aktarıldı ✔ ${added} yeni makine, ${updated} güncellendi.`,'success');
+        save();
+        toast(`Katalog güncellendi ✔ ${added} kayıt (toplam ${db.machineCatalog.length}). Aratıp «Ekle» ile listene aktar.`,'success');
+        openMachCatalog();
       }catch(err){ toast('Excel okuma hatası: '+(err.message||err),'danger'); }
     };
     reader.readAsArrayBuffer(file);
   };
   input.click();
 }
+// ── Makine Kataloğu (Excel referansı; istenirse listeye eklenir) ──
+function _migrateImportedMachines(){
+  if(!db.machineCatalog) db.machineCatalog=[];
+  const imp=(db.machines||[]).filter(m=>m.notes==='Excel ile içe aktarıldı');   // önceki hatalı toplu import
+  if(!imp.length) return false;
+  const seen=new Set(db.machineCatalog.map(c=>(c.code||'')+'|'+(c.name||'').toLowerCase()));
+  imp.forEach(m=>{ const k=(m.code||'')+'|'+(m.name||'').toLowerCase(); if(!seen.has(k)){ db.machineCatalog.push({code:m.code||'',name:m.name||''}); seen.add(k); } });
+  const ids=new Set(imp.map(m=>m.id));
+  db.machines=db.machines.filter(m=>!ids.has(m.id));   // listeyi eski haline döndür (kataloğa taşı)
+  return true;
+}
+function _machExists(code,name){ return (db.machines||[]).some(m=> (code && String(m.code||'').trim()===String(code).trim()) || (!code && String(m.name||'').trim().toLowerCase()===String(name||'').trim().toLowerCase())); }
+function openMachCatalog(){ const s=document.getElementById('mcSearch'); if(s)s.value=''; renderMachCatalog(); new bootstrap.Modal(document.getElementById('modalMachCatalog')).show(); }
+function renderMachCatalog(){
+  const cat=db.machineCatalog||[]; const el=document.getElementById('mcList'); if(!el) return;
+  const cntEl=document.getElementById('mcCount'); if(cntEl)cntEl.textContent=cat.length;
+  if(!cat.length){ el.innerHTML='<p style="color:var(--muted);text-align:center;padding:1.5rem">Katalog boş. «Excel İçe Aktar» ile Makine Tanıtım Kartı yükle.</p>'; return; }
+  const q=(document.getElementById('mcSearch')?.value||'').toLowerCase().trim();
+  const list=cat.filter(c=> !q || (c.code||'').toLowerCase().includes(q) || (c.name||'').toLowerCase().includes(q));
+  if(!list.length){ el.innerHTML='<p style="color:var(--muted);text-align:center;padding:1.5rem">Eşleşme yok.</p>'; return; }
+  el.innerHTML=list.slice(0,400).map(c=>{ const idx=cat.indexOf(c); const ex=_machExists(c.code,c.name);
+    return `<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid var(--border)">
+      <div class="flex-grow-1" style="font-size:.85rem"><span style="font-family:monospace;color:#82b1ff;margin-right:8px">${c.code||'—'}</span>${c.name||''}</div>
+      ${ex?'<span style="font-size:.74rem;color:#43a047;white-space:nowrap"><i class="bi bi-check-circle-fill me-1"></i>Listede</span>':`<button class="btn btn-sm btn-outline-primary" style="padding:1px 9px;white-space:nowrap" onclick="addFromCatalogIdx(${idx})"><i class="bi bi-plus-lg"></i> Ekle</button>`}
+    </div>`; }).join('') + (list.length>400?`<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem">… ${list.length-400} kayıt daha — aramayı daralt</p>`:'');
+}
+function addFromCatalogIdx(i){ if(!requireWrite())return; const c=(db.machineCatalog||[])[i]; if(!c) return;
+  if(_machExists(c.code,c.name)){ toast('Zaten listede','warning'); return; }
+  db.machines.push({id:uid(),name:c.name||c.code,code:c.code||'',model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:''});
+  save(); updateSelects(); renderMachines(); renderMachCatalog(); toast((c.code||c.name)+' eklendi ✔','success');
+}
+function addAllFilteredCatalog(){ if(!requireWrite())return; const cat=db.machineCatalog||[];
+  const q=(document.getElementById('mcSearch')?.value||'').toLowerCase().trim();
+  const list=cat.filter(c=> !q || (c.code||'').toLowerCase().includes(q) || (c.name||'').toLowerCase().includes(q));
+  if(!q){ if(!confirm('Filtre yok — kataloğun TAMAMI ('+list.length+') eklenecek. Emin misin?')) return; }
+  else if(!confirm(list.length+' eşleşen kayıt makine listene eklenecek. Devam?')) return;
+  let added=0; list.forEach(c=>{ if(!_machExists(c.code,c.name)){ db.machines.push({id:uid(),name:c.name||c.code,code:c.code||'',model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:''}); added++; } });
+  save(); updateSelects(); renderMachines(); renderMachCatalog(); toast(added+' makine eklendi ✔','success');
+}
+// ── Makineler: toplu seçim & silme ──
+function toggleAllMach(cb){ document.querySelectorAll('#mBody .mach-chk').forEach(c=>{c.checked=cb.checked;}); _machSelChanged(); }
+function _machSelChanged(){ const chks=[...document.querySelectorAll('#mBody .mach-chk')]; const sel=chks.filter(c=>c.checked).length;
+  const bar=document.getElementById('machBulkBar'), cnt=document.getElementById('machSelCount'); if(cnt)cnt.textContent=sel; if(bar)bar.style.display=sel>0?'flex':'none';
+  const all=document.getElementById('machChkAll'); if(all){ all.checked=chks.length>0&&sel===chks.length; all.indeterminate=sel>0&&sel<chks.length; } }
+function clearMachSel(){ document.querySelectorAll('#mBody .mach-chk').forEach(c=>{c.checked=false;}); const all=document.getElementById('machChkAll'); if(all){all.checked=false;all.indeterminate=false;} _machSelChanged(); }
+function delMachSelected(){ if(!requireWrite())return; const ids=[...document.querySelectorAll('#mBody .mach-chk:checked')].map(c=>c.value);
+  if(!ids.length){ toast('Önce makine seç','warning'); return; }
+  if(!confirm(ids.length+' makine silinecek. Emin misin?')) return; const set=new Set(ids);
+  db.machines=db.machines.filter(m=>!set.has(m.id)); save(); updateSelects(); renderMachines(); toast(ids.length+' makine silindi ✔','success'); }
 
 // ══════════════════════════════════════════
 //  NAVIGATION
