@@ -1538,9 +1538,10 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <div class="modal-body">
         <input type="hidden" id="mMachId">
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">Makine Adı *</label><input type="text" class="form-control" id="mMachName"></div>
+          <div class="col-md-6"><label class="form-label">Makine Adı *</label><input type="text" class="form-control" id="mMachName" list="dlMachNames" autocomplete="off" oninput="onMachNameInput()" placeholder="Katalogdan seç veya yaz"></div>
           <div class="col-md-6"><label class="form-label">Model</label><input type="text" class="form-control" id="mMachModel"></div>
-          <div class="col-md-6"><label class="form-label">Makine Kodu</label><input type="text" class="form-control" id="mMachCode" placeholder="örn: M-001"></div>
+          <div class="col-md-6"><label class="form-label">Makine Kodu</label><input type="text" class="form-control" id="mMachCode" list="dlMachCodes" autocomplete="off" placeholder="örn: 910.5.005 (katalogdan seç veya yaz)" oninput="onMachCodeInput()"></div>
+          <datalist id="dlMachNames"></datalist><datalist id="dlMachCodes"></datalist>
           <div class="col-md-6"><label class="form-label">Seri Numarası</label><input type="text" class="form-control" id="mMachSerial"></div>
           <div class="col-md-6"><label class="form-label">Lokasyon</label>
             <select class="form-select" id="mMachLoc">
@@ -1689,7 +1690,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <div class="modal-body">
         <input type="hidden" id="mPId">
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">Makine *</label><select class="form-select" id="mPMach" onchange="onMaintMachChange(this.value)"></select></div>
+          <div class="col-md-6"><label class="form-label">Makine *</label><input class="form-control" id="mPMachText" list="dlMaintMach" autocomplete="off" placeholder="Makine seç veya yaz (kod / ad)…" oninput="onMaintMachInput()"><input type="hidden" id="mPMach"><datalist id="dlMaintMach"></datalist></div>
           <div class="col-md-6">
             <label class="form-label">Bakım Tipi</label>
             <select class="form-select" id="mPType">
@@ -3764,6 +3765,7 @@ function renderMachines(){
 }
 
 function openMachineModal(m){
+  _fillMachDatalists();
   document.getElementById('mMachId').value=m?m.id:'';
   document.getElementById('mMachName').value=m?m.name:'';
   document.getElementById('mMachModel').value=m?(m.model||''):'';
@@ -4010,7 +4012,8 @@ function renderMaint(){
 
 function openMaintModal(p){
   document.getElementById('mPId').value=p?p.id:'';
-  document.getElementById('mPMach').value=p?p.machineId:'';
+  document.getElementById('mPMach').value=p?(p.machineId||''):'';
+  { const _mm=p?db.machines.find(x=>x.id===p.machineId):null; const _t=document.getElementById('mPMachText'); if(_t) _t.value=_mm?_maintMachLabel(_mm):''; }
   document.getElementById('mPType').value=p?(p.type||'preventive'):'preventive';
   document.getElementById('mPSched').value=p?(p.sched||''):'';
   document.getElementById('mPComp').value=p?(p.comp||''):'';
@@ -4053,7 +4056,8 @@ function openMaintModal(p){
 }
 function saveMaint(){ if(!requireWrite())return;
   const id=document.getElementById('mPId').value;
-  const p={id:id||uid(),machineId:document.getElementById('mPMach').value,
+  const _mid=document.getElementById('mPMach').value || _resolveMaintMachId(document.getElementById('mPMachText')?.value);
+  const p={id:id||uid(),machineId:_mid,
     type:document.getElementById('mPType').value,sched:document.getElementById('mPSched').value,
     comp:document.getElementById('mPComp').value||null,
     period:parseInt(document.getElementById('mPPeriod').value)||0,
@@ -6956,8 +6960,9 @@ function updateSelects(){
   const lbl=m=>`${m.code?m.code+' — ':''}${m.name||''}`;
   const opts  = `<option value="">— Seçiniz —</option>`+visibleMachines.map(m=>`<option value="${m.id}">${lbl(m)}</option>`).join('');
   const fOpts = `<option value="">Tüm Makineler</option>`+visibleMachines.map(m=>`<option value="${m.id}">${lbl(m)}</option>`).join('');
-  ['mFailMach','mPMach','mPtMach','mTsMach'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=opts; });
+  ['mFailMach','mPtMach','mTsMach'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=opts; });
   ['fMachF','pMachF','tsMachF'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=fOpts; });
+  const dlm=document.getElementById('dlMaintMach'); if(dlm) dlm.innerHTML=visibleMachines.map(m=>`<option value="${lbl(m).replace(/"/g,'&quot;')}">`).join('');
 }
 function importMachineExcel(){
   if(!requireWrite())return;
@@ -7038,6 +7043,16 @@ function delCatSelected(){ if(!requireWrite())return; const idxs=[...document.qu
   db.machineCatalog=(db.machineCatalog||[]).filter((c,i)=>!set.has(i)); save(); renderMachCatalog(); toast(idxs.length+' kayıt katalogdan silindi ✔','success'); }
 function clearCatalog(){ if(!requireWrite())return; const n=(db.machineCatalog||[]).length; if(!n){ toast('Katalog zaten boş','warning'); return; }
   if(!confirm('Kataloğun TAMAMI silinecek ('+n+' kayıt). Emin misin?')) return; db.machineCatalog=[]; save(); renderMachCatalog(); toast('Katalog temizlendi','success'); }
+// ── Makine ad/kod katalog datalist (seç veya yaz) ──
+function _fillMachDatalists(){
+  const cat=db.machineCatalog||[];
+  const nm=[...new Set(cat.map(c=>c.name).filter(Boolean))];
+  const cd=cat.filter(c=>c.code);
+  const dn=document.getElementById('dlMachNames'); if(dn) dn.innerHTML=nm.map(n=>`<option value="${(n||'').replace(/"/g,'&quot;')}">`).join('');
+  const dc=document.getElementById('dlMachCodes'); if(dc) dc.innerHTML=cd.map(c=>`<option value="${(c.code||'').replace(/"/g,'&quot;')}">${(c.name||'').replace(/"/g,'&quot;')}</option>`).join('');
+}
+function onMachCodeInput(){ const code=document.getElementById('mMachCode').value.trim(); const c=(db.machineCatalog||[]).find(x=>String(x.code||'').trim()===code); const nmEl=document.getElementById('mMachName'); if(c&&c.name&&!nmEl.value.trim()) nmEl.value=c.name; }
+function onMachNameInput(){ const name=document.getElementById('mMachName').value.trim(); const c=(db.machineCatalog||[]).find(x=>String(x.name||'').trim().toLowerCase()===name.toLowerCase()); const cdEl=document.getElementById('mMachCode'); if(c&&c.code&&!cdEl.value.trim()) cdEl.value=c.code; }
 function addFromCatalogIdx(i){ if(!requireWrite())return; const c=(db.machineCatalog||[])[i]; if(!c) return;
   if(_machExists(c.code,c.name)){ toast('Zaten listede','warning'); return; }
   db.machines.push({id:uid(),name:c.name||c.code,code:c.code||'',model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:''});
@@ -8114,6 +8129,24 @@ function _fillMaintTaskSetSel(machineId, selectedId){
   }
 }
 
+function _maintMachLabel(m){ return m?`${m.code?m.code+' — ':''}${m.name||''}`:''; }
+function onMaintMachInput(){
+  const text=(document.getElementById('mPMachText').value||'').trim();
+  const m=db.machines.find(x=>_maintMachLabel(x)===text) || db.machines.find(x=>(x.name||'').trim()===text || (x.code&&String(x.code).trim()===text));
+  document.getElementById('mPMach').value = m?m.id:'';
+  if(m) onMaintMachChange(m.id);
+}
+function _resolveMaintMachId(text){
+  text=(text||'').trim(); if(!text) return '';
+  let m=db.machines.find(x=>_maintMachLabel(x)===text) || db.machines.find(x=>(x.name||'').trim()===text || (x.code&&String(x.code).trim()===text));
+  if(m) return m.id;
+  const cat=(db.machineCatalog||[]).find(c=> (`${c.code?c.code+' — ':''}${c.name||''}`)===text || (c.name||'').trim()===text || (c.code&&String(c.code).trim()===text));
+  let code='',name=text;
+  if(cat){ code=cat.code||''; name=cat.name||cat.code||text; }
+  else { const mt=text.match(/^\s*([\w.\-\/]+)\s+—\s+(.+)$/); if(mt){ code=mt[1]; name=mt[2].trim(); } }
+  const nm={id:uid(),name:name,code:code,model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:''};
+  db.machines.push(nm); save(); return nm.id;
+}
 function onMaintMachChange(machineId){
   const prevSetId = document.getElementById('mPTaskSetSel')?.value || '';
   _fillMaintTaskSetSel(machineId, '');
@@ -9362,7 +9395,7 @@ function _renderFailureForm(id){
   fillAntet('ARIZA KAYIT FORMU', formSettings.failDocNo, formSettings.failRevNo);
   document.getElementById('printContent').innerHTML = `
     <div style="margin:12px 0 8px;font-size:11px;color:#444;display:flex;justify-content:space-between">
-      <span><strong>Makine:</strong> ${m.name||'—'} &nbsp;|&nbsp; <strong>Lokasyon:</strong> ${m.location||'—'} &nbsp;|&nbsp; <strong>Departman:</strong> ${m.dept||'—'}</span>
+      <span><strong>Makine:</strong> ${m.code?m.code+' — ':''}${m.name||'—'} &nbsp;|&nbsp; <strong>Lokasyon:</strong> ${m.location||'—'} &nbsp;|&nbsp; <strong>Departman:</strong> ${m.dept||'—'}</span>
       <span><strong>Kayıt Tarihi:</strong> ${new Date().toLocaleDateString('tr-TR')}</span>
     </div>
     <div class="print-row2">
@@ -9416,7 +9449,7 @@ function _renderMaintForm(id){
     </div>` : '';
   document.getElementById('printContent').innerHTML = `
     <div style="margin:12px 0 8px;font-size:11px;color:#444;display:flex;justify-content:space-between">
-      <span><strong>Makine:</strong> ${m.name||'—'} &nbsp;|&nbsp; <strong>Lokasyon:</strong> ${m.location||'—'} &nbsp;|&nbsp; <strong>Departman:</strong> ${m.dept||'—'}</span>
+      <span><strong>Makine:</strong> ${m.code?m.code+' — ':''}${m.name||'—'} &nbsp;|&nbsp; <strong>Lokasyon:</strong> ${m.location||'—'} &nbsp;|&nbsp; <strong>Departman:</strong> ${m.dept||'—'}</span>
       <span><strong>Kayıt Tarihi:</strong> ${new Date().toLocaleDateString('tr-TR')}</span>
     </div>
     <div class="print-row2">
