@@ -7451,11 +7451,14 @@ const TASKSET_CODES = {
   sfm_kesme_pres:'BSM-PRS-01', sfm_sjt:'BSM-SUJ-01', sfm_laminasyon:'BSM-LAM-01'
 };
 function _tsCode(ts){ return (ts&&ts.code) || (ts&&TASKSET_CODES[ts.id]) || ''; }
+function _nextBsoCode(){ const used=new Set((db.taskSets||[]).map(t=>(t.code||TASKSET_CODES[t.id])).filter(Boolean)); let n=1; while(used.has('BSO-'+String(n).padStart(2,'0'))) n++; return 'BSO-'+String(n).padStart(2,'0'); }
+function _ensureTaskSetCodes(){ let ch=false; (db.taskSets||[]).forEach(t=>{ if(!t.code && !TASKSET_CODES[t.id]){ t.code=_nextBsoCode(); ch=true; } }); return ch; }   // elle eklenen/kodsuz setlere BSO-NN ata
 function renderTaskSets(){
   const srch=(document.getElementById('tsSearch')?.value||'').toLowerCase();
   const tf=document.getElementById('tsTypeF')?.value||'';
   const mf=document.getElementById('tsMachF')?.value||'';
   const allSets=db.taskSets||[];
+  if(_ensureTaskSetCodes()){ try{ if(typeof canWrite!=='function'||canWrite()) save(); }catch(e){} }   // kodsuz (elle eklenen) setlere otomatik kod
   // Lokasyon filtresi: seçili lokasyondaki makineye ait setler + genel setler
   const locMachIds = gLocFilter ? new Set((db.machines||[]).filter(m=>m.location===gLocFilter).map(m=>m.id)) : null;
   const locSets = locMachIds ? allSets.filter(ts=>!ts.machineId||locMachIds.has(ts.machineId)) : allSets;
@@ -7552,7 +7555,9 @@ function saveTaskSet(){ if(!requireWrite())return;
     if(title) tasks.push({id:uid(),title,note:(row.querySelector('.ts-note')?.value||'').trim(),mins:parseInt(row.querySelector('.ts-mins')?.value)||0});
   });
   const _existing = id ? (db.taskSets||[]).find(x=>x.id===id) : null;
-  const ts={id:id||uid(),code:(document.getElementById('mTsCode').value||'').trim(),name,type:document.getElementById('mTsType').value,machineId:document.getElementById('mTsMach').value,desc:(document.getElementById('mTsDesc').value||'').trim(),techDisc:_existing?_existing.techDisc:undefined,tasks};
+  let _code=(document.getElementById('mTsCode').value||'').trim();
+  if(!_code) _code=(_existing&&_existing.code)||TASKSET_CODES[id]||_nextBsoCode();   // kod boşsa otomatik ata (elle eklenene de)
+  const ts={id:id||uid(),code:_code,name,type:document.getElementById('mTsType').value,machineId:document.getElementById('mTsMach').value,desc:(document.getElementById('mTsDesc').value||'').trim(),techDisc:_existing?_existing.techDisc:undefined,tasks};
   if(!db.taskSets) db.taskSets=[];
   if(id){const i=db.taskSets.findIndex(x=>x.id===id);if(i>-1)db.taskSets[i]=ts;else db.taskSets.push(ts);}
   else db.taskSets.push(ts);
