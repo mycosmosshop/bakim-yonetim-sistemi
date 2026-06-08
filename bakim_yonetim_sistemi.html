@@ -1831,6 +1831,13 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <div class="modal-header"><h5 class="modal-title"><i class="bi bi-list-check me-2" style="color:#42a5f5"></i>Bakım Kontrol Listesi</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
         <div id="clMaintInfo" class="mb-3 p-2 rounded" style="background:#1c2128;font-size:.875rem"></div>
+        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap" style="background:#161b22;border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem">
+          <label class="mb-0" style="font-size:.78rem;color:var(--muted);white-space:nowrap"><i class="bi bi-clock me-1"></i>Tarih / Saat:</label>
+          <input type="datetime-local" class="form-control form-control-sm" id="clDateTime" style="width:195px" title="İşaretlemelerde kullanılacak tarih/saat">
+          <div class="flex-grow-1"></div>
+          <button class="btn btn-sm btn-success" onclick="clCheckAll(true)"><i class="bi bi-check2-all me-1"></i>Tümünü İşaretle</button>
+          <button class="btn btn-sm btn-outline-secondary" onclick="clCheckAll(false)">Tümünü Kaldır</button>
+        </div>
         <div class="d-flex align-items-center gap-3 mb-3">
           <div class="flex-grow-1"><div style="height:10px;background:#1c2128;border-radius:5px;overflow:hidden"><div id="clProgressBar" style="height:100%;background:#43a047;border-radius:5px;transition:width .3s;width:0%"></div></div></div>
           <span id="clProgressText" style="font-size:.82rem;color:var(--muted);white-space:nowrap;min-width:55px;text-align:right">0 / 0</span>
@@ -8016,9 +8023,13 @@ function openChecklistModal(pid){
   const p=(db.maintenance||[]).find(x=>x.id===pid);
   if(!p){toast('Bakım kaydı bulunamadı!','danger');return;}
   const cl=p.checklist||[];
+  const ts=(db.taskSets||[]).find(x=>x.id===p.taskSetId);
+  const setLine = ts ? `<div style="margin-top:5px"><span style="font-family:monospace;font-size:.78rem;background:#0d3055;color:#82b1ff;padding:1px 7px;border-radius:5px;margin-right:6px">${_tsCode(ts)}</span><span style="font-weight:600;font-size:.84rem">${ts.name}</span></div>` : '';
   document.getElementById('clMaintInfo').innerHTML=
-    `<span style="font-weight:700">${mName(p.machineId)}</span><span style="color:var(--muted);margin:0 .5rem">·</span>${TYPE_PL[p.type]||p.type}<span style="color:var(--muted);margin:0 .5rem">·</span>${fmtD(p.sched)}${p.tech?`<span style="color:var(--muted);margin:0 .5rem">·</span><i class="bi bi-person me-1"></i>${p.tech}`:''}`;
+    `<span style="font-weight:700">${mName(p.machineId)}</span><span style="color:var(--muted);margin:0 .5rem">·</span>${TYPE_PL[p.type]||p.type}<span style="color:var(--muted);margin:0 .5rem">·</span>${fmtD(p.sched)}${p.tech?`<span style="color:var(--muted);margin:0 .5rem">·</span><i class="bi bi-person me-1"></i>${p.tech}`:''}`+setLine;
   document.getElementById('clTech').value=p.tech||'';
+  const _d=new Date(),_pad=n=>String(n).padStart(2,'0'); const _dt=document.getElementById('clDateTime');
+  if(_dt) _dt.value=`${_d.getFullYear()}-${_pad(_d.getMonth()+1)}-${_pad(_d.getDate())}T${_pad(_d.getHours())}:${_pad(_d.getMinutes())}`;
   _renderClTasks(cl);
   new bootstrap.Modal(document.getElementById('modalChecklist')).show();
 }
@@ -8036,7 +8047,7 @@ function _renderClTasks(cl){
     <div class="cl-task-row${t.done?' cl-done':''}" id="clrow_${t.id}">
       <input type="checkbox" class="form-check-input mt-1 flex-shrink-0" id="cl_${t.id}" ${t.done?'checked':''} onchange="toggleClTask('${t.id}',this.checked)">
       <div class="flex-grow-1">
-        <label class="cl-task-label" for="cl_${t.id}" style="cursor:pointer;font-size:.875rem;font-weight:500">${i+1}. ${t.title}</label>
+        <label class="cl-task-label" for="cl_${t.id}" style="cursor:pointer;font-size:.875rem;font-weight:500">${t.no||(i+1)}. ${t.title}</label>
         ${t.note?`<div style="font-size:.72rem;color:var(--muted)">${t.note}</div>`:''}
         ${t.done&&t.doneAt?`<div style="font-size:.7rem;color:#43a047;margin-top:2px"><i class="bi bi-check-circle me-1"></i>${t.doneBy||'—'} · ${fmtDt(t.doneAt)}</div>`:''}
       </div>
@@ -8044,12 +8055,20 @@ function _renderClTasks(cl){
     </div>`).join('');
 }
 
+function _clSelectedDateTime(){ const v=document.getElementById('clDateTime')?.value; return v?new Date(v).toISOString():new Date().toISOString(); }
 function toggleClTask(taskId,done){
   const p=(db.maintenance||[]).find(x=>x.id===_clPid);if(!p) return;
   const t=(p.checklist||[]).find(x=>x.id===taskId);if(!t) return;
   const tech=(document.getElementById('clTech')?.value||'').trim();
-  t.done=done;t.doneBy=done?(tech||'—'):'';t.doneAt=done?new Date().toISOString():null;
+  t.done=done;t.doneBy=done?(tech||'—'):'';t.doneAt=done?_clSelectedDateTime():null;
   save();_renderClTasks(p.checklist||[]);
+}
+function clCheckAll(done){ if(!requireWrite())return;
+  const p=(db.maintenance||[]).find(x=>x.id===_clPid);if(!p) return;
+  const tech=(document.getElementById('clTech')?.value||'').trim();
+  const dt=done?_clSelectedDateTime():null;
+  (p.checklist||[]).forEach(t=>{ t.done=done; t.doneBy=done?(tech||'—'):''; t.doneAt=dt; });
+  save(); _renderClTasks(p.checklist||[]);
 }
 
 function saveChecklist(){ if(!requireWrite())return;
