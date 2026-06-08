@@ -1750,7 +1750,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
             </select>
           </div>
           <div class="col-md-6"><label class="form-label">Maliyet (₺)</label><input type="number" class="form-control" id="mPCost" value="0" min="0"></div>
-          <div class="col-12"><label class="form-label">Açıklama / Yapılan İşlemler</label><textarea class="form-control" id="mPDesc" rows="2"></textarea></div>
+          <div class="col-md-6"><label class="form-label">Açıklama / Yapılan İşlemler</label><textarea class="form-control" id="mPDesc" rows="2"></textarea></div>
+          <div class="col-md-6"><label class="form-label">Değişen Parça / Malzeme</label><textarea class="form-control" id="mPParts" rows="2" placeholder="Değişen parça, sarf malzeme vb. (forma da yansır)"></textarea></div>
           <div class="col-12">
             <div style="border:1px solid var(--border);border-radius:8px;padding:.85rem;background:#090c10">
               <div class="d-flex justify-content-between align-items-center mb-2">
@@ -3985,6 +3986,7 @@ function openMaintModal(p){
   document.getElementById('mPTechDisc').value=p?(p.techDisc||''):'';
   document.getElementById('mPCost').value=p?(p.cost||0):0;
   document.getElementById('mPDesc').value=p?(p.desc||''):'';
+  document.getElementById('mPParts').value=p?(p.partsUsed||''):'';
   document.getElementById('mPStat').value=p?(p.status||'scheduled'):'scheduled';
   document.getElementById('mPWo').value=p?(p.wo||''):'';
   // Saatlik bakım + dış servis
@@ -4025,6 +4027,7 @@ function saveMaint(){ if(!requireWrite())return;
     tech:document.getElementById('mPTech').value,
     cost:parseFloat(document.getElementById('mPCost').value)||0,
     desc:document.getElementById('mPDesc').value,
+    partsUsed:document.getElementById('mPParts').value,
     status:document.getElementById('mPStat').value,
     wo:document.getElementById('mPWo').value,
     taskSetId:document.getElementById('mPTaskSetSel')?.value||'',
@@ -9288,7 +9291,10 @@ function _renderMaintForm(id){
     </div>
     ${p.basis==='hour'?`<div class="print-field-full"><div class="print-field-lbl">Çalışma Saatine Bağlı Bakım</div><div class="print-field-val">Bakım aralığı: <b>${p.intervalHours||0} saat</b> &nbsp;|&nbsp; Sonraki bakım: <b>${p.nextHours||0} saat</b> &nbsp;|&nbsp; Makine güncel: <b>${(m.runHours||0)} saat</b></div></div>`:''}
     ${p.external?`<div class="print-field-full"><div class="print-field-lbl">Dış Servis Bilgisi</div><div class="print-field-val">Firma: <b>${p.extCompany||'—'}</b> &nbsp;|&nbsp; Yetkili: ${p.extContact||'—'} &nbsp;|&nbsp; Telefon: ${p.extPhone||'—'}</div></div>`:''}
-    <div class="print-field-full"><div class="print-field-lbl">Açıklama / Yapılan İşlemler</div><div class="print-field-val" style="min-height:36px">${p.desc||''}</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px">
+      <div class="print-field-full" style="margin-bottom:0"><div class="print-field-lbl">Açıklama / Yapılan İşlemler</div><div class="print-field-val" style="min-height:42px">${p.desc||''}</div></div>
+      <div class="print-field-full" style="margin-bottom:0"><div class="print-field-lbl">Değişen Parça / Malzeme</div><div class="print-field-val" style="min-height:42px">${(p.partsUsed||'').replace(/\n/g,'<br>')}</div></div>
+    </div>
     ${_clSection}
     <div class="print-sign-row" style="grid-template-columns:340px">
       <div class="print-sign-box"><div class="print-sign-lbl">Bakım Sorumlusu</div><div style="font-size:12px;margin-top:4px">${p.tech||''}</div><div class="print-sign-line">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
