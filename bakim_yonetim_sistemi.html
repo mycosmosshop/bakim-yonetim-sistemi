@@ -1095,8 +1095,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <table class="table table-dark table-sm" style="font-size:.82rem">
           <thead><tr><th>Periyot</th><th>Ne için</th></tr></thead>
           <tbody>
-            <tr><td>Her vardiya / Günlük</td><td>Otonom kontrol, güvenlik, yüksek basınç</td></tr>
-            <tr><td>Haftalık</td><td>Yoğun çalışan kritik kalemler (filtre, yağ sev.)</td></tr>
+            <tr><td>Günlük / vardiya</td><td>Otonom operatör kontrolü, güvenlik (acil stop)</td></tr>
+            <tr><td>Haftalık <span style="color:#fb8c00">(nadir)</span></td><td>Sadece çok kritik / sorunlu kalem için</td></tr>
             <tr><td>Aylık</td><td>Standart önleyici bakım (çoğu makine)</td></tr>
             <tr><td>3 Aylık</td><td>Elektrik pano, izolasyon, topraklama</td></tr>
             <tr><td>6 Aylık</td><td>Yağ/gres değişimi, rulman kontrolü</td></tr>
@@ -1125,7 +1125,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <li><b>Periyot</b> alanında sayı/birimi küçült: örn. <b>1 ay → 15 gün</b> ya da <b>1 hafta</b>.</li>
         <li>Yoğun makinede <b>Saat bazına</b> geç: örn. her <b>250 çalışma saatinde</b> (Saat Bazlı bakım).</li>
         <li><b>Kaydet</b> → Takvim ve "sonraki bakım" otomatik güncellenir.</li>
-        <li>İpucu: Kritik kalemi <b>ayrı plana böl</b> — örn. su jetinde "yüksek basınç kontrolü = günlük", "conta değişimi = yıllık".</li>
+        <li>İpucu: Kritik kalemi <b>ayrı plana böl</b> — örn. su jetinde "basınç / emniyet kontrolü = aylık", "conta / vana revizyonu = yıllık".</li>
       </ol>
     </div>
   </div>
@@ -1133,19 +1133,19 @@ body.tech-mode #mobileMenuBtn{display:none !important}
   <!-- Önerilen periyotlar -->
   <div class="card-dark mb-4">
     <h4 style="margin-bottom:.3rem"><i class="bi bi-table me-2" style="color:#26c6da"></i>Sanifoam — Önerilen Başlangıç Periyotları</h4>
-    <p style="color:var(--muted);font-size:.85rem">Bunlar <b>başlangıç</b> değerleridir; makinenin arıza/duruş verisine göre artır-azalt (yukarıdaki kurallar).</p>
+    <p style="color:var(--muted);font-size:.85rem">Sanayide yaygın <b>standart</b> aralıklar (aylık / 3 aylık / 6 aylık / yıllık). Bunlar <b>başlangıç</b> değerleridir; makinenin arıza/duruş verisine göre sıkılaştır-gevşet (yukarıdaki kurallar). Operatörün kısa günlük/vardiya kontrolü ayrı tutulur.</p>
     <div class="table-responsive">
     <table class="table table-dark table-sm align-middle" style="font-size:.84rem">
       <thead><tr><th>Set / Görev grubu</th><th>Önerilen periyot</th><th>Baz</th></tr></thead>
       <tbody>
-        <tr><td>Günlük Operatör Kontrolü (Otonom)</td><td>Her vardiya</td><td>Zaman</td></tr>
-        <tr><td>Su jeti — basınç / emniyet / filtre kontrolleri</td><td>Haftalık</td><td>Zaman</td></tr>
-        <tr><td>Kesme presleri — hidrolik kontroller</td><td>Aylık</td><td>Zaman / Saat</td></tr>
-        <tr><td>CNC / Yatay / Dilimleme / Açılı — bıçak + genel</td><td>Aylık</td><td>Zaman</td></tr>
-        <tr><td>Laminasyon — konveyör / ısıtıcı / rulman</td><td>Aylık</td><td>Zaman</td></tr>
-        <tr><td>Elektrik pano — sıkılık / izolasyon / topraklama</td><td>3 Aylık</td><td>Zaman</td></tr>
-        <tr><td>Yağ / hidrolik yağ değişimi</td><td>6 Aylık veya ~1000 saat</td><td>Saat</td></tr>
-        <tr><td>Su jeti — yıllık revizyon (conta/vana/boru)</td><td>Yıllık</td><td>Zaman</td></tr>
+        <tr><td>Günlük Operatör Kontrolü (Otonom)</td><td>Günlük / vardiya başı (kısa görsel kontrol)</td><td>Zaman</td></tr>
+        <tr><td>Su jeti — basınç / emniyet / filtre kontrolleri</td><td>Aylık</td><td>Zaman</td></tr>
+        <tr><td>CNC / Yatay / Dilimleme / Açılı — bıçak + genel mekanik</td><td>Aylık</td><td>Zaman</td></tr>
+        <tr><td>Kesme presleri — hidrolik kontroller</td><td>3 Aylık</td><td>Zaman / Saat</td></tr>
+        <tr><td>Laminasyon — konveyör / ısıtıcı / rulman</td><td>3 Aylık</td><td>Zaman</td></tr>
+        <tr><td>Elektrik pano — sıkılık / izolasyon / topraklama</td><td>6 Aylık</td><td>Zaman</td></tr>
+        <tr><td>Yağ / hidrolik yağ değişimi</td><td>Yıllık (veya ~2000 çalışma saati)</td><td>Saat</td></tr>
+        <tr><td>Su jeti — yıllık revizyon (conta / vana / boru)</td><td>Yıllık</td><td>Zaman</td></tr>
         <tr><td>Genel revizyon / büyük bakım</td><td>Yıllık</td><td>Saat</td></tr>
       </tbody>
     </table>
@@ -9265,8 +9265,8 @@ function _exportMachineExcelImpl(){
   genExcelReport({
     sheet:'Makineler', formName:'MAKİNE LİSTESİ', reportTitle:'MAKİNE LİSTESİ',
     docNo:formSettings.mlistDocNo, revNo:formSettings.mlistRevNo,
-    columns:[{header:'#',width:5},{header:'MAKİNE',width:26,align:'left'},{header:'MODEL / SN',width:16},{header:'LOKASYON',width:15},{header:'DEPARTMAN',width:15},{header:'KRİTİKLİK',width:12},{header:'DURUM',width:12,kind:'status'},{header:'MTBF (s)',width:11},{header:'KULLANIL. %',width:12},{header:'KURULUM',width:13}],
-    rows:list.map((m,i)=>{ const mx=machMetrics(m.id); return {values:[i+1,m.name,m.model||m.serial||'—',m.location||'—',m.dept||'—',CRIT_LBL[effectiveCrit(m).key],STATUS_ML[m.status]||m.status||'—',mx.mtbf,mx.avail+'%',m.installDate?fmtD(m.installDate):'—'],statusKey:m.status}; }),
+    columns:[{header:'#',width:5},{header:'MAKİNE',width:26,align:'left'},{header:'MODEL / SN',width:16},{header:'LOKASYON',width:15},{header:'DEPARTMAN',width:15},{header:'KRİTİKLİK',width:12},{header:'DURUM',width:12,kind:'status'},{header:'MTBF (s)',width:11},{header:'MTTR (s)',width:11},{header:'KULLANIL. %',width:12},{header:'KURULUM',width:13}],
+    rows:list.map((m,i)=>{ const mx=machMetrics(m.id); return {values:[i+1,m.name,m.model||m.serial||'—',m.location||'—',m.dept||'—',CRIT_LBL[effectiveCrit(m).key],STATUS_ML[m.status]||m.status||'—',mx.mtbf,mx.mttr,mx.avail+'%',m.installDate?fmtD(m.installDate):'—'],statusKey:m.status}; }),
     statusIndex:6,
     filename:`Makine_Listesi_${new Date().toISOString().slice(0,10)}.xlsx`
   });
