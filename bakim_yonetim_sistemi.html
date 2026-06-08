@@ -1538,9 +1538,9 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <div class="modal-body">
         <input type="hidden" id="mMachId">
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">Makine Adı *</label><input type="text" class="form-control" id="mMachName" list="dlMachNames" autocomplete="off" oninput="onMachNameInput()" placeholder="Katalogdan seç veya yaz"></div>
+          <div class="col-md-6"><label class="form-label">Makine Adı *</label><input type="text" class="form-control" id="mMachName" list="dlMachNames" autocomplete="off" oninput="onMachNameInput()" onchange="onMachNameInput()" placeholder="Katalogdan seç veya yaz"></div>
           <div class="col-md-6"><label class="form-label">Model</label><input type="text" class="form-control" id="mMachModel"></div>
-          <div class="col-md-6"><label class="form-label">Makine Kodu</label><input type="text" class="form-control" id="mMachCode" list="dlMachCodes" autocomplete="off" placeholder="örn: 910.5.005 (katalogdan seç veya yaz)" oninput="onMachCodeInput()"></div>
+          <div class="col-md-6"><label class="form-label">Makine Kodu</label><input type="text" class="form-control" id="mMachCode" list="dlMachCodes" autocomplete="off" placeholder="örn: 910.5.005 (katalogdan seç veya yaz)" oninput="onMachCodeInput()" onchange="onMachCodeInput()"></div>
           <datalist id="dlMachNames"></datalist><datalist id="dlMachCodes"></datalist>
           <div class="col-md-6"><label class="form-label">Seri Numarası</label><input type="text" class="form-control" id="mMachSerial"></div>
           <div class="col-md-6"><label class="form-label">Lokasyon</label>
@@ -7051,8 +7051,8 @@ function _fillMachDatalists(){
   const dn=document.getElementById('dlMachNames'); if(dn) dn.innerHTML=nm.map(n=>`<option value="${(n||'').replace(/"/g,'&quot;')}">`).join('');
   const dc=document.getElementById('dlMachCodes'); if(dc) dc.innerHTML=cd.map(c=>`<option value="${(c.code||'').replace(/"/g,'&quot;')}">${(c.name||'').replace(/"/g,'&quot;')}</option>`).join('');
 }
-function onMachCodeInput(){ const code=document.getElementById('mMachCode').value.trim(); const c=(db.machineCatalog||[]).find(x=>String(x.code||'').trim()===code); const nmEl=document.getElementById('mMachName'); if(c&&c.name&&!nmEl.value.trim()) nmEl.value=c.name; }
-function onMachNameInput(){ const name=document.getElementById('mMachName').value.trim(); const c=(db.machineCatalog||[]).find(x=>String(x.name||'').trim().toLowerCase()===name.toLowerCase()); const cdEl=document.getElementById('mMachCode'); if(c&&c.code&&!cdEl.value.trim()) cdEl.value=c.code; }
+function onMachCodeInput(){ const code=document.getElementById('mMachCode').value.trim(); if(!code)return; const c=(db.machineCatalog||[]).find(x=>String(x.code||'').trim()===code); if(c&&c.name) document.getElementById('mMachName').value=c.name; }
+function onMachNameInput(){ const name=document.getElementById('mMachName').value.trim(); if(!name)return; const c=(db.machineCatalog||[]).find(x=>String(x.name||'').trim().toLowerCase()===name.toLowerCase()); if(c&&c.code) document.getElementById('mMachCode').value=c.code; }
 function addFromCatalogIdx(i){ if(!requireWrite())return; const c=(db.machineCatalog||[])[i]; if(!c) return;
   if(_machExists(c.code,c.name)){ toast('Zaten listede','warning'); return; }
   db.machines.push({id:uid(),name:c.name||c.code,code:c.code||'',model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:''});
