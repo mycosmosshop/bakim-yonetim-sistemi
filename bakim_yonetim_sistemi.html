@@ -656,6 +656,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <div><h2><i class="bi bi-list-check me-2" style="color:#42a5f5"></i>Bakım Setleri</h2><small>Makine tiplerine göre standart bakım kontrol listeleri</small></div>
     <div class="d-flex gap-2">
       <button class="btn btn-outline-secondary btn-sm" onclick="loadDefaultTaskSets()"><i class="bi bi-download me-1"></i>Hazır Şablonları Yükle</button>
+      <button class="btn btn-outline-info btn-sm" onclick="loadSanifoamTaskSets()"><i class="bi bi-buildings me-1"></i>Sanifoam Makine Setleri</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -7465,6 +7466,124 @@ function loadDefaultTaskSets(){
   save();
   renderTaskSets();
   toast(`${toAdd.length} hazır şablon eklendi ✔`,'success');
+}
+
+// ── Sanifoam Makineye Özel Bakım Setleri (bakım formu kartlarından) ──
+const SANIFOAM_TASK_SETS = [
+  { id:'sfm_dilimleme', name:'Dilimleme Makinası — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Dilimleme Makinası', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_dilimleme_1',title:'Mandren kontrolü',note:'',mins:10},
+    {id:'sfm_dilimleme_2',title:'Bıçak bağlantı ve bıçak kontrolü',note:'',mins:10},
+    {id:'sfm_dilimleme_3',title:'Bıçak hidrolik sistem kontrolü',note:'',mins:10},
+    {id:'sfm_dilimleme_4',title:'Yatay ölçü alma kızak ve mil kontrolü',note:'',mins:10},
+    {id:'sfm_dilimleme_5',title:'Güvenlik kapakları kontrolü',note:'',mins:10},
+    {id:'sfm_dilimleme_6',title:'Havalı şaft kontrolü',note:'',mins:10},
+    {id:'sfm_dilimleme_7',title:'Genel kumanda ekipmanları ve kablaj kontrolü',note:'',mins:10},
+    {id:'sfm_dilimleme_8',title:'Makine temizliği',note:'',mins:15},
+    {id:'sfm_dilimleme_9',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_dilimleme_10',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_sjt_gunluk', name:'SJT Su Jeti Kesim — Günlük Bakım', desc:'Su Jeti Kesim — Günlük kontroller (8 saatlik vardiyaya göre)', type:'preventive', techDisc:'hydraulic', tasks:[
+    {id:'sfm_sjt_gunluk_1',title:'Yüksek basınç vanalarının sızdırmazlık kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_gunluk_2',title:'Çalışma basıncı kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_gunluk_3',title:'Yüksek basınç devresi emniyet vana kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_gunluk_4',title:'Acil durum düğme ve sensörlerin kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_gunluk_5',title:'Su filtreleri kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_gunluk_6',title:'Yağ filtreleri kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_gunluk_7',title:'Yağ seviyesi kontrolü',note:'',mins:5},
+    {id:'sfm_sjt_gunluk_8',title:'Yağ eşanjörü kütle temizliği',note:'',mins:15},
+    {id:'sfm_sjt_gunluk_9',title:'Yoğunlaştırıcı besleme suyu sertlik analizi',note:'',mins:10},
+    {id:'sfm_sjt_gunluk_10',title:'Elektrik pano bileşenleri kontrolü',note:'',mins:10},
+  ]},
+  { id:'sfm_sjt_yillik', name:'SJT Su Jeti Kesim — Yıllık Periyodik Bakım', desc:'Su Jeti Kesim — Yıllık revizyon (8 saatlik vardiyaya göre)', type:'overhaul', techDisc:'hydraulic', tasks:[
+    {id:'sfm_sjt_yillik_1',title:'Vana gövde revizyonu',note:'',mins:45},
+    {id:'sfm_sjt_yillik_2',title:'Vana gruplarının bakımı',note:'',mins:30},
+    {id:'sfm_sjt_yillik_3',title:'Statik contaların değiştirilmesi',note:'',mins:30},
+    {id:'sfm_sjt_yillik_4',title:'Dinamik contaların değiştirilmesi',note:'',mins:30},
+    {id:'sfm_sjt_yillik_5',title:'Yüksek basınç borularının değiştirilmesi',note:'',mins:45},
+    {id:'sfm_sjt_yillik_6',title:'Vana gövdelerinin değiştirilmesi',note:'',mins:45},
+    {id:'sfm_sjt_yillik_7',title:'Emniyet vana kitinin değiştirilmesi',note:'',mins:30},
+    {id:'sfm_sjt_yillik_8',title:'Su filtrelerinin değiştirilmesi',note:'',mins:15},
+    {id:'sfm_sjt_yillik_9',title:'Yağ filtrelerinin değiştirilmesi',note:'',mins:15},
+    {id:'sfm_sjt_yillik_10',title:'Yağın değiştirilmesi',note:'',mins:20},
+    {id:'sfm_sjt_yillik_11',title:'Yağ eşanjörü kütle temizliği',note:'',mins:20},
+    {id:'sfm_sjt_yillik_12',title:'Yoğunlaştırıcı besleme suyu sertlik analizi',note:'',mins:10},
+    {id:'sfm_sjt_yillik_13',title:'Elektrik pano bileşenleri sıkılık kontrolü',note:'',mins:15},
+  ]},
+  { id:'sfm_kesme_pres', name:'Kesme Presleri — Periyodik Bakım (Vargel / H-Pres / Açılı / KP6)', desc:'Kesme Presleri ortak bakım kartı — 4 makineye de uygulanır', type:'preventive', techDisc:'hydraulic', tasks:[
+    {id:'sfm_kesme_pres_1',title:'Hidrolik yağ kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_2',title:'Soğutma fanı ve motorunu kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_3',title:'Hareketli gezer kafa hidrolik pompa kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_4',title:'Hareketli gezer kafa pompa motoru kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_5',title:'Hareketli kafa hidrolik silindir kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_6',title:'Hareketli kafa valf grubu, hortumları ve bağlantılarını kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_7',title:'Ana kesme hidrolik pompasını kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_8',title:'Ana kesme hidrolik pompa motorunu kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_9',title:'Ana kesme hidrolik silindirleri kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_10',title:'Ana kesme valf grupları, hortumları ve bağlantılarını kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_11',title:'Kesme ünitesi polyamidini kontrol et',note:'',mins:10},
+    {id:'sfm_kesme_pres_12',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_kesme_pres_13',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_cnc_kesim', name:'Dikey CNC Kesim Makinası — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — CNC Kesim', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_cnc_kesim_1',title:'Makine bıçak gergi sistemi kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_2',title:'Makine bıçak vibrasyon sistemi kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_3',title:'Makine bıçak motoru kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_4',title:'Makine yön sistemi kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_5',title:'Makine bıçak servo yön motor kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_6',title:'Makine kesim ünitesi kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_7',title:'Makine kesim ünitesi servo motor kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_8',title:'Makine kesim tablası vida kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_9',title:'Makine kesim tablası terazi (seviye) kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_10',title:'Makine güvenlik sistemleri kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_11',title:'Makine kumanda elemanları kontrolü',note:'',mins:10},
+    {id:'sfm_cnc_kesim_12',title:'Makine temizliği',note:'',mins:15},
+    {id:'sfm_cnc_kesim_13',title:'Makine pano kliması kontrol ve temizliği',note:'',mins:10},
+    {id:'sfm_cnc_kesim_14',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_cnc_kesim_15',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_laminasyon', name:'Laminasyon Makinesi (LMM) — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — LMM / Laminasyon', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_laminasyon_1',title:'Tünel yüksekliği ayar ve kalibrasyonu kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_2',title:'Roller gap silindir ayar ve kalibrasyonu kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_3',title:'Makine acil stop güvenlik ve çalıştırma butonlarını kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_4',title:'Konveyör bant kaydırma sistemini ve konveyör ayar switchlerini kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_5',title:'Makine konveyör silindir rulmanlarını kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_6',title:'Makine tünel ayar krikolarını kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_7',title:'Makine tünel alt rezistanslı ısıtıcıları kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_8',title:'Makine tünel üst rezistanslı ısıtıcıları kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_9',title:'Toz yapıştırıcı haznesinin ve dökme merdanesinin temizliğini kontrol et',note:'',mins:15},
+    {id:'sfm_laminasyon_10',title:'Tüm hareketli ve dönen parçaların normal/uygun ve temiz olduğunu kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_11',title:'Makine infrared ısıtıcıların normal çalıştığını kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_12',title:'Konveyör bantın sağlam/kullanılabilir ve kat izi olup olmadığını kontrol et',note:'',mins:10},
+    {id:'sfm_laminasyon_13',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_laminasyon_14',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_yatay_kesim', name:'Yatay Kesim Makinesi — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Yatay & Dikey Kesim', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_yatay_kesim_1',title:'Makine bıçak gergi sistemini kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_2',title:'Makine bıçak kasnaklarını kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_3',title:'Kesme ünitesi hareket sistemini kontrol et (vida, somun, kayış, zincir)',note:'',mins:10},
+    {id:'sfm_yatay_kesim_4',title:'Makine hareketli yatay tablaları kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_5',title:'Makine dikey hareketli tablaları kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_6',title:'Bıçak bileme motor bağlantılarını kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_7',title:'Bıçak tutucu ve yönlendirici elmasları kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_8',title:'Makine bıçak motoru kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_9',title:'Makine tabla hareket motorlarını kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_10',title:'Makine kumanda elemanlarını kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_11',title:'Makine güvenlik sistemlerini kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_12',title:'Makine ölçü sistemini kontrol et',note:'',mins:10},
+    {id:'sfm_yatay_kesim_13',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_yatay_kesim_14',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+];
+
+function loadSanifoamTaskSets(){
+  if(!db.taskSets) db.taskSets=[];
+  const existingIds = new Set(db.taskSets.map(ts=>ts.id));
+  const toAdd = SANIFOAM_TASK_SETS.filter(ts=>!existingIds.has(ts.id));
+  if(!toAdd.length){ toast('Sanifoam makine bakım setleri zaten yüklü','warning'); return; }
+  db.taskSets.push(...JSON.parse(JSON.stringify(toAdd)));   // derin kopya (sabit diziyi koru)
+  save();
+  renderTaskSets();
+  toast(`${toAdd.length} Sanifoam makine bakım seti eklendi ✔`,'success');
 }
 
 // ── Maintenance Checklist (edit mode inside maintenance modal) ──
