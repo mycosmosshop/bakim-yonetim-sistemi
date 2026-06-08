@@ -1184,6 +1184,60 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <i class="bi bi-repeat me-1" style="color:#66bb6a"></i><b>Döngü:</b> Planla → Uygula → Kaydet → Ölç (KPI / OEE) → Sıklığı gözden geçir. Bu <b>PUKÖ (PDCA)</b> döngüsü bakımı sürekli iyileştirir.
     </div>
   </div>
+
+  <!-- ════ BAKIM SETİ KODLAMA & NUMARALANDIRMA ════ -->
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.3rem"><i class="bi bi-upc-scan me-2" style="color:#42a5f5"></i>Bakım Seti Kodlama Sistemi</h4>
+    <p style="color:var(--muted);font-size:.9rem">Her bakım setine sistematik bir kod verilir. Kod yapısı: <span style="font-family:monospace;background:#0d3055;color:#82b1ff;padding:2px 8px;border-radius:5px">SINIF&#8209;AİLE&#8209;NN</span></p>
+    <div class="row g-3">
+      <div class="col-md-5">
+        <h6 style="color:#42a5f5"><i class="bi bi-1-circle me-1"></i>1) SINIF (ne tür set?)</h6>
+        <table class="table table-dark table-sm" style="font-size:.84rem">
+          <thead><tr><th>Önek</th><th>Anlamı</th></tr></thead>
+          <tbody>
+            <tr><td><b style="color:#82b1ff;font-family:monospace">BST</b></td><td>Hazır Şablon (genel / disiplin)</td></tr>
+            <tr><td><b style="color:#82b1ff;font-family:monospace">BSM</b></td><td>Sanifoam Makineye Özel</td></tr>
+            <tr><td><b style="color:#82b1ff;font-family:monospace">BSO</b></td><td>Elle Eklenen / Özel set (otomatik)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-7">
+        <h6 style="color:#26c6da"><i class="bi bi-2-circle me-1"></i>2) AİLE (hangi disiplin / makine grubu?)</h6>
+        <table class="table table-dark table-sm" style="font-size:.83rem">
+          <tbody>
+            <tr><td><span style="font-family:monospace">MEK</span> Mekanik</td><td><span style="font-family:monospace">ELK</span> Elektrik</td><td><span style="font-family:monospace">HID</span> Hidrolik</td><td><span style="font-family:monospace">PNO</span> Pnömatik</td></tr>
+            <tr><td><span style="font-family:monospace">REV</span> Revizyon</td><td><span style="font-family:monospace">OTN</span> Otonom</td><td><span style="font-family:monospace">PRS</span> Pres</td><td><span style="font-family:monospace">CNC</span> CNC/Testere</td></tr>
+            <tr><td><span style="font-family:monospace">KMP</span> Kompresör</td><td><span style="font-family:monospace">FRK</span> Forklift</td><td><span style="font-family:monospace">KSM</span> Kesim</td><td><span style="font-family:monospace">SUJ</span> Su Jeti</td></tr>
+            <tr><td><span style="font-family:monospace">LAM</span> Laminasyon</td><td colspan="3" style="color:var(--muted)">+ <span style="font-family:monospace">NN</span> = sıra no (01, 02…)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div style="background:rgba(26,35,126,.15);border:1px solid #3949ab55;border-radius:10px;padding:.7rem 1rem;font-size:.86rem">
+      <b>Örnekler:</b>
+      <span style="font-family:monospace;background:#0d3055;color:#82b1ff;padding:1px 7px;border-radius:5px">BSM-SUJ-01</span> = Sanifoam Su Jeti seti ·
+      <span style="font-family:monospace;background:#0d3055;color:#82b1ff;padding:1px 7px;border-radius:5px">BST-MEK-01</span> = Genel Mekanik şablonu ·
+      <span style="font-family:monospace;background:#0d3055;color:#82b1ff;padding:1px 7px;border-radius:5px">BSO-01</span> = elle eklenen 1. özel set
+    </div>
+    <div style="background:rgba(67,160,71,.1);border:1px solid #43a04755;border-radius:10px;padding:.7rem 1rem;font-size:.85rem;margin-top:.7rem">
+      <i class="bi bi-pencil-square me-1" style="color:#66bb6a"></i>Hazır (BST) ve Sanifoam (BSM) setlerin kodu otomatik gelir. <b>Yeni/elle eklenen</b> setler otomatik <b>BSO-NN</b> alır. Kodu set düzenleme penceresindeki <b>«Kod»</b> alanından <b>elle değiştirebilirsin</b>. Liste koda göre gruplu sıralanır.
+    </div>
+  </div>
+
+  <!-- Görev numaralandırma -->
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.3rem"><i class="bi bi-list-ol me-2" style="color:#fb8c00"></i>Set İçi Görev Numaralandırma</h4>
+    <p style="color:var(--muted);font-size:.9rem">Bir setin içindeki her görevin <b>kalıcı bir sıra numarası (No)</b> vardır. Kurallar:</p>
+    <ul style="font-size:.88rem;line-height:1.7">
+      <li><b>Kalıcıdır</b> — kart üzerinde görevin kendi No'su gösterilir (konuma göre değil).</li>
+      <li><b>Silince kaymaz</b> — bir görevi silersen kalanlar No'sunu korur (boşluk kalır; örn. 5 silinince 1-2-3-4-6… olur, baştan dizilmez).</li>
+      <li><b>Yeni görev = en büyük + 1</b> — eklenen görev, mevcut en yüksek No'nun bir fazlasını alır (silinen numara geri gelmez).</li>
+      <li><b>Düzenlenebilir</b> — set düzenleme penceresinde her görev satırının başındaki <b>«No»</b> alanından elle değiştirebilirsin.</li>
+    </ul>
+    <div style="background:rgba(251,140,0,.1);border:1px solid #fb8c0055;border-radius:10px;padding:.6rem 1rem;font-size:.84rem">
+      <i class="bi bi-info-circle me-1" style="color:#fb8c00"></i>Numarasız eski görevler/setler, uygulama açıldığında otomatik numaralanır (1…N) ve kaydedilir.
+    </div>
+  </div>
 </section>
 
 </div><!-- /main -->
