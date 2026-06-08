@@ -486,6 +486,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
 </section>
 
 <!-- ── PLANLI BAKIM ── -->
+<style>.m-sort{cursor:pointer;user-select:none;white-space:nowrap}.m-sort:hover{color:#42a5f5}.m-sort span[data-msort]{font-size:.72rem;color:#42a5f5;margin-left:2px;font-weight:700}</style>
 <section id="maintenance" class="section">
   <div class="page-hdr">
     <div><h2><i class="bi bi-calendar-check-fill me-2" style="color:var(--green)"></i>Planlı Bakım</h2><small>Bakım planlaması ve takibi</small></div>
@@ -523,8 +524,18 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <table class="table table-dark table-striped table-hover align-middle mb-0">
         <thead><tr>
           <th style="width:34px;text-align:center"><input type="checkbox" id="maintChkAll" onclick="toggleAllMaint(this)" title="Tümünü seç"></th>
-          <th>Makine</th><th>Tip</th><th>Plan Tarihi</th><th>Tamamlanma</th>
-          <th>Tahmini</th><th>Gerçekleşen</th><th>Teknisyen</th><th>Açıklama</th><th>Maliyet</th><th>Kontrol</th><th>Durum</th><th></th>
+          <th class="m-sort" onclick="sortMaint('makine')">Makine<span data-msort="makine"></span></th>
+          <th class="m-sort" onclick="sortMaint('type')">Tip<span data-msort="type"></span></th>
+          <th class="m-sort" onclick="sortMaint('sched')">Plan Tarihi<span data-msort="sched"></span></th>
+          <th class="m-sort" onclick="sortMaint('comp')">Tamamlanma<span data-msort="comp"></span></th>
+          <th class="m-sort" onclick="sortMaint('estDur')">Tahmini<span data-msort="estDur"></span></th>
+          <th class="m-sort" onclick="sortMaint('actDur')">Gerçekleşen<span data-msort="actDur"></span></th>
+          <th class="m-sort" onclick="sortMaint('tech')">Teknisyen<span data-msort="tech"></span></th>
+          <th>Açıklama</th>
+          <th class="m-sort" onclick="sortMaint('cost')">Maliyet<span data-msort="cost"></span></th>
+          <th>Kontrol</th>
+          <th class="m-sort" onclick="sortMaint('status')">Durum<span data-msort="status"></span></th>
+          <th></th>
         </tr></thead>
         <tbody id="pBody"></tbody>
       </table>
@@ -3841,7 +3852,7 @@ function renderMaint(){
     return (!_l||_l.has(p.machineId))
       &&(!mf||p.machineId===mf)&&(!sf||p.status===sf)&&(!tf||p.type===tf)
       &&(!pf||d>=pf)&&(!pt||d<=pt);
-  }).sort((a,b)=>new Date(a.sched)-new Date(b.sched));
+  }).sort(_maintCmp);
 
   const schd=locMaint().filter(p=>p.status==='scheduled').length;
   const comp=locMaint().filter(p=>p.status==='completed').length;
@@ -3885,6 +3896,7 @@ function renderMaint(){
     </td></tr>`;
   }).join('');
   _maintSelChanged();
+  _updateMaintSortInd();
 }
 
 function openMaintModal(p){
@@ -4046,6 +4058,22 @@ function delMaintSelected(){
   save(); renderMaint();
   toast(ids.length+' bakım kaydı silindi ✔','success');
 }
+// ── Planlı Bakım: kolon başlığına tıklayarak sıralama ──
+let _maintSort={col:'sched',dir:1};
+const _MAINT_SORTV={
+  makine: p=>mName(p.machineId).toLowerCase(),
+  type:   p=>(TYPE_PL[p.type]||p.type||'').toLowerCase(),
+  sched:  p=>p.sched?new Date(p.sched).getTime():0,
+  comp:   p=>p.comp?new Date(p.comp).getTime():0,
+  estDur: p=>+p.estDur||0,
+  actDur: p=>+p.actDur||0,
+  tech:   p=>(p.tech||'').toLowerCase(),
+  cost:   p=>+p.cost||0,
+  status: p=>(p.status||'').toLowerCase()
+};
+function _maintCmp(a,b){ const f=_MAINT_SORTV[_maintSort.col]||_MAINT_SORTV.sched; const va=f(a),vb=f(b); if(va<vb)return -_maintSort.dir; if(va>vb)return _maintSort.dir; return 0; }
+function sortMaint(col){ if(_maintSort.col===col)_maintSort.dir*=-1; else {_maintSort.col=col;_maintSort.dir=1;} renderMaint(); }
+function _updateMaintSortInd(){ document.querySelectorAll('span[data-msort]').forEach(s=>{ s.textContent=(s.dataset.msort===_maintSort.col)?(_maintSort.dir>0?' ▲':' ▼'):''; }); }
 function autoAssignAllMachines(){
   if(!db.machines.length){toast('Henüz makine eklenmemiş!','warning');return;}
   const today=new Date();
