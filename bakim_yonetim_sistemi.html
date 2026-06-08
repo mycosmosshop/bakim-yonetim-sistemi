@@ -1034,6 +1034,135 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       </p>
     </div>
   </div>
+
+  <!-- ════ BAKIM SETİ SEÇİM & SIKLIK REHBERİ ════ -->
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.3rem"><i class="bi bi-diagram-3-fill me-2" style="color:#42a5f5"></i>Hangi Makineye Hangi Bakım Seti? — Seçim Rehberi</h4>
+    <p style="color:var(--muted);font-size:.9rem">Sağlıklı bir bakım için her makineye <b>3 katman</b> uygulayın: <b>①</b> Operatör günlük (otonom) &nbsp; <b>②</b> Makineye özel periyodik set &nbsp; <b>③</b> Yıllık revizyon. Aşağıdaki tablodan makinenize karşılık gelen <b>birincil seti</b> seçin.</p>
+    <div class="table-responsive">
+    <table class="table table-dark table-sm align-middle" style="font-size:.85rem">
+      <thead><tr><th>Makine</th><th>Birincil Set (makineye özel)</th><th>Ek / Genel Set</th></tr></thead>
+      <tbody>
+        <tr><td>Dilimleme Makinası</td><td>Dilimleme Makinası — Periyodik Bakım</td><td>Genel Mekanik, Elektrik</td></tr>
+        <tr><td>SJT Su Jeti Kesim</td><td>SJT Su Jeti Kesim — Periyodik Bakım</td><td>Hidrolik Sistem, Elektrik</td></tr>
+        <tr><td>Vargel / H-Pres / KP4</td><td>Kesme Presleri — Periyodik Bakım</td><td>Hidrolik Sistem, Pres Makinesi</td></tr>
+        <tr><td>Açılı Kesim Makinesi</td><td>Açılı Kesim Makinesi — Periyodik Bakım</td><td>Genel Mekanik, Elektrik</td></tr>
+        <tr><td>Dikey CNC Kesim</td><td>Dikey CNC Kesim Makinası — Periyodik Bakım</td><td>CNC / Testere, Elektrik</td></tr>
+        <tr><td>Laminasyon (LMM)</td><td>Laminasyon Makinesi (LMM) — Periyodik Bakım</td><td>Elektrik, Genel Mekanik</td></tr>
+        <tr><td>Yatay Kesim Makinesi</td><td>Yatay Kesim Makinesi — Periyodik Bakım</td><td>CNC / Testere, Elektrik</td></tr>
+        <tr><td>Kompresör</td><td>Kompresör Bakımı (hazır şablon)</td><td>Pnömatik Sistem</td></tr>
+        <tr><td>Forklift</td><td>Forklift Bakımı (hazır şablon)</td><td>—</td></tr>
+        <tr><td><b>TÜM makineler</b> (operatör)</td><td>Günlük Operatör Kontrolü (Otonom)</td><td>—</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div style="background:rgba(67,160,71,.12);border:1px solid #43a04755;border-radius:10px;padding:.7rem 1rem;font-size:.85rem">
+      <b>Kural:</b> Önce <b>makineye özel</b> seti uygula. Makinede ağırlıklı bir disiplin varsa (çok hidrolik / çok elektronik) ilgili <b>genel seti</b> ek olarak da ata. <b>Operatör günlük kontrolü her makinede</b> olmalı.
+    </div>
+  </div>
+
+  <!-- Neye göre seçmeli -->
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.6rem"><i class="bi bi-funnel-fill me-2" style="color:#ab47bc"></i>Neye Göre Seçmeli? — 4 Kriter</h4>
+    <div class="row g-3">
+      <div class="col-md-3"><div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.9rem;height:100%">
+        <h6 style="color:#42a5f5"><i class="bi bi-cpu me-1"></i>1) Makine Tipi</h6>
+        <p style="font-size:.83rem;color:var(--muted);margin:0">Önce makineye özel seti seç (kesim, pres, su jeti, laminasyon). Eşleştirme yukarıdaki tabloda.</p></div></div>
+      <div class="col-md-3"><div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.9rem;height:100%">
+        <h6 style="color:#26c6da"><i class="bi bi-tools me-1"></i>2) Teknik Disiplin</h6>
+        <p style="font-size:.83rem;color:var(--muted);margin:0">Ağırlıklı disipline göre genel set ekle: Hidrolik, Elektrik, Pnömatik, Mekanik.</p></div></div>
+      <div class="col-md-3"><div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.9rem;height:100%">
+        <h6 style="color:#e53935"><i class="bi bi-shield-exclamation me-1"></i>3) Kritiklik</h6>
+        <p style="font-size:.83rem;color:var(--muted);margin:0">Kritik/Yüksek makinede daha <b>sık periyot</b> + daha kapsamlı kontrol. (Kritiklik otomatik — üstteki karta bak.)</p></div></div>
+      <div class="col-md-3"><div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:.9rem;height:100%">
+        <h6 style="color:#fb8c00"><i class="bi bi-clock me-1"></i>4) Çalışma Yoğunluğu</h6>
+        <p style="font-size:.83rem;color:var(--muted);margin:0">Çok vardiyalı / 7-24 çalışan makinede periyodu kısalt ya da <b>saat bazına</b> geç.</p></div></div>
+    </div>
+  </div>
+
+  <!-- Sıklık nasıl belirlenir/artırılır -->
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.5rem"><i class="bi bi-clock-history me-2" style="color:#fb8c00"></i>Bakım Sıklığı (Periyot) — Nasıl Belirlenir ve Artırılır?</h4>
+    <div class="row g-3 mb-2">
+      <div class="col-md-6">
+        <h6 style="color:#42a5f5"><i class="bi bi-calendar-range me-1"></i>Periyot Türleri</h6>
+        <table class="table table-dark table-sm" style="font-size:.82rem">
+          <thead><tr><th>Periyot</th><th>Ne için</th></tr></thead>
+          <tbody>
+            <tr><td>Her vardiya / Günlük</td><td>Otonom kontrol, güvenlik, yüksek basınç</td></tr>
+            <tr><td>Haftalık</td><td>Yoğun çalışan kritik kalemler (filtre, yağ sev.)</td></tr>
+            <tr><td>Aylık</td><td>Standart önleyici bakım (çoğu makine)</td></tr>
+            <tr><td>3 Aylık</td><td>Elektrik pano, izolasyon, topraklama</td></tr>
+            <tr><td>6 Aylık</td><td>Yağ/gres değişimi, rulman kontrolü</td></tr>
+            <tr><td>Yıllık</td><td>Revizyon: conta/vana/boru değişimi, büyük bakım</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="col-md-6">
+        <h6 style="color:#e53935"><i class="bi bi-arrow-up-circle me-1"></i>Sıklığı NE ZAMAN artırmalı?</h6>
+        <ul style="font-size:.84rem;color:var(--muted);margin-bottom:.4rem">
+          <li>Makine <b>Kritik / Yüksek</b> kritiklikte.</li>
+          <li>Aynı arıza <b>12 ayda 2+ kez</b> tekrarlıyor.</li>
+          <li>Makine yaşlı / aşınma hızlı.</li>
+          <li><b>Çok vardiyalı / 7-24</b> çalışıyor.</li>
+          <li>Bakımda sürekli <b>"uygun değil"</b> çıkan kalem var.</li>
+          <li>Sünger/köpük üretiminde <b>kontaminasyon</b> riski → temizlik sıklığını artır.</li>
+        </ul>
+        <h6 style="color:#43a047"><i class="bi bi-arrow-down-circle me-1"></i>Azaltma</h6>
+        <p style="font-size:.84rem;color:var(--muted);margin:0">Aylarca hep "uygun" çıkan, hiç arızalanmayan kalemde periyodu uzatabilirsin (gereksiz bakım maliyetini düşürür).</p>
+      </div>
+    </div>
+    <div style="background:rgba(26,35,126,.15);border:1px solid #3949ab55;border-radius:10px;padding:.8rem 1.1rem">
+      <h6 style="color:#7986cb"><i class="bi bi-sliders me-1"></i>Sıklık Nasıl Artırılır? — Adımlar</h6>
+      <ol style="font-size:.85rem;margin-bottom:0;color:var(--muted)">
+        <li><b>Planlı Bakım</b> sekmesi → ilgili bakımı <b>✏️ düzenle</b>.</li>
+        <li><b>Periyot</b> alanında sayı/birimi küçült: örn. <b>1 ay → 15 gün</b> ya da <b>1 hafta</b>.</li>
+        <li>Yoğun makinede <b>Saat bazına</b> geç: örn. her <b>250 çalışma saatinde</b> (Saat Bazlı bakım).</li>
+        <li><b>Kaydet</b> → Takvim ve "sonraki bakım" otomatik güncellenir.</li>
+        <li>İpucu: Kritik kalemi <b>ayrı plana böl</b> — örn. su jetinde "yüksek basınç kontrolü = günlük", "conta değişimi = yıllık".</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- Önerilen periyotlar -->
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.3rem"><i class="bi bi-table me-2" style="color:#26c6da"></i>Sanifoam — Önerilen Başlangıç Periyotları</h4>
+    <p style="color:var(--muted);font-size:.85rem">Bunlar <b>başlangıç</b> değerleridir; makinenin arıza/duruş verisine göre artır-azalt (yukarıdaki kurallar).</p>
+    <div class="table-responsive">
+    <table class="table table-dark table-sm align-middle" style="font-size:.84rem">
+      <thead><tr><th>Set / Görev grubu</th><th>Önerilen periyot</th><th>Baz</th></tr></thead>
+      <tbody>
+        <tr><td>Günlük Operatör Kontrolü (Otonom)</td><td>Her vardiya</td><td>Zaman</td></tr>
+        <tr><td>Su jeti — basınç / emniyet / filtre kontrolleri</td><td>Haftalık</td><td>Zaman</td></tr>
+        <tr><td>Kesme presleri — hidrolik kontroller</td><td>Aylık</td><td>Zaman / Saat</td></tr>
+        <tr><td>CNC / Yatay / Dilimleme / Açılı — bıçak + genel</td><td>Aylık</td><td>Zaman</td></tr>
+        <tr><td>Laminasyon — konveyör / ısıtıcı / rulman</td><td>Aylık</td><td>Zaman</td></tr>
+        <tr><td>Elektrik pano — sıkılık / izolasyon / topraklama</td><td>3 Aylık</td><td>Zaman</td></tr>
+        <tr><td>Yağ / hidrolik yağ değişimi</td><td>6 Aylık veya ~1000 saat</td><td>Saat</td></tr>
+        <tr><td>Su jeti — yıllık revizyon (conta/vana/boru)</td><td>Yıllık</td><td>Zaman</td></tr>
+        <tr><td>Genel revizyon / büyük bakım</td><td>Yıllık</td><td>Saat</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- Adım adım uygulama -->
+  <div class="card-dark mb-4">
+    <h4 style="margin-bottom:.5rem"><i class="bi bi-list-ol me-2" style="color:#66bb6a"></i>Adım Adım: Seti Seç → Plana Uygula</h4>
+    <ol style="font-size:.88rem;line-height:1.7">
+      <li><b>Makineler</b> sekmesi → makineyi ekle/seç (tip, lokasyon, <b>kritiklik önemini</b> gir).</li>
+      <li><b>Bakım Setleri</b> sekmesi → <b>🏢 Sanifoam Makine Setleri</b> butonuyla setleri yükle (bir kez).</li>
+      <li><b>Planlı Bakım</b> → <b>Yeni</b> → makineyi ve bakım tipini (Önleyici) seç.</li>
+      <li>Kontrol listesinde <b>"Bakım Setinden Ekle"</b> → makinenin <b>birincil setini</b> seç → görevler otomatik gelir. (Gerekirse genel seti de ekle.)</li>
+      <li><b>Periyot</b> (sıklık) belirle — önerilen tablo yukarıda.</li>
+      <li><b>Tekniker</b> ata + planlanan tarihi gir → Kaydet.</li>
+      <li>Bakım yapılınca kontrol listesini <b>işaretle</b> (yapan + tarih) → Tamamlandı.</li>
+      <li>Arıza olursa <b>Arızalar</b>'a kaydet → kritiklik/risk otomatik güncellenir → gerekirse periyodu <b>artır</b>.</li>
+    </ol>
+    <div style="background:rgba(67,160,71,.1);border:1px solid #43a04755;border-radius:10px;padding:.7rem 1rem;font-size:.85rem">
+      <i class="bi bi-repeat me-1" style="color:#66bb6a"></i><b>Döngü:</b> Planla → Uygula → Kaydet → Ölç (KPI / OEE) → Sıklığı gözden geçir. Bu <b>PUKÖ (PDCA)</b> döngüsü bakımı sürekli iyileştirir.
+    </div>
+  </div>
 </section>
 
 </div><!-- /main -->
