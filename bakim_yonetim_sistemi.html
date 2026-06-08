@@ -7482,34 +7482,29 @@ const SANIFOAM_TASK_SETS = [
     {id:'sfm_dilimleme_9',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
     {id:'sfm_dilimleme_10',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
   ]},
-  { id:'sfm_sjt_gunluk', name:'SJT Su Jeti Kesim — Günlük Bakım', desc:'Su Jeti Kesim — Günlük kontroller (8 saatlik vardiyaya göre)', type:'preventive', techDisc:'hydraulic', tasks:[
-    {id:'sfm_sjt_gunluk_1',title:'Yüksek basınç vanalarının sızdırmazlık kontrolü',note:'',mins:10},
-    {id:'sfm_sjt_gunluk_2',title:'Çalışma basıncı kontrolü',note:'',mins:10},
-    {id:'sfm_sjt_gunluk_3',title:'Yüksek basınç devresi emniyet vana kontrolü',note:'',mins:10},
-    {id:'sfm_sjt_gunluk_4',title:'Acil durum düğme ve sensörlerin kontrolü',note:'',mins:10},
-    {id:'sfm_sjt_gunluk_5',title:'Su filtreleri kontrolü',note:'',mins:10},
-    {id:'sfm_sjt_gunluk_6',title:'Yağ filtreleri kontrolü',note:'',mins:10},
-    {id:'sfm_sjt_gunluk_7',title:'Yağ seviyesi kontrolü',note:'',mins:5},
-    {id:'sfm_sjt_gunluk_8',title:'Yağ eşanjörü kütle temizliği',note:'',mins:15},
-    {id:'sfm_sjt_gunluk_9',title:'Yoğunlaştırıcı besleme suyu sertlik analizi',note:'',mins:10},
-    {id:'sfm_sjt_gunluk_10',title:'Elektrik pano bileşenleri kontrolü',note:'',mins:10},
+  { id:'sfm_sjt', name:'SJT Su Jeti Kesim — Periyodik Bakım', desc:'Su Jeti Kesim — periyodik kontrol ve revizyon kalemleri', type:'preventive', techDisc:'hydraulic', tasks:[
+    {id:'sfm_sjt_1',title:'Yüksek basınç vanalarının sızdırmazlık kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_2',title:'Çalışma basıncı kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_3',title:'Yüksek basınç devresi emniyet vana kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_4',title:'Acil durum düğme ve sensörlerin kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_5',title:'Su filtreleri kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_6',title:'Yağ filtreleri kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_7',title:'Yağ seviyesi kontrolü',note:'',mins:5},
+    {id:'sfm_sjt_8',title:'Yağ eşanjörü kütle temizliği',note:'',mins:15},
+    {id:'sfm_sjt_9',title:'Yoğunlaştırıcı besleme suyu sertlik analizi',note:'',mins:10},
+    {id:'sfm_sjt_10',title:'Elektrik pano bileşenleri ve bağlantı sıkılık kontrolü',note:'',mins:10},
+    {id:'sfm_sjt_11',title:'Vana gövde revizyonu',note:'',mins:45},
+    {id:'sfm_sjt_12',title:'Vana gruplarının bakımı',note:'',mins:30},
+    {id:'sfm_sjt_13',title:'Statik contaların değiştirilmesi',note:'',mins:30},
+    {id:'sfm_sjt_14',title:'Dinamik contaların değiştirilmesi',note:'',mins:30},
+    {id:'sfm_sjt_15',title:'Yüksek basınç borularının değiştirilmesi',note:'',mins:45},
+    {id:'sfm_sjt_16',title:'Vana gövdelerinin değiştirilmesi',note:'',mins:45},
+    {id:'sfm_sjt_17',title:'Emniyet vana kitinin değiştirilmesi',note:'',mins:30},
+    {id:'sfm_sjt_18',title:'Su filtrelerinin değiştirilmesi',note:'',mins:15},
+    {id:'sfm_sjt_19',title:'Yağ filtrelerinin değiştirilmesi',note:'',mins:15},
+    {id:'sfm_sjt_20',title:'Yağın değiştirilmesi',note:'',mins:20},
   ]},
-  { id:'sfm_sjt_yillik', name:'SJT Su Jeti Kesim — Yıllık Periyodik Bakım', desc:'Su Jeti Kesim — Yıllık revizyon (8 saatlik vardiyaya göre)', type:'overhaul', techDisc:'hydraulic', tasks:[
-    {id:'sfm_sjt_yillik_1',title:'Vana gövde revizyonu',note:'',mins:45},
-    {id:'sfm_sjt_yillik_2',title:'Vana gruplarının bakımı',note:'',mins:30},
-    {id:'sfm_sjt_yillik_3',title:'Statik contaların değiştirilmesi',note:'',mins:30},
-    {id:'sfm_sjt_yillik_4',title:'Dinamik contaların değiştirilmesi',note:'',mins:30},
-    {id:'sfm_sjt_yillik_5',title:'Yüksek basınç borularının değiştirilmesi',note:'',mins:45},
-    {id:'sfm_sjt_yillik_6',title:'Vana gövdelerinin değiştirilmesi',note:'',mins:45},
-    {id:'sfm_sjt_yillik_7',title:'Emniyet vana kitinin değiştirilmesi',note:'',mins:30},
-    {id:'sfm_sjt_yillik_8',title:'Su filtrelerinin değiştirilmesi',note:'',mins:15},
-    {id:'sfm_sjt_yillik_9',title:'Yağ filtrelerinin değiştirilmesi',note:'',mins:15},
-    {id:'sfm_sjt_yillik_10',title:'Yağın değiştirilmesi',note:'',mins:20},
-    {id:'sfm_sjt_yillik_11',title:'Yağ eşanjörü kütle temizliği',note:'',mins:20},
-    {id:'sfm_sjt_yillik_12',title:'Yoğunlaştırıcı besleme suyu sertlik analizi',note:'',mins:10},
-    {id:'sfm_sjt_yillik_13',title:'Elektrik pano bileşenleri sıkılık kontrolü',note:'',mins:15},
-  ]},
-  { id:'sfm_kesme_pres', name:'Kesme Presleri — Periyodik Bakım (Vargel / H-Pres / Açılı / KP6)', desc:'Kesme Presleri ortak bakım kartı — 4 makineye de uygulanır', type:'preventive', techDisc:'hydraulic', tasks:[
+  { id:'sfm_kesme_pres', name:'Kesme Presleri — Periyodik Bakım (Vargel / H-Pres / KP4)', desc:'Kesme Presleri ortak bakım kartı — 3 makineye uygulanır (Vargel, H-Pres, KP4)', type:'preventive', techDisc:'hydraulic', tasks:[
     {id:'sfm_kesme_pres_1',title:'Hidrolik yağ kontrol et',note:'',mins:10},
     {id:'sfm_kesme_pres_2',title:'Soğutma fanı ve motorunu kontrol et',note:'',mins:10},
     {id:'sfm_kesme_pres_3',title:'Hareketli gezer kafa hidrolik pompa kontrol et',note:'',mins:10},
@@ -7523,6 +7518,21 @@ const SANIFOAM_TASK_SETS = [
     {id:'sfm_kesme_pres_11',title:'Kesme ünitesi polyamidini kontrol et',note:'',mins:10},
     {id:'sfm_kesme_pres_12',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
     {id:'sfm_kesme_pres_13',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_acili', name:'Açılı Kesim Makinesi — Periyodik Bakım (Testereli Kesme)', desc:'Açılı testereli kesim makinesi (pres değildir) — formdan alınan kalemler', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_acili_1',title:'Hidrolik yağ kontrol et',note:'',mins:10},
+    {id:'sfm_acili_2',title:'Soğutma fanı ve motorunu kontrol et',note:'',mins:10},
+    {id:'sfm_acili_3',title:'Hareketli gezer kafa hidrolik pompa kontrol et',note:'',mins:10},
+    {id:'sfm_acili_4',title:'Hareketli gezer kafa pompa motoru kontrol et',note:'',mins:10},
+    {id:'sfm_acili_5',title:'Hareketli kafa hidrolik silindir kontrol et',note:'',mins:10},
+    {id:'sfm_acili_6',title:'Hareketli kafa valf grubu, hortumları ve bağlantılarını kontrol et',note:'',mins:10},
+    {id:'sfm_acili_7',title:'Ana kesme hidrolik pompasını kontrol et',note:'',mins:10},
+    {id:'sfm_acili_8',title:'Ana kesme hidrolik pompa motorunu kontrol et',note:'',mins:10},
+    {id:'sfm_acili_9',title:'Ana kesme hidrolik silindirleri kontrol et',note:'',mins:10},
+    {id:'sfm_acili_10',title:'Ana kesme valf grupları, hortumları ve bağlantılarını kontrol et',note:'',mins:10},
+    {id:'sfm_acili_11',title:'Kesme ünitesi polyamidini kontrol et',note:'',mins:10},
+    {id:'sfm_acili_12',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_acili_13',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
   ]},
   { id:'sfm_cnc_kesim', name:'Dikey CNC Kesim Makinası — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — CNC Kesim', type:'preventive', techDisc:'mechanical+electrical', tasks:[
     {id:'sfm_cnc_kesim_1',title:'Makine bıçak gergi sistemi kontrolü',note:'',mins:10},
@@ -7577,13 +7587,13 @@ const SANIFOAM_TASK_SETS = [
 
 function loadSanifoamTaskSets(){
   if(!db.taskSets) db.taskSets=[];
-  const existingIds = new Set(db.taskSets.map(ts=>ts.id));
-  const toAdd = SANIFOAM_TASK_SETS.filter(ts=>!existingIds.has(ts.id));
-  if(!toAdd.length){ toast('Sanifoam makine bakım setleri zaten yüklü','warning'); return; }
-  db.taskSets.push(...JSON.parse(JSON.stringify(toAdd)));   // derin kopya (sabit diziyi koru)
+  // eski Sanifoam setlerini (sfm_ ile başlayan) güncel listeyle DEĞİŞTİR; kullanıcı/şablon setlerine dokunma
+  const had = db.taskSets.some(ts=>String(ts.id||'').startsWith('sfm_'));
+  db.taskSets = db.taskSets.filter(ts=> !String(ts.id||'').startsWith('sfm_'));
+  db.taskSets.push(...JSON.parse(JSON.stringify(SANIFOAM_TASK_SETS)));   // derin kopya (sabit diziyi koru)
   save();
   renderTaskSets();
-  toast(`${toAdd.length} Sanifoam makine bakım seti eklendi ✔`,'success');
+  toast(`${SANIFOAM_TASK_SETS.length} Sanifoam makine bakım seti ${had?'güncellendi':'eklendi'} ✔`,'success');
 }
 
 // ── Maintenance Checklist (edit mode inside maintenance modal) ──
