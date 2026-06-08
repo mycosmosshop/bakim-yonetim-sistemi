@@ -1873,7 +1873,14 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <div class="modal-body">
         <p style="font-size:.82rem;color:var(--muted);margin-bottom:.5rem">Excel'den içe aktarılan kod/isim listesi. <b>Kod veya addan ara</b>, <b>«Ekle»</b> ile sadece istediğin makineyi listene aktar.</p>
         <input type="text" class="form-control mb-2" id="mcSearch" placeholder="🔍 Kod veya isim ara…" oninput="renderMachCatalog()">
-        <div id="mcList" style="max-height:430px;overflow-y:auto"></div>
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap" style="font-size:.8rem">
+          <label style="cursor:pointer;margin:0"><input type="checkbox" id="catChkAll" onclick="toggleAllCat(this)" class="form-check-input mt-0 me-1"> Tümünü seç</label>
+          <span id="catSelInfo" style="display:none;color:#e57373"><b id="catSelCount">0</b> seçili</span>
+          <button id="catDelBtn" class="btn btn-sm btn-danger" style="display:none;padding:1px 9px" onclick="delCatSelected()"><i class="bi bi-trash me-1"></i>Seçilenleri Sil</button>
+          <div class="flex-grow-1"></div>
+          <button class="btn btn-sm btn-outline-danger" style="padding:1px 9px" onclick="clearCatalog()" title="Kataloğun tamamını sil">Kataloğu Temizle</button>
+        </div>
+        <div id="mcList" style="max-height:400px;overflow-y:auto"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-sm btn-outline-success me-auto" onclick="addAllFilteredCatalog()"><i class="bi bi-plus-lg me-1"></i>Filtreli tümünü ekle</button>
@@ -7003,16 +7010,34 @@ function openMachCatalog(){ const s=document.getElementById('mcSearch'); if(s)s.
 function renderMachCatalog(){
   const cat=db.machineCatalog||[]; const el=document.getElementById('mcList'); if(!el) return;
   const cntEl=document.getElementById('mcCount'); if(cntEl)cntEl.textContent=cat.length;
-  if(!cat.length){ el.innerHTML='<p style="color:var(--muted);text-align:center;padding:1.5rem">Katalog boş. «Excel İçe Aktar» ile Makine Tanıtım Kartı yükle.</p>'; return; }
-  const q=(document.getElementById('mcSearch')?.value||'').toLowerCase().trim();
-  const list=cat.filter(c=> !q || (c.code||'').toLowerCase().includes(q) || (c.name||'').toLowerCase().includes(q));
-  if(!list.length){ el.innerHTML='<p style="color:var(--muted);text-align:center;padding:1.5rem">Eşleşme yok.</p>'; return; }
-  el.innerHTML=list.slice(0,400).map(c=>{ const idx=cat.indexOf(c); const ex=_machExists(c.code,c.name);
-    return `<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid var(--border)">
-      <div class="flex-grow-1" style="font-size:.85rem"><span style="font-family:monospace;color:#82b1ff;margin-right:8px">${c.code||'—'}</span>${c.name||''}</div>
-      ${ex?'<span style="font-size:.74rem;color:#43a047;white-space:nowrap"><i class="bi bi-check-circle-fill me-1"></i>Listede</span>':`<button class="btn btn-sm btn-outline-primary" style="padding:1px 9px;white-space:nowrap" onclick="addFromCatalogIdx(${idx})"><i class="bi bi-plus-lg"></i> Ekle</button>`}
-    </div>`; }).join('') + (list.length>400?`<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.5rem">… ${list.length-400} kayıt daha — aramayı daralt</p>`:'');
+  let html;
+  if(!cat.length){ html='<p style="color:var(--muted);text-align:center;padding:1.5rem">Katalog boş. «Excel İçe Aktar» ile Makine Tanıtım Kartı yükle.</p>'; }
+  else {
+    const q=(document.getElementById('mcSearch')?.value||'').toLowerCase().trim();
+    const list=cat.filter(c=> !q || (c.code||'').toLowerCase().includes(q) || (c.name||'').toLowerCase().includes(q));
+    if(!list.length){ html='<p style="color:var(--muted);text-align:center;padding:1.5rem">Eşleşme yok.</p>'; }
+    else { html=list.map(c=>{ const idx=cat.indexOf(c); const ex=_machExists(c.code,c.name);
+      return `<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid var(--border)">
+        <input type="checkbox" class="cat-chk form-check-input mt-0" value="${idx}" onclick="_catSelChanged()">
+        <div class="flex-grow-1" style="font-size:.85rem"><span style="font-family:monospace;color:#82b1ff;margin-right:8px">${c.code||'—'}</span>${c.name||''}</div>
+        ${ex?'<span style="font-size:.74rem;color:#43a047;white-space:nowrap"><i class="bi bi-check-circle-fill me-1"></i>Listede</span>':`<button class="btn btn-sm btn-outline-primary" style="padding:1px 9px;white-space:nowrap" onclick="addFromCatalogIdx(${idx})"><i class="bi bi-plus-lg"></i> Ekle</button>`}
+        <button class="btn btn-sm btn-outline-danger" style="padding:1px 7px" title="Katalogdan sil" onclick="delCatalogIdx(${idx})"><i class="bi bi-trash"></i></button>
+      </div>`; }).join(''); }
+  }
+  el.innerHTML=html; _catSelChanged();
 }
+function delCatalogIdx(i){ if(!requireWrite())return; if(!db.machineCatalog||!db.machineCatalog[i])return; db.machineCatalog.splice(i,1); save(); renderMachCatalog(); }
+function toggleAllCat(cb){ document.querySelectorAll('#mcList .cat-chk').forEach(c=>{c.checked=cb.checked;}); _catSelChanged(); }
+function _catSelChanged(){ const chks=[...document.querySelectorAll('#mcList .cat-chk')]; const sel=chks.filter(c=>c.checked).length;
+  const inf=document.getElementById('catSelInfo'), cnt=document.getElementById('catSelCount'), btn=document.getElementById('catDelBtn');
+  if(cnt)cnt.textContent=sel; if(inf)inf.style.display=sel>0?'':'none'; if(btn)btn.style.display=sel>0?'':'none';
+  const all=document.getElementById('catChkAll'); if(all){ all.checked=chks.length>0&&sel===chks.length; all.indeterminate=sel>0&&sel<chks.length; } }
+function delCatSelected(){ if(!requireWrite())return; const idxs=[...document.querySelectorAll('#mcList .cat-chk:checked')].map(c=>parseInt(c.value));
+  if(!idxs.length){ toast('Önce kayıt seç','warning'); return; }
+  if(!confirm(idxs.length+' katalog kaydı silinecek. Emin misin?')) return; const set=new Set(idxs);
+  db.machineCatalog=(db.machineCatalog||[]).filter((c,i)=>!set.has(i)); save(); renderMachCatalog(); toast(idxs.length+' kayıt katalogdan silindi ✔','success'); }
+function clearCatalog(){ if(!requireWrite())return; const n=(db.machineCatalog||[]).length; if(!n){ toast('Katalog zaten boş','warning'); return; }
+  if(!confirm('Kataloğun TAMAMI silinecek ('+n+' kayıt). Emin misin?')) return; db.machineCatalog=[]; save(); renderMachCatalog(); toast('Katalog temizlendi','success'); }
 function addFromCatalogIdx(i){ if(!requireWrite())return; const c=(db.machineCatalog||[])[i]; if(!c) return;
   if(_machExists(c.code,c.name)){ toast('Zaten listede','warning'); return; }
   db.machines.push({id:uid(),name:c.name||c.code,code:c.code||'',model:'',serial:'',location:gLocFilter||'',dept:'',criticality:'medium',status:'running',installDate:'',mfg:'',capacity:'',runHours:0,notes:''});
