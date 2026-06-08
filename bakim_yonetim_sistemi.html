@@ -7453,12 +7453,13 @@ const TASKSET_CODES = {
 function _tsCode(ts){ return (ts&&ts.code) || (ts&&TASKSET_CODES[ts.id]) || ''; }
 function _nextBsoCode(){ const used=new Set((db.taskSets||[]).map(t=>(t.code||TASKSET_CODES[t.id])).filter(Boolean)); let n=1; while(used.has('BSO-'+String(n).padStart(2,'0'))) n++; return 'BSO-'+String(n).padStart(2,'0'); }
 function _ensureTaskSetCodes(){ let ch=false; (db.taskSets||[]).forEach(t=>{ if(!t.code && !TASKSET_CODES[t.id]){ t.code=_nextBsoCode(); ch=true; } }); return ch; }   // elle eklenen/kodsuz setlere BSO-NN ata
+function _ensureTaskNos(){ let ch=false; (db.taskSets||[]).forEach(ts=>{ const tk=ts.tasks||[]; let mx=Math.max(0,...tk.map(t=>Number(t.no)||0)); tk.forEach(t=>{ if(!t.no){ t.no=++mx; ch=true; } }); }); return ch; }   // numarasız görevlere kalıcı sıra no
 function renderTaskSets(){
   const srch=(document.getElementById('tsSearch')?.value||'').toLowerCase();
   const tf=document.getElementById('tsTypeF')?.value||'';
   const mf=document.getElementById('tsMachF')?.value||'';
   const allSets=db.taskSets||[];
-  if(_ensureTaskSetCodes()){ try{ if(typeof canWrite!=='function'||canWrite()) save(); }catch(e){} }   // kodsuz (elle eklenen) setlere otomatik kod
+  const _c1=_ensureTaskSetCodes(), _c2=_ensureTaskNos(); if(_c1||_c2){ try{ if(typeof canWrite!=='function'||canWrite()) save(); }catch(e){} }   // kodsuz setlere kod + numarasız görevlere no
   // Lokasyon filtresi: seçili lokasyondaki makineye ait setler + genel setler
   const locMachIds = gLocFilter ? new Set((db.machines||[]).filter(m=>m.location===gLocFilter).map(m=>m.id)) : null;
   const locSets = locMachIds ? allSets.filter(ts=>!ts.machineId||locMachIds.has(ts.machineId)) : allSets;
@@ -7504,7 +7505,7 @@ function renderTaskSets(){
       </div>
       ${tasks.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.35rem">
         ${tasks.map((t,i)=>`<div style="background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:.4rem .65rem;font-size:.8rem;display:flex;align-items:flex-start;gap:.5rem">
-          <span style="color:var(--muted);font-size:.72rem;min-width:18px;padding-top:2px">${i+1}.</span>
+          <span style="color:var(--muted);font-size:.72rem;min-width:18px;padding-top:2px">${t.no||(i+1)}.</span>
           <div class="flex-grow-1"><div>${t.title}</div>${t.note?`<div style="font-size:.7rem;color:var(--muted)">${t.note}</div>`:''}</div>
           ${t.mins?`<span style="font-size:.7rem;color:var(--muted);white-space:nowrap">${t.mins}dk</span>`:''}
         </div>`).join('')}
@@ -7525,22 +7526,24 @@ function openTaskSetModal(ts){
   const empty=document.getElementById('tsTaskEmpty');
   if(ts&&ts.tasks&&ts.tasks.length){
     if(empty) empty.style.display='none';
-    ts.tasks.forEach(t=>addTsTaskRow(t.title||'',t.note||'',t.mins||''));
+    ts.tasks.forEach(t=>addTsTaskRow(t.title||'',t.note||'',t.mins||'',t.no||''));
   } else {
     if(empty) empty.style.display='block';
   }
   new bootstrap.Modal(document.getElementById('modalTaskSet')).show();
 }
 
-function addTsTaskRow(title='',note='',mins=''){
+function addTsTaskRow(title='',note='',mins='',no=''){
   const container=document.getElementById('tsTaskList');
   const empty=document.getElementById('tsTaskEmpty');
   if(empty) empty.style.display='none';
+  if(!no){ let mx=0; container.querySelectorAll('.ts-no').forEach(i=>{const v=parseInt(i.value)||0; if(v>mx)mx=v;}); no=mx+1; }   // yeni satır → mevcut en büyük + 1 (silinen numara geri gelmez)
   const div=document.createElement('div');
   div.className='row g-2 mb-1 ts-row align-items-center';
-  div.innerHTML=`<div class="col"><input type="text" class="form-control form-control-sm ts-title" placeholder="Görev açıklaması…" value="${(title||'').replace(/"/g,'&quot;')}"></div>
+  div.innerHTML=`<div style="width:54px;padding:0 4px"><input type="number" class="form-control form-control-sm ts-no" placeholder="No" min="1" value="${no||''}" title="Sıra no — düzenlenebilir"></div>
+    <div class="col"><input type="text" class="form-control form-control-sm ts-title" placeholder="Görev açıklaması…" value="${(title||'').replace(/"/g,'&quot;')}"></div>
     <div class="col-3"><input type="text" class="form-control form-control-sm ts-note" placeholder="Not / araç" value="${(note||'').replace(/"/g,'&quot;')}"></div>
-    <div style="width:82px;padding:0 4px"><input type="number" class="form-control form-control-sm ts-mins" placeholder="dk" min="1" value="${mins||''}"></div>
+    <div style="width:70px;padding:0 4px"><input type="number" class="form-control form-control-sm ts-mins" placeholder="dk" min="1" value="${mins||''}"></div>
     <div style="width:38px;padding:0 4px"><button type="button" class="btn btn-sm btn-outline-danger w-100 px-0" onclick="this.closest('.ts-row').remove();const e=document.getElementById('tsTaskEmpty');if(e&&!document.querySelectorAll('#tsTaskList .ts-row').length)e.style.display='block'"><i class="bi bi-x"></i></button></div>`;
   container.appendChild(div);
 }
@@ -7552,8 +7555,9 @@ function saveTaskSet(){ if(!requireWrite())return;
   const tasks=[];
   document.querySelectorAll('#tsTaskList .ts-row').forEach(row=>{
     const title=(row.querySelector('.ts-title')?.value||'').trim();
-    if(title) tasks.push({id:uid(),title,note:(row.querySelector('.ts-note')?.value||'').trim(),mins:parseInt(row.querySelector('.ts-mins')?.value)||0});
+    if(title) tasks.push({id:uid(),no:parseInt(row.querySelector('.ts-no')?.value)||0,title,note:(row.querySelector('.ts-note')?.value||'').trim(),mins:parseInt(row.querySelector('.ts-mins')?.value)||0});
   });
+  { let mx=Math.max(0,...tasks.map(t=>t.no||0)); tasks.forEach(t=>{ if(!t.no) t.no=++mx; }); }   // numarasız kalanlara en büyük+1
   const _existing = id ? (db.taskSets||[]).find(x=>x.id===id) : null;
   let _code=(document.getElementById('mTsCode').value||'').trim();
   if(!_code) _code=(_existing&&_existing.code)||TASKSET_CODES[id]||_nextBsoCode();   // kod boşsa otomatik ata (elle eklenene de)
