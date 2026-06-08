@@ -158,8 +158,9 @@ select option{background:#0d1117}
   #printArea{display:block!important;position:static!important;padding:20px}
   .print-pg-break{page-break-before:always}
   .print-sign-row,.print-sign-box{page-break-inside:avoid;break-inside:avoid}
-  #printArea table tr{page-break-inside:avoid;break-inside:avoid}
+  #printArea .print-body table tr{page-break-inside:avoid;break-inside:avoid}
   #printArea thead{display:table-header-group}
+  .print-wrap>tbody>tr>td,.print-wrap>thead>tr>td{padding:0!important;border:0!important}
 }
 .print-antet{display:flex;border:2px solid #000;margin-bottom:0;font-family:Arial,sans-serif}
 .print-antet-left{padding:10px 14px;border-right:2px solid #000;min-width:160px;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center}
@@ -2174,24 +2175,30 @@ body.tech-mode #mobileMenuBtn{display:none !important}
 
 <!-- ── Print Area ── -->
 <div id="printArea" style="display:none;background:#fff;color:#000">
-  <div class="print-antet">
-    <div class="print-antet-left">
-      <div style="font-size:22px;font-weight:900;letter-spacing:3px;color:#1a237e;line-height:1.1">SANİFOAM</div>
-      <div style="font-size:9px;color:#777;margin-top:5px;letter-spacing:1px">BAKIM YÖNETİM SİSTEMİ</div>
+  <table class="print-wrap" style="width:100%;border-collapse:collapse">
+   <thead><tr><td style="padding:0;border:0">
+    <div class="print-antet">
+      <div class="print-antet-left">
+        <div style="font-size:22px;font-weight:900;letter-spacing:3px;color:#1a237e;line-height:1.1">SANİFOAM</div>
+        <div style="font-size:9px;color:#777;margin-top:5px;letter-spacing:1px">BAKIM YÖNETİM SİSTEMİ</div>
+      </div>
+      <div class="print-antet-center">
+        <div style="font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em" id="pFormName">FORM</div>
+      </div>
+      <div class="print-antet-right" style="padding:0">
+        <table>
+          <tr><td>DOKÜMAN NO</td><td id="pDocNo" style="min-width:140px"></td></tr>
+          <tr><td>YÜRÜRLÜk TARİHİ</td><td id="pEffDate"></td></tr>
+          <tr><td>REV. NO / TARİHİ</td><td id="pRevNo"></td></tr>
+          <tr><td>SAYFA NO</td><td>1 / 1</td></tr>
+        </table>
+      </div>
     </div>
-    <div class="print-antet-center">
-      <div style="font-size:15px;font-weight:700;text-transform:uppercase;letter-spacing:.06em" id="pFormName">FORM</div>
-    </div>
-    <div class="print-antet-right" style="padding:0">
-      <table>
-        <tr><td>DOKÜMAN NO</td><td id="pDocNo" style="min-width:140px"></td></tr>
-        <tr><td>YÜRÜRLÜk TARİHİ</td><td id="pEffDate"></td></tr>
-        <tr><td>REV. NO / TARİHİ</td><td id="pRevNo"></td></tr>
-        <tr><td>SAYFA NO</td><td>1 / 1</td></tr>
-      </table>
-    </div>
-  </div>
-  <div class="print-body" id="printContent"></div>
+   </td></tr></thead>
+   <tbody><tr><td style="padding:0;border:0">
+    <div class="print-body" id="printContent"></div>
+   </td></tr></tbody>
+  </table>
 </div>
 
 <!-- KPI Detay Modal -->
