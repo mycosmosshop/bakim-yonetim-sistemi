@@ -9131,6 +9131,28 @@ function _renderMaintForm(id){
   const m = db.machines.find(x=>x.id===p.machineId)||{};
   loadFormSettings();
   fillAntet('BAKIM KAYIT FORMU', formSettings.maintDocNo, formSettings.maintRevNo);
+  const _cl = p.checklist||[];
+  const _clDone = _cl.filter(t=>t.done).length;
+  const _clSection = _cl.length ? `
+    <div style="margin-top:10px">
+      <div class="print-field-lbl" style="margin-bottom:4px">Bakım Kontrol Listesi — Atanan Görevler (${_clDone}/${_cl.length} tamamlandı)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <thead><tr style="background:#eef1f5">
+          <th style="border:1px solid #bbb;padding:4px 6px;width:26px">#</th>
+          <th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Kontrol / Görev</th>
+          <th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Açıklama</th>
+          <th style="border:1px solid #bbb;padding:4px 6px;width:62px;text-align:center">Durum</th>
+          <th style="border:1px solid #bbb;padding:4px 6px;width:92px;text-align:left">Yapan</th>
+        </tr></thead>
+        <tbody>${_cl.map((t,i)=>`<tr>
+          <td style="border:1px solid #ccc;padding:4px 6px;text-align:center">${i+1}</td>
+          <td style="border:1px solid #ccc;padding:4px 6px">${t.title||''}</td>
+          <td style="border:1px solid #ccc;padding:4px 6px;color:#555">${t.note||''}</td>
+          <td style="border:1px solid #ccc;padding:4px 6px;text-align:center;font-size:13px">${t.done?'☑':'☐'}</td>
+          <td style="border:1px solid #ccc;padding:4px 6px">${t.doneBy||''}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>` : '';
   document.getElementById('printContent').innerHTML = `
     <div style="margin:12px 0 8px;font-size:11px;color:#444;display:flex;justify-content:space-between">
       <span><strong>Makine:</strong> ${m.name||'—'} &nbsp;|&nbsp; <strong>Lokasyon:</strong> ${m.location||'—'} &nbsp;|&nbsp; <strong>Departman:</strong> ${m.dept||'—'}</span>
@@ -9149,6 +9171,7 @@ function _renderMaintForm(id){
     ${p.basis==='hour'?`<div class="print-field-full"><div class="print-field-lbl">Çalışma Saatine Bağlı Bakım</div><div class="print-field-val">Bakım aralığı: <b>${p.intervalHours||0} saat</b> &nbsp;|&nbsp; Sonraki bakım: <b>${p.nextHours||0} saat</b> &nbsp;|&nbsp; Makine güncel: <b>${(m.runHours||0)} saat</b></div></div>`:''}
     ${p.external?`<div class="print-field-full"><div class="print-field-lbl">Dış Servis Bilgisi</div><div class="print-field-val">Firma: <b>${p.extCompany||'—'}</b> &nbsp;|&nbsp; Yetkili: ${p.extContact||'—'} &nbsp;|&nbsp; Telefon: ${p.extPhone||'—'}</div></div>`:''}
     <div class="print-field-full"><div class="print-field-lbl">Açıklama / Yapılan İşlemler</div><div class="print-field-val" style="min-height:80px">${p.desc||''}</div></div>
+    ${_clSection}
     <div class="print-sign-row" style="grid-template-columns:340px">
       <div class="print-sign-box"><div class="print-sign-lbl">Bakım Sorumlusu</div><div style="font-size:12px;margin-top:4px">${p.tech||''}</div><div class="print-sign-line">İmza &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Tarih:</div></div>
     </div>
