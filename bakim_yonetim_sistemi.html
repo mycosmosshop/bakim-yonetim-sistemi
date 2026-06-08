@@ -7545,6 +7545,7 @@ function renderTaskSets(){
   list.sort((a,b)=>(_tsCode(a)||'ZZZ').localeCompare(_tsCode(b)||'ZZZ'));   // koda göre grupla (kodsuz/özel sona)
   document.getElementById('tsBody').innerHTML=list.map(ts=>{
     const tasks=ts.tasks||[];
+    const _sc=_tsCode(ts);
     const usageCount=(db.maintenance||[]).filter(p=>p.taskSetId===ts.id).length;
     const mach=ts.machineId?(db.machines||[]).find(m=>m.id===ts.machineId):null;
     return `<div class="card-dark mb-3">
@@ -7566,7 +7567,7 @@ function renderTaskSets(){
       </div>
       ${tasks.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.35rem">
         ${tasks.map((t,i)=>`<div style="background:#0d1117;border:1px solid var(--border);border-radius:6px;padding:.4rem .65rem;font-size:.8rem;display:flex;align-items:flex-start;gap:.5rem">
-          <span style="color:var(--muted);font-size:.72rem;min-width:18px;padding-top:2px">${t.no||(i+1)}.</span>
+          <span style="font-family:monospace;font-size:.63rem;background:#10243f;color:#82b1ff;padding:1px 5px;border-radius:4px;white-space:nowrap;flex-shrink:0;margin-top:1px">${_sc?_sc+'-':''}${String(t.no||(i+1)).padStart(2,'0')}</span>
           <div class="flex-grow-1"><div>${t.title}</div>${t.note?`<div style="font-size:.7rem;color:var(--muted)">${t.note}</div>`:''}</div>
           ${t.mins?`<span style="font-size:.7rem;color:var(--muted);white-space:nowrap">${t.mins}dk</span>`:''}
         </div>`).join('')}
@@ -8035,6 +8036,7 @@ function openChecklistModal(pid){
 }
 
 function _renderClTasks(cl){
+  const _p=(db.maintenance||[]).find(x=>x.id===_clPid); const _ts=_p?(db.taskSets||[]).find(x=>x.id===_p.taskSetId):null; const _sc=_ts?_tsCode(_ts):'';
   const done=cl.filter(t=>t.done).length,total=cl.length;
   const pct=total>0?(done/total*100).toFixed(0):0;
   document.getElementById('clProgressBar').style.width=pct+'%';
@@ -8047,7 +8049,7 @@ function _renderClTasks(cl){
     <div class="cl-task-row${t.done?' cl-done':''}" id="clrow_${t.id}">
       <input type="checkbox" class="form-check-input mt-1 flex-shrink-0" id="cl_${t.id}" ${t.done?'checked':''} onchange="toggleClTask('${t.id}',this.checked)">
       <div class="flex-grow-1">
-        <label class="cl-task-label" for="cl_${t.id}" style="cursor:pointer;font-size:.875rem;font-weight:500">${t.no||(i+1)}. ${t.title}</label>
+        <label class="cl-task-label" for="cl_${t.id}" style="cursor:pointer;font-size:.875rem;font-weight:500"><span style="font-family:monospace;font-size:.72rem;color:#82b1ff;margin-right:5px">${_sc?_sc+'-':''}${String(t.no||(i+1)).padStart(2,'0')}</span>${t.title}</label>
         ${t.note?`<div style="font-size:.72rem;color:var(--muted)">${t.note}</div>`:''}
         ${t.done&&t.doneAt?`<div style="font-size:.7rem;color:#43a047;margin-top:2px"><i class="bi bi-check-circle me-1"></i>${t.doneBy||'—'} · ${fmtDt(t.doneAt)}</div>`:''}
       </div>
@@ -9250,18 +9252,19 @@ function _renderMaintForm(id){
   fillAntet('BAKIM KAYIT FORMU', formSettings.maintDocNo, formSettings.maintRevNo);
   const _cl = p.checklist||[];
   const _clDone = _cl.filter(t=>t.done).length;
+  const _scForm = _tsCode((db.taskSets||[]).find(x=>x.id===p.taskSetId));
   const _clSection = _cl.length ? `
     <div style="margin-top:10px">
       <div class="print-field-lbl" style="margin-bottom:4px">Bakım Kontrol Listesi — Atanan Görevler (${_clDone}/${_cl.length} tamamlandı)</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <thead><tr style="background:#eef1f5">
-          <th style="border:1px solid #bbb;padding:4px 6px;width:26px">#</th>
+          <th style="border:1px solid #bbb;padding:4px 6px;width:88px">Kod</th>
           <th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Kontrol / Görev</th>
           <th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Açıklama</th>
           <th style="border:1px solid #bbb;padding:4px 6px;width:70px;text-align:center">Durum</th>
         </tr></thead>
         <tbody>${_cl.map((t,i)=>`<tr>
-          <td style="border:1px solid #ccc;padding:2px 6px;text-align:center">${i+1}</td>
+          <td style="border:1px solid #ccc;padding:2px 6px;text-align:center;font-family:monospace;font-size:9.5px;white-space:nowrap">${_scForm?_scForm+'-':''}${String(t.no||(i+1)).padStart(2,'0')}</td>
           <td style="border:1px solid #ccc;padding:2px 6px">${t.title||''}</td>
           <td style="border:1px solid #ccc;padding:2px 6px;color:#555">${t.note||''}</td>
           <td style="border:1px solid #ccc;padding:2px 6px;text-align:center;font-size:13px">${t.done?'☑':'☐'}</td>
