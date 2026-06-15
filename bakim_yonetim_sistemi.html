@@ -3312,7 +3312,8 @@ function renderDashboard(){
         const urgent = dd<=0;
         const label  = dd<0?`${Math.abs(dd)} gün geçti`:dd===0?'Bugün':dd===1?'Yarın':`${dd} gün kaldı`;
         return `<div class="maint-warn-row ${urgent?'maint-warn-urgent':'maint-warn-soon'}">
-          <div><span style="font-weight:600">${mName(p.machineId)}</span>
+          <div><span style="font-weight:600">${p.assetName?`🧩 ${p.assetName}`:`🛠️ ${mName(p.machineId)}`}</span>
+            ${p.assetName?`<span style="color:var(--muted);margin-left:.5rem;font-size:.72rem">Makine: ${mName(p.machineId)}</span>`:''}
             <span style="color:var(--muted);margin-left:.5rem">${TYPE_PL[p.type]||p.type}</span>
             ${p.desc?`<span style="color:var(--muted);margin-left:.5rem;font-size:.75rem">— ${p.desc.slice(0,40)}${p.desc.length>40?'…':''}</span>`:''}</div>
           <div class="d-flex align-items-center gap-2">
@@ -3386,7 +3387,8 @@ function renderDashboard(){
   document.getElementById('dUpcoming').innerHTML = upc.length ? upc.map(p=>{
     const dd=daysDiff(p.sched); const ov=p.status==='overdue'||dd<0;
     return `<div class="upcoming-item">
-      <div><div style="font-size:.875rem;font-weight:600">${mName(p.machineId)}</div>
+      <div><div style="font-size:.875rem;font-weight:600">${p.assetName?`🧩 ${p.assetName}`:`🛠️ ${mName(p.machineId)}`}</div>
+        ${p.assetName?`<div style="font-size:.7rem;color:var(--muted)">Makine: ${mName(p.machineId)}</div>`:''}
         <div style="font-size:.75rem;color:var(--muted)">${TYPE_PL[p.type]||p.type}</div></div>
       <div class="text-end">
         <div style="font-size:.8rem;color:${ov?'#ff5252':'#fb8c00'};font-weight:600">${fmtD(p.sched)}</div>
