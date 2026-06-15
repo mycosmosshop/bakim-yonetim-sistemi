@@ -772,7 +772,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
 
   <!-- MTBF/MTTR trend -->
   <div class="card-dark mb-4">
-    <p class="text-muted mb-2" style="font-size:.8rem">MTBF / MTTR Trendi (Son 12 Ay — tüm filo)</p>
+    <p class="text-muted mb-2" style="font-size:.8rem">MTBF / MTTR Trendi (Son 12 Ay — aktif lokasyon)</p>
     <canvas id="cMtbfMttr" height="80"></canvas>
   </div>
 
@@ -3179,18 +3179,19 @@ function renderAnalyticsCharts(){
   const months = getLast12Months();
   const labels = months.map(d=>d.toLocaleString('tr-TR',{month:'short',year:'2-digit'}));
   const mtbfArr=[], mttrArr=[];
+  // Dashboard ile AYNI yöntem: her ayı calcFleetKPIs ile hesapla (makine-başı MTBF ortalaması,
+  // aktif lokasyon, KALIP HARİÇ). Böylece trend ile dashboard kartları birebir tutar.
+  const _savedRange=_dashRange, _savedActive=_dashRangeActive;
   months.forEach(d=>{
     const nx=new Date(d.getFullYear(),d.getMonth()+1,1);
-    const mF = _aF.filter(f=>{const fd=new Date(f.startTime);return fd>=d&&fd<nx&&f.status==='closed';});
-    const td = mF.reduce((s,f)=>s+downtimeH(f),0);
-    const mttr = mF.length>0 ? td/mF.length : 0;
-    const avH = 720;
-    const mtbf = mF.length>0 ? (avH-td)/mF.length : avH;
-    mtbfArr.push(+mtbf.toFixed(1)); mttrArr.push(+mttr.toFixed(1));
+    _dashRange={from:new Date(d), to:new Date(nx.getTime()-1)}; _dashRangeActive=true;
+    const k=calcFleetKPIs();
+    mtbfArr.push(k.mtbf); mttrArr.push(k.mttr);   // arıza yoksa null (grafik boşluk gösterir)
   });
+  _dashRange=_savedRange; _dashRangeActive=_savedActive;
   mkChart('cMtbfMttr',{type:'line',data:{labels,datasets:[
-    {label:'MTBF (saat)',data:mtbfArr,borderColor:'#69f0ae',backgroundColor:'rgba(105,240,174,.1)',tension:.3,fill:true,yAxisID:'y'},
-    {label:'MTTR (saat)',data:mttrArr,borderColor:'#ff5252',backgroundColor:'rgba(255,82,82,.1)',tension:.3,fill:true,yAxisID:'y1'}
+    {label:'MTBF (saat)',data:mtbfArr,borderColor:'#69f0ae',backgroundColor:'rgba(105,240,174,.1)',tension:.3,fill:true,yAxisID:'y',spanGaps:true},
+    {label:'MTTR (saat)',data:mttrArr,borderColor:'#ff5252',backgroundColor:'rgba(255,82,82,.1)',tension:.3,fill:true,yAxisID:'y1',spanGaps:true}
   ]},options:{responsive:true,interaction:{mode:'index',intersect:false},
     plugins:{legend:{labels:{color:'#e6edf3',font:{size:11}}}},
     scales:{
