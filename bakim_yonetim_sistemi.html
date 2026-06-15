@@ -510,6 +510,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <div class="d-flex gap-2">
       <button class="btn btn-success btn-sm" onclick="openMaintModal()"><i class="bi bi-plus-lg me-1"></i>Bakım Planla</button>
       <button class="btn btn-outline-warning btn-sm" onclick="autoAssignAllMachines()"><i class="bi bi-lightning-charge-fill me-1"></i>Tümüne Bakım Ata</button>
+      <button class="btn btn-outline-secondary btn-sm" onclick="dedupMaint()" title="Aynı makine+tarih+tip+kalıp olan çift planlı bakım kayıtlarından en dolusunu tutup fazlalığı siler"><i class="bi bi-stack me-1"></i>Çift Kayıtları Temizle</button>
       <button class="btn btn-sm text-white" style="background:#1d6f42" onclick="exportMaintExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel'e Aktar</button>
     </div>
   </div>
@@ -4149,6 +4150,26 @@ function saveMaint(){ if(!requireWrite())return;
   maybeSpawnNextMaint(p);
   save();bootstrap.Modal.getInstance(document.getElementById('modalMaint')).hide();
   renderMaint();toast('Bakım kaydedildi');
+}
+
+// Çift planlı bakım kayıtlarını temizle: aynı makine+tarih+tip+kalıp grubundan en "dolu" olanı tutar
+function dedupMaint(){ if(!requireWrite())return;
+  const arr=db.maintenance||[];
+  const score=p=>{ const cl=p.checklist||[]; const done=cl.filter(t=>t.done).length;
+    return (p.status==='completed'?100000:0)+done*1000+cl.length*10+(p.cost>0?500:0)+(p.actDur>0?200:0)+(String(p.id||'').startsWith('cz_')?50:0)+(p.tech?5:0); };
+  const groups={};
+  arr.forEach(p=>{ const d=(p.sched||'').slice(0,10);
+    const key=[p.machineId||'', d, p.type||'', p.assetName||p.fixtureId||'', p.basis||'date', p.nextHours||''].join('|');
+    (groups[key]=groups[key]||[]).push(p); });
+  const keepIds=new Set();
+  Object.values(groups).forEach(g=>{ g.sort((a,b)=>score(b)-score(a)); keepIds.add(g[0].id); });
+  const removed=arr.length-keepIds.size;
+  if(removed<=0){ toast('Çift kayıt bulunamadı — temiz.','info'); return; }
+  if(!confirm(removed+' çift planlı bakım kaydı bulundu.\n\nHer gruptan en dolu (tamamlanmış / checklist dolu / maliyetli) kayıt tutulacak, '+removed+' fazlalık SİLİNECEK.\n\nDevam?')) return;
+  db.maintenance=arr.filter(p=>keepIds.has(p.id));
+  save();
+  try{renderMaint();}catch(e){} try{renderDashboard();}catch(e){}
+  toast(removed+' çift kayıt temizlendi ✔ ('+db.maintenance.length+' kayıt kaldı)','success');
 }
 
 // Periyodik bakım: tamamlanınca bir sonraki planlı bakımı otomatik oluştur
