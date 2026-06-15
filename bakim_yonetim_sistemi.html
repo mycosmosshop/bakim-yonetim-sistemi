@@ -4159,7 +4159,8 @@ function dedupMaint(){ if(!requireWrite())return;
     return (p.status==='completed'?100000:0)+done*1000+cl.length*10+(p.cost>0?500:0)+(p.actDur>0?200:0)+(String(p.id||'').startsWith('cz_')?50:0)+(p.tech?5:0); };
   const groups={};
   arr.forEach(p=>{ const d=(p.sched||'').slice(0,10);
-    const key=[p.machineId||'', d, p.type||'', p.assetName||p.fixtureId||'', p.basis||'date', p.nextHours||''].join('|');
+    const akey=(p.assetName||p.fixtureId||'').replace(/[^a-z0-9]/gi,'').toLowerCase();   // ayraç/biçim farkını yok say
+    const key=[p.machineId||'', d, p.type||'', akey, p.basis||'date', p.nextHours||''].join('|');
     (groups[key]=groups[key]||[]).push(p); });
   const keepIds=new Set();
   Object.values(groups).forEach(g=>{ g.sort((a,b)=>score(b)-score(a)); keepIds.add(g[0].id); });
