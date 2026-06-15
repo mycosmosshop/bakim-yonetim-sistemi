@@ -9767,7 +9767,7 @@ async function _exportMaintExcelImpl(){
   wb.creator='Sanifoam CMMS Pro';
   const ws=wb.addWorksheet('Planlı Bakım',{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
 
-  const cols=[['#',5],['MAKİNE',26],['TİP',12],['PLAN TARİHİ',14],['TAMAMLANMA',14],['TAHMİNİ (s)',11],['GERÇEKLEŞEN (s)',13],['TEKNİSYEN',20],['AÇIKLAMA',36],['MALİYET',13],['KONTROL',9],['DURUM',14]];
+  const cols=[['#',5],['MAKİNE / KALIP',34],['TİP',12],['PLAN TARİHİ',14],['TAMAMLANMA',14],['TAHMİNİ (s)',11],['GERÇEKLEŞEN (s)',13],['TEKNİSYEN',20],['AÇIKLAMA',36],['MALİYET',13],['KONTROL',9],['DURUM',14]];
   ws.columns=cols.map(c=>({width:c[1]}));
 
   // ── ANTET (yazdırılan form düzeni: logo | form adı | doküman bilgileri) ──
@@ -9836,7 +9836,7 @@ async function _exportMaintExcelImpl(){
   list.forEach((p,idx)=>{
     const cl=p.checklist||[]; const clDone=cl.filter(t=>t.done).length, clTotal=cl.length;
     const row=ws.addRow([
-      idx+1, mName(p.machineId), TYPE_PL[p.type]||p.type,
+      idx+1, p.assetName?`${p.assetName}\nMakine: ${mName(p.machineId)}`:mName(p.machineId), TYPE_PL[p.type]||p.type,
       p.sched?new Date(p.sched).toLocaleDateString('tr-TR'):'—',
       p.comp?new Date(p.comp).toLocaleDateString('tr-TR'):'—',
       p.estDur||0, p.actDur>0?p.actDur:'—', p.tech||'—', p.desc||'—',
@@ -9845,7 +9845,7 @@ async function _exportMaintExcelImpl(){
     row.eachCell((cell,col)=>{
       cell.border=thin();
       cell.font={size:10};
-      cell.alignment={vertical:'middle',wrapText:(col===9),horizontal:(col===2||col===9)?'left':'center'};
+      cell.alignment={vertical:'middle',wrapText:(col===2||col===9),horizontal:(col===2||col===9)?'left':'center'};
       if(idx%2===1) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF4F7FB'}};
     });
     row.getCell(10).numFmt='#,##0 "₺"';
@@ -9854,7 +9854,7 @@ async function _exportMaintExcelImpl(){
     stc.fill={type:'pattern',pattern:'solid',fgColor:{argb:FILL[p.status]||'FFE9ECEF'}};
     stc.font={bold:true,size:10,color:{argb:TXT[p.status]||'FF333333'}};
     stc.alignment={horizontal:'center',vertical:'middle'};
-    row.height=18;
+    row.height=p.assetName?28:18;
   });
 
   // Toplam satırı
