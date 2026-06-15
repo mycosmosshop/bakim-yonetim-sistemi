@@ -7234,7 +7234,11 @@ function openKpiSettings(){
 }
 
 function _renderKpiRows(){
+  // "Şu anki değer" Dashboard ile AYNI olsun: seçili YILIN tarih aralığını uygula (kalıp ayarı global ile aynı)
+  const _sr=_dashRange, _sa=_dashRangeActive;
+  if(_kpiModalYear){ _dashRange={from:new Date(_kpiModalYear+'-01-01T00:00:00'), to:new Date(_kpiModalYear+'-12-31T23:59:59')}; _dashRangeActive=true; }
   const fleet = calcFleetKPIs(_kpiModalLoc);
+  _dashRange=_sr; _dashRangeActive=_sa;
   const kpiValues = {
     mtbf:fleet.mtbf, mttr:fleet.mttr, mttf:fleet.mttf,
     availability:fleet.availability, pmr:fleet.pmr, unplanned:fleet.unplanned, pmc:fleet.pmc
