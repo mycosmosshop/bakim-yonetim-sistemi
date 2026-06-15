@@ -8259,7 +8259,7 @@ function loadCerkezkoyAriza(){
         machineId:mid, failureType:f.type, startTime:dtLocal(st), endTime:dtLocal(en),
         desc:f.desc, rootCause:f.root, detect:f.detect, recurring:true,
         qtyDefect:(f.loss==='defect'?(5+(oi%4)*3):0), qtyScrap:(f.loss==='defect'?(2+(oi%3)):0),
-        lossType:f.loss, tech:'', cost:f.cost, resolution:f.res, status:'closed',
+        lossType:f.loss, tech:'İrfan Serbest', cost:f.cost, resolution:f.res, status:'closed',
         wo:'AR-'+String(2000+woN++).padStart(4,'0'), rca:null });
       nF++; oi++; d=new Date(d); d.setDate(d.getDate()-f.interval);
     }
@@ -8321,7 +8321,7 @@ function loadCerkezkoyGercekAriza(){
     const en=new Date(st.getTime()+Math.max(1,f.dur)*3600000);
     db.failures.push({ id:'czg_'+i, machineId:mid, failureType:f.type, startTime:dtLocal(st), endTime:dtLocal(en),
       desc:f.desc, rootCause:f.root, detect:f.detect, recurring:false, qtyDefect:0, qtyScrap:0, lossType:'breakdown',
-      tech:f.tech, cost:0, resolution:f.res, status:'closed', wo:'AR-'+(3000+i), rca:null });
+      tech:'İrfan Serbest', cost:0, resolution:f.res, status:'closed', wo:'AR-'+(3000+i), rca:null });
     n++;
   });
   save();
