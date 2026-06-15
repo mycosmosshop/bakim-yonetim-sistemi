@@ -8114,6 +8114,25 @@ const CERKEZKOY_MOLDS = [
   {no:'SAN20240110-1330843', urun:'217.0.017', ad:'51.26625-0033', mac:'KP4', d25:'2025-07-22', d26:'2026-07-22'},
   {no:'SANIFOAM2024031874', urun:'217.0.018', ad:'51.26625-0034', mac:'VRG', d25:'2025-07-22', d26:'2026-07-22'},
 ];
+// Sık arızalanan, maliyeti yüksek olmayan değişen parçalar (2025 TRY) — makine koduna göre (bazılarına)
+const CERKEZKOY_MAC_PARTS = {
+  SSLMM:{parts:'Silindir ısıtıcı rezistans (2 ad) + silindir rulmanları değişti', cost:3600},
+  LMM:{parts:'Isıtıcı rezistans + termokupl değişti', cost:1450},
+  VRG:{parts:'Bıçak motoru ve V-kayışı değişti', cost:2800},
+  DLM:{parts:'Bıçak motoru rulmanı + dilimleme bıçağı değişti', cost:2100},
+  YTY3:{parts:'Yatay kesim bıçağı + bıçak rulmanı değişti', cost:1900},
+  SJT:{parts:'Yüksek basınç dinamik contası + yağ filtresi değişti', cost:2400},
+  ISM2:{parts:'Genel kumanda ekipmanı (kontaktör/röle) yenilendi', cost:1300}
+  // HP, KP4, DİKEY CNC: bu döngüde parça değişimi yok
+};
+// Kalıplarda değişen bıçak/sarf (2025 TRY) — kalıp no'suna göre (bazılarına)
+const CERKEZKOY_MOLD_PARTS = {
+  'SANIFOAM202402098':{parts:'Kalıp kesim bıçağı değişti', cost:950},
+  'SANIFOAM2023101188':{parts:'Kalıp bıçağı + yan dayama değişti', cost:1200},
+  'SANIFOAM2024031360':{parts:'Kalıp kesim bıçağı değişti', cost:900},
+  'SANIFOAM2023052363':{parts:'Kalıp bıçağı değişti', cost:850},
+  'SANIFOAM2024031874':{parts:'Kalıp bıçağı + sünger yatak değişti', cost:1100}
+};
 function loadCerkezkoyPlan(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
   if(!confirm('Çerkezköy 2025-2026 Yıllık Bakım Planı yüklenecek:\n\n• 12 makine + 11 kalıp (fikstür)\n• 2025 (tamamlandı) + 2026 (planlandı) bakımları, uygun setlerle\n\nAynı kod/no\'lu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
@@ -8138,12 +8157,12 @@ function loadCerkezkoyPlan(){
   db.maintenance=db.maintenance.filter(x=>!String(x.id||'').startsWith('cz_'));
   const _setTasks=(setId,done,date)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?(s.tasks||[]).map((t,i)=>({id:uid(),no:i+1,title:t.title,note:t.note||'',mins:t.mins||0,done:!!done,doneBy:'',doneAt:done?(date+'T08:00:00'):null})):[]; };
   const _estH=(setId)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?Math.max(0.5,Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10):1; };
-  const addM=(mid,setId,date,year,desc,key,assetName,fixtureId)=>{ if(!mid||!date)return; const done=(year===2025);
-    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, assetName:assetName||null, assetType:assetName?'kalip':'makine', fixtureId:fixtureId||'', tech:'', cost:0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_setTasks(setId,done,date), external:false, wo:'' }); };
-  CERKEZKOY_MACHINES.forEach(m=>{ if(!m.sfm)return; const mid=macId[m.code]; const key='m_'+m.code.replace(/[^A-Za-z0-9]/g,'');
-    addM(mid,m.sfm,m.d25,2025,'Yıllık Periyodik Bakım — '+m.name,key); addM(mid,m.sfm,m.d26,2026,'Yıllık Periyodik Bakım — '+m.name,key); });
-  CERKEZKOY_MOLDS.forEach(k=>{ const mid=macId[k.mac]; if(!mid)return; const key='k_'+k.no.replace(/[^A-Za-z0-9]/g,''); const kAd=k.no+' — '+k.urun+' / '+k.ad; const desc='KALIP BAKIMI · Kesim: '+k.mac;
-    addM(mid,'sfm_kalip',k.d25,2025,desc,key,kAd,fixId[k.no]); addM(mid,'sfm_kalip',k.d26,2026,desc,key,kAd,fixId[k.no]); });
+  const addM=(mid,setId,date,year,desc,key,assetName,fixtureId,parts,cost)=>{ if(!mid||!date)return; const done=(year===2025);
+    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, assetName:assetName||null, assetType:assetName?'kalip':'makine', fixtureId:fixtureId||'', partsUsed:parts||'', tech:'', cost:cost||0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_setTasks(setId,done,date), external:false, wo:'' }); };
+  CERKEZKOY_MACHINES.forEach(m=>{ if(!m.sfm)return; const mid=macId[m.code]; const key='m_'+m.code.replace(/[^A-Za-z0-9]/g,''); const pr=CERKEZKOY_MAC_PARTS[m.code];
+    addM(mid,m.sfm,m.d25,2025,'Yıllık Periyodik Bakım — '+m.name,key,null,'',pr?pr.parts:'',pr?pr.cost:0); addM(mid,m.sfm,m.d26,2026,'Yıllık Periyodik Bakım — '+m.name,key,null,'',pr?pr.parts:'',pr?pr.cost:0); });
+  CERKEZKOY_MOLDS.forEach(k=>{ const mid=macId[k.mac]; if(!mid)return; const key='k_'+k.no.replace(/[^A-Za-z0-9]/g,''); const kAd=k.no+' — '+k.urun+' / '+k.ad; const desc='KALIP BAKIMI · Kesim: '+k.mac; const pr=CERKEZKOY_MOLD_PARTS[k.no];
+    addM(mid,'sfm_kalip',k.d25,2025,desc,key,kAd,fixId[k.no],pr?pr.parts:'',pr?pr.cost:0); addM(mid,'sfm_kalip',k.d26,2026,desc,key,kAd,fixId[k.no],pr?pr.parts:'',pr?pr.cost:0); });
   save();
   try{renderMachines();}catch(e){} try{renderFixtures();}catch(e){} try{renderTaskSets();}catch(e){} try{renderMaint();}catch(e){} try{renderDashboard();}catch(e){}
   const nP=db.maintenance.filter(x=>String(x.id||'').startsWith('cz_')).length;
