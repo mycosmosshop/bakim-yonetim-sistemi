@@ -392,6 +392,10 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <button class="btn btn-sm btn-outline-secondary" onclick="setDashPreset('year')">Bu Yıl</button>
       <button class="btn btn-sm btn-outline-secondary" onclick="setDashPreset('all')">Tümü</button>
     </div>
+    <div class="form-check form-switch ms-2" title="Açıkken bakım KPI'larında (PMR / PMC / gecikmiş bakım) yalnızca makineler sayılır; kalıp/fikstür bakımları hariç tutulur. MTBF/MTTR zaten yalnızca makinelerdir.">
+      <input class="form-check-input" type="checkbox" id="kpiExcludeKalip" onchange="toggleKpiKalip(this)">
+      <label class="form-check-label" for="kpiExcludeKalip" style="font-size:.78rem;color:var(--muted)">🧩 Kalıp bakımları hariç</label>
+    </div>
     <span id="dashRangeInfo" style="font-size:.75rem;color:var(--muted);margin-left:auto"></span>
   </div>
   <div id="dWarningBanner"></div>
@@ -2837,6 +2841,17 @@ function _windowHours(installDate){
 function dashFails(){ return locFails().filter(_dfFilter); }
 function dashMaint(){ return locMaint().filter(_dmFilter); }
 
+// ── Kalıp/fikstür bakımlarını bakım KPI'larından (PMR / PMC / gecikmiş bakım) hariç tut ──
+// Varsayılan: HARİÇ. MTBF/MTTR zaten yalnızca makineleri kullanır, etkilenmez.
+let _kpiExcludeKalip = (()=>{ try{ return localStorage.getItem('cmms_kpi_excl_kalip')!=='0'; }catch(e){ return true; } })();
+function _maintKpi(arr){ return _kpiExcludeKalip ? (arr||[]).filter(p=>p.assetType!=='kalip') : (arr||[]); }
+function toggleKpiKalip(cb){ _kpiExcludeKalip=!!(cb&&cb.checked);
+  try{ localStorage.setItem('cmms_kpi_excl_kalip', _kpiExcludeKalip?'1':'0'); }catch(e){}
+  try{renderDashboard();}catch(e){}
+  try{if(typeof renderAnalytics==='function')renderAnalytics();}catch(e){}
+  try{if(typeof renderMaint==='function')renderMaint();}catch(e){}
+}
+
 function machMetrics(mid){
   const machine = db.machines.find(m=>m.id===mid);
   const allF = db.failures.filter(f=>f.machineId===mid && _dfFilter(f));
@@ -2899,7 +2914,7 @@ function calcFleetKPIs(forLoc){
   const _mids = loc ? new Set(db.machines.filter(m=>m.location===loc).map(m=>m.id)) : null;
   const _ml = _mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines;
   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
-  const _lm = (_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter);
+  const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0;
   _ml.forEach(m=>{
     const mx = machMetrics(m.id);
@@ -3175,7 +3190,7 @@ function renderCostCharts(){
 }
 
 function renderAnalyticsCharts(){
-  const _aM=locMachines(); const _aF=locFails(); const _aP=locMaint();
+  const _aM=locMachines(); const _aF=locFails(); const _aP=_maintKpi(locMaint());
   const months = getLast12Months();
   const labels = months.map(d=>d.toLocaleString('tr-TR',{month:'short',year:'2-digit'}));
   const mtbfArr=[], mttrArr=[];
@@ -3330,8 +3345,9 @@ function renderDashboard(){
     bannerEl.innerHTML='';
   }
 
+  { const _cbK=document.getElementById('kpiExcludeKalip'); if(_cbK)_cbK.checked=_kpiExcludeKalip; }
   const actF    = locFails().filter(f=>f.status!=='closed').length;
-  const overdue = locMaint().filter(p=>p.status==='overdue').length;
+  const overdue = _maintKpi(locMaint()).filter(p=>p.status==='overdue').length;
   const fleet   = calcFleetKPIs();
   const _dashM  = locMachines();
 
@@ -4942,7 +4958,7 @@ function renderAnalytics(){
   }
   // Per-machine PMC
   function machinePmc(mid){
-    const sc=locMaint().filter(p=>(p.machineId===mid)&&(p.type==='preventive'||p.type==='predictive'));
+    const sc=_maintKpi(locMaint()).filter(p=>(p.machineId===mid)&&(p.type==='preventive'||p.type==='predictive'));
     if(!sc.length) return null;
     return +(sc.filter(p=>p.status==='completed').length/sc.length*100).toFixed(1);
   }
@@ -9382,9 +9398,9 @@ function openKpiDetail(key){
     const mx  = machMetrics(m.id);
     const mFails   = dashFails().filter(f=>f.machineId===m.id);
     const closedF  = mFails.filter(f=>f.status==='closed');
-    const schedPl  = dashMaint().filter(p=>p.machineId===m.id&&(p.type==='preventive'||p.type==='predictive'));
+    const schedPl  = _maintKpi(dashMaint()).filter(p=>p.machineId===m.id&&(p.type==='preventive'||p.type==='predictive'));
     const compPl   = schedPl.filter(p=>p.status==='completed').length;
-    const allMaint = dashMaint().filter(p=>p.machineId===m.id);
+    const allMaint = _maintKpi(dashMaint()).filter(p=>p.machineId===m.id);
     const plannedH = allMaint.filter(p=>p.type==='preventive'||p.type==='predictive').reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
     const correctH = allMaint.filter(p=>p.type==='corrective'||p.type==='overhaul').reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
     const failDH   = mFails.reduce((s,f)=>s+downtimeH(f),0);
