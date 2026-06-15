@@ -1,30 +1,54 @@
 name: Supabase Keep-Alive
 
 # Supabase ÜCRETSIZ plan, 7 gün istek gelmezse projeyi otomatik duraklatır.
-# Bu iş akışı 2 günde bir Supabase REST API'ye küçük bir okuma isteği atarak
-# projeyi (bgraqliedgmksqdbddkp) "uyanık" tutar. LeanSys'e DOKUNMAZ.
-# Anon anahtar zaten genel (public) uygulama HTML'inde gömülü olduğundan burada
-# da düz yazılması ek bir güvenlik açığı oluşturmaz; istenirse GitHub Secret'a taşınabilir.
+# Bu iş akışı 2 günde bir 3 Supabase projesine küçük bir istek (/auth/v1/health)
+# atarak hepsini "uyanık" tutar. LeanSys'e DOKUNMAZ; sadece HTTP health çağrısı.
+#
+# Kapsanan projeler:
+#   - CMMS Bakım            -> bgraqliedgmksqdbddkp  (mycosmosshop org)
+#   - Kalite+Doküman+DÖF+8D -> nnubrxbpthmkitueixbh  (cosmositio org)
+#   - ERP Portal            -> chchaielttnimuuezazb  (cosmositio org)
+#
+# Anon/publishable anahtarlar zaten genel (public) uygulama HTML'lerinde gömülü
+# olduğundan burada düz yazılması ek bir güvenlik açığı oluşturmaz.
+#
+# GÖRÜNÜRLÜK: Her çalışma "Actions" sekmesinde görünür (✅/❌ özet). Bir proje
+# yanıt vermezse iş BAŞARISIZ olur -> GitHub repo sahibine OTOMATIK e-posta atar.
+# Yani: ses yoksa her şey yolunda; e-posta gelirse bir projede sorun var demektir.
 
 on:
   schedule:
     - cron: '0 6 */2 * *'   # her 2 günde bir, 06:00 UTC
-  workflow_dispatch:          # elle de çalıştırılabilir
+  workflow_dispatch:          # "Run workflow" ile elle de çalıştırılabilir
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Supabase REST ping (shared_data)
+      - name: Tüm Supabase projelerini ping'le
         run: |
-          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJncmFxbGllZGdta3NxZGJkZGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODA4MDEsImV4cCI6MjA5NTk1NjgwMX0.htOoBiFUfUsUgkUrbB0BZEanZR5lioYjJYVjobo2oO0"
-          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://bgraqliedgmksqdbddkp.supabase.co/rest/v1/shared_data?select=id&limit=1" \
-            -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
-          echo "Supabase yanıtı: HTTP $CODE"
-          if [ "$CODE" -ge 200 ] && [ "$CODE" -lt 400 ]; then
-            echo "OK — proje aktif tutuldu."
-          else
-            echo "HATA — beklenmeyen yanıt: $CODE"
+          set -u
+          LIST=(
+            "CMMS-Bakim|bgraqliedgmksqdbddkp|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJncmFxbGllZGdta3NxZGJkZGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODA4MDEsImV4cCI6MjA5NTk1NjgwMX0.htOoBiFUfUsUgkUrbB0BZEanZR5lioYjJYVjobo2oO0"
+            "Kalite-Dokuman-DOF-8D|nnubrxbpthmkitueixbh|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE"
+            "ERP-Portal|chchaielttnimuuezazb|sb_publishable_S2ywbq7TkgcZKiVif3td-A_oAuQL3QT"
+          )
+          FAIL=0
+          echo "=== Supabase Keep-Alive | $(date -u '+%Y-%m-%d %H:%M UTC') ==="
+          for row in "${LIST[@]}"; do
+            NAME="${row%%|*}"; rest="${row#*|}"; REF="${rest%%|*}"; KEY="${rest#*|}"
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+              "https://$REF.supabase.co/auth/v1/health" -H "apikey: $KEY" || echo 000)
+            if [ "$CODE" = "200" ]; then
+              echo "✅ $NAME ($REF): HTTP $CODE — aktif tutuldu"
+            else
+              echo "❌ $NAME ($REF): HTTP $CODE — YANIT YOK / SORUN!"
+              FAIL=1
+            fi
+          done
+          echo "================================================="
+          if [ "$FAIL" = "1" ]; then
+            echo "En az bir proje yanit vermedi — kontrol et!"
             exit 1
           fi
+          echo "Tum projeler aktif. ✔"
