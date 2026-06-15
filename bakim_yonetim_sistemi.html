@@ -9713,10 +9713,12 @@ async function printAllFailuresPdf(){
   toast('PDF oluşturuluyor… (0/'+list.length+')','info');
   for(let i=0;i<list.length;i++){
     const f=list[i], m=db.machines.find(x=>x.id===f.machineId)||{};
+    const _refD=(f.endTime||f.startTime)?new Date(f.endTime||f.startTime):new Date();   // kayıt/oluşturma = arıza bitiş tarih-saati
+    const _kt=_refD.toLocaleDateString('tr-TR'), _ot=_refD.toLocaleString('tr-TR');
     host.innerHTML=`<div style="font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;width:740px;box-sizing:border-box;background:#fff">
       <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0b3d91;padding-bottom:8px;margin-bottom:12px">
         <div style="font-size:19px;font-weight:700;color:#0b3d91">SANIFOAM — ARIZA KAYIT FORMU</div>
-        <div style="font-size:11px;color:#555">Çıktı: ${new Date().toLocaleDateString('tr-TR')}</div></div>
+        <div style="font-size:11px;color:#555">Kayıt Tarihi: ${_kt}</div></div>
       <div style="font-size:12px;margin-bottom:10px"><b>Makine:</b> ${_e((m.code?m.code+' — ':'')+(m.name||'—'))} &nbsp;|&nbsp; <b>Lokasyon:</b> ${_e(m.location||'—')} &nbsp;|&nbsp; <b>Departman:</b> ${_e(m.dept||'—')}</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
         <tr>${cell('İş Emri No',f.wo||'—')}${cell('Arıza Tipi',TYPE_LBL[f.failureType]||f.failureType)}</tr>
@@ -9726,7 +9728,7 @@ async function printAllFailuresPdf(){
       </table>
       ${area('Arıza Açıklaması',f.desc)}${area('Kök Neden (Root Cause)',f.rootCause)}${area('Çözüm / Yapılan İşlem',f.resolution)}
       <div style="margin-top:22px;font-size:12px"><b>Bakım Sorumlusu:</b> ${_e(f.tech||'')} &nbsp;&nbsp;&nbsp; İmza: ____________ &nbsp;&nbsp; Tarih: __________</div>
-      <div style="margin-top:16px;font-size:9px;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px">CMMS Pro Bakım Yönetim Sistemi — ${new Date().toLocaleString('tr-TR')}</div>
+      <div style="margin-top:16px;font-size:9px;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px">Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${_ot} tarihinde oluşturulmuştur.</div>
     </div>`;
     const canvas=await html2canvas(host.firstElementChild,{scale:2,backgroundColor:'#ffffff'});
     const img=canvas.toDataURL('image/jpeg',0.92);
