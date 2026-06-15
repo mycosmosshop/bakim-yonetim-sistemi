@@ -468,6 +468,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
   <div class="page-hdr">
     <div><h2><i class="bi bi-exclamation-triangle-fill me-2" style="color:#fb8c00"></i>Arızalar</h2><small>Arıza kayıtları ve duruş takibi</small></div>
     <button class="btn btn-sm text-white" style="background:#1d6f42" onclick="exportFailExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+    <button class="btn btn-sm btn-outline-danger" onclick="printAllFailuresPdf()" title="Filtrelenen tüm arızaları ayrı PDF olarak üretip ZIP indirir"><i class="bi bi-file-earmark-pdf me-1"></i>Toplu PDF (ZIP)</button>
     <button class="btn btn-warning btn-sm text-dark" onclick="openFailureModal()"><i class="bi bi-plus-lg me-1"></i>Arıza Kaydı</button>
   </div>
   <div class="row g-3 mb-4" id="fKpi"></div>
@@ -9677,6 +9678,68 @@ function confirmPrintManual(){
 
 function printFailureForm(id){ _askPrintDate(()=>_renderFailureForm(id)); }
 function printMaintForm(id){ _askPrintDate(()=>_renderMaintForm(id)); }
+
+// ── Toplu PDF (ZIP): filtrelenen arızaları ayrı PDF olarak üretir ──
+function _loadScript(src){ return new Promise((res,rej)=>{ if([].slice.call(document.scripts).some(s=>s.src===src)) return res(); const s=document.createElement('script'); s.src=src; s.onload=()=>res(); s.onerror=()=>rej(new Error(src)); document.head.appendChild(s); }); }
+async function _ensureBulkLibs(){
+  if(typeof window.jspdf==='undefined') await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  if(typeof window.html2canvas==='undefined') await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  if(typeof window.JSZip==='undefined') await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+}
+function _filteredFailures(){
+  const srch=(document.getElementById('fSearch')?.value||'').toLowerCase();
+  const mf=document.getElementById('fMachF')?.value||'', sf=document.getElementById('fStatF')?.value||'', tf=document.getElementById('fTypeF')?.value||'';
+  const df=document.getElementById('fDateFrom')?.value||'', dt=document.getElementById('fDateTo')?.value||'';
+  return db.failures.filter(f=>{ const d=f.startTime?f.startTime.slice(0,10):''; const _l=locMids();
+    return (!_l||_l.has(f.machineId))&&(!srch||mName(f.machineId).toLowerCase().includes(srch)||(f.desc||'').toLowerCase().includes(srch))
+      &&(!mf||f.machineId===mf)&&(!sf||f.status===sf)&&(!tf||f.failureType===tf)&&(!df||d>=df)&&(!dt||d<=dt);
+  }).sort((a,b)=>new Date(b.startTime)-new Date(a.startTime));
+}
+async function printAllFailuresPdf(){
+  const list=_filteredFailures();
+  if(!list.length){ toast('Yazdırılacak arıza yok.','warning'); return; }
+  if(!confirm(list.length+' arıza için ayrı PDF oluşturulup ZIP olarak indirilecek.\n(İndirilenler klasörüne iner; oradan masaüstüne taşıyabilirsin.)\n\nBu işlem '+list.length+' kayıt için biraz sürebilir. Devam?')) return;
+  try{ await _ensureBulkLibs(); }catch(e){ toast('PDF/ZIP kütüphanesi yüklenemedi (internet bağlantını kontrol et).','danger'); return; }
+  const { jsPDF }=window.jspdf; const zip=new JSZip();
+  let host=document.getElementById('_bulkPdfHost');
+  if(!host){ host=document.createElement('div'); host.id='_bulkPdfHost'; host.style.cssText='position:fixed;left:-99999px;top:0;background:#fff;z-index:-1'; document.body.appendChild(host); }
+  const _e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const cell=(l,v)=>`<td style="border:1px solid #ccc;padding:6px;width:50%"><div style="color:#777;font-size:10px">${l}</div>${_e(v)}</td>`;
+  const area=(l,v)=>`<div style="border:1px solid #ccc;padding:8px;margin-bottom:6px;font-size:12px;min-height:34px"><div style="color:#777;font-size:10px;margin-bottom:2px">${l}</div>${_e(v||'')}</div>`;
+  toast('PDF oluşturuluyor… (0/'+list.length+')','info');
+  for(let i=0;i<list.length;i++){
+    const f=list[i], m=db.machines.find(x=>x.id===f.machineId)||{};
+    host.innerHTML=`<div style="font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;width:740px;box-sizing:border-box;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0b3d91;padding-bottom:8px;margin-bottom:12px">
+        <div style="font-size:19px;font-weight:700;color:#0b3d91">SANIFOAM — ARIZA KAYIT FORMU</div>
+        <div style="font-size:11px;color:#555">Çıktı: ${new Date().toLocaleDateString('tr-TR')}</div></div>
+      <div style="font-size:12px;margin-bottom:10px"><b>Makine:</b> ${_e((m.code?m.code+' — ':'')+(m.name||'—'))} &nbsp;|&nbsp; <b>Lokasyon:</b> ${_e(m.location||'—')} &nbsp;|&nbsp; <b>Departman:</b> ${_e(m.dept||'—')}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
+        <tr>${cell('İş Emri No',f.wo||'—')}${cell('Arıza Tipi',TYPE_LBL[f.failureType]||f.failureType)}</tr>
+        <tr>${cell('Başlangıç',fmtDt(f.startTime))}${cell('Bitiş',fmtDt(f.endTime))}</tr>
+        <tr>${cell('Duruş Süresi',downtimeH(f).toFixed(1)+' saat')}${cell('Maliyet',fmt(f.cost))}</tr>
+        <tr>${cell('Teknisyen',f.tech||'—')}${cell('Durum',STAT_FL[f.status]||f.status)}</tr>
+      </table>
+      ${area('Arıza Açıklaması',f.desc)}${area('Kök Neden (Root Cause)',f.rootCause)}${area('Çözüm / Yapılan İşlem',f.resolution)}
+      <div style="margin-top:22px;font-size:12px"><b>Bakım Sorumlusu:</b> ${_e(f.tech||'')} &nbsp;&nbsp;&nbsp; İmza: ____________ &nbsp;&nbsp; Tarih: __________</div>
+      <div style="margin-top:16px;font-size:9px;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px">CMMS Pro Bakım Yönetim Sistemi — ${new Date().toLocaleString('tr-TR')}</div>
+    </div>`;
+    const canvas=await html2canvas(host.firstElementChild,{scale:2,backgroundColor:'#ffffff'});
+    const img=canvas.toDataURL('image/jpeg',0.92);
+    const pdf=new jsPDF('p','mm','a4'); const pw=210, ph=297, mg=10, iw=pw-mg*2, ih=iw*canvas.height/canvas.width;
+    pdf.addImage(img,'JPEG',mg,mg,iw,Math.min(ih,ph-mg*2));
+    const mc=(m.code||mName(f.machineId)||'makine').replace(/[^A-Za-z0-9]/g,'_').slice(0,20);
+    zip.file(String(i+1).padStart(3,'0')+'_'+mc+'_'+((f.startTime||'').slice(0,10))+'.pdf', pdf.output('blob'));
+    if(i%5===4||i===list.length-1) toast('PDF oluşturuluyor… ('+(i+1)+'/'+list.length+')','info');
+    await new Promise(r=>setTimeout(r,0));
+  }
+  host.innerHTML='';
+  const content=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(content), a=document.createElement('a');
+  a.href=url; a.download='Arizalar_PDF_'+new Date().toISOString().slice(0,10)+'.zip'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast(list.length+' arıza PDF olarak ZIP indirildi ✔','success');
+}
 
 function _renderFailureForm(id){
   const f = db.failures.find(x=>x.id===id); if(!f) return;
