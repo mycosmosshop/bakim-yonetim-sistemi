@@ -3991,7 +3991,7 @@ function renderMaint(){
       : `<span class="ts-no-cl" onclick='openChecklistModal("${p.id}")'><i class="bi bi-plus"></i></span>`;
     return `<tr data-pid="${p.id}">
     <td style="text-align:center"><input type="checkbox" class="maint-chk" value="${p.id}" onclick="_maintSelChanged()"></td>
-    <td style="font-weight:600;font-size:.85rem">${mName(p.machineId)}${p.external?`<div style="font-size:.66rem;color:#26c6da;margin-top:2px"><i class="bi bi-truck"></i> Dış: ${p.extCompany||'Servis'}</div>`:''}</td>
+    <td style="font-weight:600;font-size:.85rem">${p.assetName?`🧩 ${p.assetName}<div style="font-size:.66rem;color:#90a4ae;font-weight:400;margin-top:2px">Makine: ${mName(p.machineId)}</div>`:mName(p.machineId)}${p.external?`<div style="font-size:.66rem;color:#26c6da;margin-top:2px"><i class="bi bi-truck"></i> Dış: ${p.extCompany||'Servis'}</div>`:''}</td>
     <td><span style="background:${p.type==='autonomous'?'#1b5e20':'#1c2128'};padding:2px 8px;border-radius:20px;font-size:.72rem;${p.type==='autonomous'?'color:#69f0ae':''}">${TYPE_PL[p.type]||p.type}</span>${p.basis==='hour'?'<span style="background:#5d4037;color:#ffcc80;padding:1px 6px;border-radius:10px;font-size:.66rem;margin-left:3px">⏱️ Saatlik</span>':''}${p.verifier?`<div style="font-size:.68rem;color:#42a5f5;margin-top:2px">✔ ${p.verifier}</div>`:''}</td>
     <td style="font-size:.82rem;${p.status==='overdue'?'color:#ff5252;font-weight:600':''}">${_maintWhen(p)}</td>
     <td style="font-size:.82rem">${fmtD(p.comp)}</td>
@@ -8106,12 +8106,12 @@ function loadCerkezkoyPlan(){
   db.maintenance=db.maintenance.filter(x=>!String(x.id||'').startsWith('cz_'));
   const _setTasks=(setId,done,date)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?(s.tasks||[]).map((t,i)=>({id:uid(),no:i+1,title:t.title,note:t.note||'',mins:t.mins||0,done:!!done,doneBy:'',doneAt:done?(date+'T08:00:00'):null})):[]; };
   const _estH=(setId)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?Math.max(0.5,Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10):1; };
-  const addM=(mid,setId,date,year,desc,key)=>{ if(!mid||!date)return; const done=(year===2025);
-    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, tech:'', cost:0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_setTasks(setId,done,date), external:false, wo:'' }); };
+  const addM=(mid,setId,date,year,desc,key,assetName)=>{ if(!mid||!date)return; const done=(year===2025);
+    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, assetName:assetName||null, assetType:assetName?'kalip':'makine', tech:'', cost:0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_setTasks(setId,done,date), external:false, wo:'' }); };
   CERKEZKOY_MACHINES.forEach(m=>{ if(!m.sfm)return; const mid=macId[m.code]; const key='m_'+m.code.replace(/[^A-Za-z0-9]/g,'');
     addM(mid,m.sfm,m.d25,2025,'Yıllık Periyodik Bakım — '+m.name,key); addM(mid,m.sfm,m.d26,2026,'Yıllık Periyodik Bakım — '+m.name,key); });
-  CERKEZKOY_MOLDS.forEach(k=>{ const mid=macId[k.mac]; if(!mid)return; const key='k_'+k.no.replace(/[^A-Za-z0-9]/g,''); const desc='KALIP BAKIMI — '+k.no+' ('+k.urun+' / '+k.ad+') · '+k.mac;
-    addM(mid,'sfm_kalip',k.d25,2025,desc,key); addM(mid,'sfm_kalip',k.d26,2026,desc,key); });
+  CERKEZKOY_MOLDS.forEach(k=>{ const mid=macId[k.mac]; if(!mid)return; const key='k_'+k.no.replace(/[^A-Za-z0-9]/g,''); const kAd=k.no+' — '+k.urun+' / '+k.ad; const desc='KALIP BAKIMI · Kesim: '+k.mac;
+    addM(mid,'sfm_kalip',k.d25,2025,desc,key,kAd); addM(mid,'sfm_kalip',k.d26,2026,desc,key,kAd); });
   save();
   try{renderMachines();}catch(e){} try{renderFixtures();}catch(e){} try{renderTaskSets();}catch(e){} try{renderMaint();}catch(e){} try{renderDashboard();}catch(e){}
   const nP=db.maintenance.filter(x=>String(x.id||'').startsWith('cz_')).length;
@@ -9523,7 +9523,7 @@ function _renderMaintForm(id){
     </div>` : '';
   document.getElementById('printContent').innerHTML = `
     <div style="margin:12px 0 8px;font-size:11px;color:#444;display:flex;justify-content:space-between">
-      <span><strong>Makine:</strong> ${m.code?m.code+' — ':''}${m.name||'—'} &nbsp;|&nbsp; <strong>Lokasyon:</strong> ${m.location||'—'} &nbsp;|&nbsp; <strong>Departman:</strong> ${m.dept||'—'}</span>
+      <span>${p.assetName?`<strong>Kalıp:</strong> ${p.assetName} &nbsp;|&nbsp; `:''}<strong>Makine:</strong> ${m.code?m.code+' — ':''}${m.name||'—'} &nbsp;|&nbsp; <strong>Lokasyon:</strong> ${m.location||'—'} &nbsp;|&nbsp; <strong>Departman:</strong> ${m.dept||'—'}</span>
       <span><strong>Kayıt Tarihi:</strong> ${new Date().toLocaleDateString('tr-TR')}</span>
     </div>
     <div class="print-row2">
