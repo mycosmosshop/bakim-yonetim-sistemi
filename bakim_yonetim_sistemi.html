@@ -8456,7 +8456,9 @@ function calcMaintNextSched(){
   const comp = document.getElementById('mPComp').value;
   const period = parseInt(document.getElementById('mPPeriod').value)||0;
   const unit = document.getElementById('mPPeriodUnit')?.value||'day';
-  if(comp && period>0){
+  // Yalnızca Planlanan Tarih BOŞSA öner; mevcut planlanan tarihi tamamlanma girilince ezme!
+  // (sonraki döngü zaten kayıtta maybeSpawnNextMaint ile oluşturulur)
+  if(comp && period>0 && !document.getElementById('mPSched').value){
     const d = new Date(comp);
     if(unit==='year') d.setFullYear(d.getFullYear()+period);
     else if(unit==='month') d.setMonth(d.getMonth()+period);
