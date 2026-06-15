@@ -8104,8 +8104,10 @@ function loadCerkezkoyPlan(){
   });
   // 3) PLANLI BAKIMLAR — eski cz_ kayıtları temizle (idempotent), yeniden oluştur
   db.maintenance=db.maintenance.filter(x=>!String(x.id||'').startsWith('cz_'));
+  const _setTasks=(setId,done,date)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?(s.tasks||[]).map((t,i)=>({id:uid(),no:i+1,title:t.title,note:t.note||'',mins:t.mins||0,done:!!done,doneBy:'',doneAt:done?(date+'T08:00:00'):null})):[]; };
+  const _estH=(setId)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?Math.max(0.5,Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10):1; };
   const addM=(mid,setId,date,year,desc,key)=>{ if(!mid||!date)return; const done=(year===2025);
-    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, tech:'', cost:0, estDur:1, actDur:done?1:0, checklist:[], external:false, wo:'' }); };
+    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, tech:'', cost:0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_setTasks(setId,done,date), external:false, wo:'' }); };
   CERKEZKOY_MACHINES.forEach(m=>{ if(!m.sfm)return; const mid=macId[m.code]; const key='m_'+m.code.replace(/[^A-Za-z0-9]/g,'');
     addM(mid,m.sfm,m.d25,2025,'Yıllık Periyodik Bakım — '+m.name,key); addM(mid,m.sfm,m.d26,2026,'Yıllık Periyodik Bakım — '+m.name,key); });
   CERKEZKOY_MOLDS.forEach(k=>{ const mid=macId[k.mac]; if(!mid)return; const key='k_'+k.no.replace(/[^A-Za-z0-9]/g,''); const desc='KALIP BAKIMI — '+k.no+' ('+k.urun+' / '+k.ad+') · '+k.mac;
