@@ -691,9 +691,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <div class="d-flex gap-2">
       <button class="btn btn-outline-secondary btn-sm" onclick="loadDefaultTaskSets()"><i class="bi bi-download me-1"></i>Hazır Şablonları Yükle</button>
       <button class="btn btn-outline-info btn-sm" onclick="loadSanifoamTaskSets()"><i class="bi bi-buildings me-1"></i>Sanifoam Makine Setleri</button>
-      <button class="btn btn-outline-success btn-sm" onclick="loadCerkezkoyPlan()" title="Çerkezköy 2025-2026 yıllık bakım planı: 12 makine + 11 kalıp + planlı bakımlar (uygun setlerle)"><i class="bi bi-calendar-check me-1"></i>Çerkezköy 2025-2026 Planı</button>
-      <button class="btn btn-outline-warning btn-sm" onclick="loadCerkezkoyAriza()" title="Çerkezköy makineleri için tekrarlayan arıza geçmişi + ilgili yedek parça stok kartları"><i class="bi bi-wrench-adjustable-circle me-1"></i>Arıza + Yedek Parça (Çerkezköy)</button>
-      <button class="btn btn-outline-danger btn-sm" onclick="loadCerkezkoyGercekAriza()" title="LeanSys gerçek arıza kayıtlarından çeşitli arızi bakım örnekleri (son 12 aya normalize)"><i class="bi bi-clipboard-pulse me-1"></i>Gerçek Arıza Örnekleri</button>
+      <!-- Geçici Çerkezköy veri-yükleme butonları kaldırıldı. Fonksiyonlar kodda duruyor; gerekirse buton tekrar eklenebilir:
+           loadCerkezkoyPlan() · loadCerkezkoyAriza() · loadCerkezkoyGercekAriza() -->
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
