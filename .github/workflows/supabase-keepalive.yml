@@ -1,0 +1,30 @@
+name: Supabase Keep-Alive
+
+# Supabase ÜCRETSIZ plan, 7 gün istek gelmezse projeyi otomatik duraklatır.
+# Bu iş akışı 2 günde bir Supabase REST API'ye küçük bir okuma isteği atarak
+# projeyi (bgraqliedgmksqdbddkp) "uyanık" tutar. LeanSys'e DOKUNMAZ.
+# Anon anahtar zaten genel (public) uygulama HTML'inde gömülü olduğundan burada
+# da düz yazılması ek bir güvenlik açığı oluşturmaz; istenirse GitHub Secret'a taşınabilir.
+
+on:
+  schedule:
+    - cron: '0 6 */2 * *'   # her 2 günde bir, 06:00 UTC
+  workflow_dispatch:          # elle de çalıştırılabilir
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supabase REST ping (shared_data)
+        run: |
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJncmFxbGllZGdta3NxZGJkZGtwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODA4MDEsImV4cCI6MjA5NTk1NjgwMX0.htOoBiFUfUsUgkUrbB0BZEanZR5lioYjJYVjobo2oO0"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://bgraqliedgmksqdbddkp.supabase.co/rest/v1/shared_data?select=id&limit=1" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY")
+          echo "Supabase yanıtı: HTTP $CODE"
+          if [ "$CODE" -ge 200 ] && [ "$CODE" -lt 400 ]; then
+            echo "OK — proje aktif tutuldu."
+          else
+            echo "HATA — beklenmeyen yanıt: $CODE"
+            exit 1
+          fi
