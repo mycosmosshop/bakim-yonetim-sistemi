@@ -1078,6 +1078,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <tr><td>Açılı Kesim Makinesi</td><td>Açılı Kesim Makinesi — Periyodik Bakım</td><td>Genel Mekanik, Elektrik</td></tr>
         <tr><td>Dikey CNC Kesim</td><td>Dikey CNC Kesim Makinası — Periyodik Bakım</td><td>CNC / Testere, Elektrik</td></tr>
         <tr><td>Laminasyon (LMM)</td><td>Laminasyon Makinesi (LMM) — Periyodik Bakım</td><td>Elektrik, Genel Mekanik</td></tr>
+        <tr><td>Kalıp</td><td>Kalıp — Periyodik Bakım (FR 79)</td><td>Genel Mekanik</td></tr>
         <tr><td>Yatay Kesim Makinesi</td><td>Yatay Kesim Makinesi — Periyodik Bakım</td><td>CNC / Testere, Elektrik</td></tr>
         <tr><td>Kompresör</td><td>Kompresör Bakımı (hazır şablon)</td><td>Pnömatik Sistem</td></tr>
         <tr><td>Forklift</td><td>Forklift Bakımı (hazır şablon)</td><td>—</td></tr>
@@ -7667,7 +7668,7 @@ const TASKSET_CODES = {
   dts_gun:'BST-OTN-01', dts_rev:'BST-REV-01', dts_pres:'BST-PRS-01', dts_cnc:'BST-CNC-01',
   dts_komp:'BST-KMP-01', dts_fork:'BST-FRK-01',
   sfm_dilimleme:'BSM-KSM-01', sfm_acili:'BSM-KSM-02', sfm_cnc_kesim:'BSM-KSM-03', sfm_yatay_kesim:'BSM-KSM-04',
-  sfm_kesme_pres:'BSM-PRS-01', sfm_sjt:'BSM-SUJ-01', sfm_laminasyon:'BSM-LAM-01'
+  sfm_kesme_pres:'BSM-PRS-01', sfm_sjt:'BSM-SUJ-01', sfm_laminasyon:'BSM-LAM-01', sfm_kalip:'BSM-KAL-01'
 };
 function _tsCode(ts){ return (ts&&ts.code) || (ts&&TASKSET_CODES[ts.id]) || ''; }
 function _nextBsoCode(){ const used=new Set((db.taskSets||[]).map(t=>(t.code||TASKSET_CODES[t.id])).filter(Boolean)); let n=1; while(used.has('BSO-'+String(n).padStart(2,'0'))) n++; return 'BSO-'+String(n).padStart(2,'0'); }
@@ -7927,6 +7928,15 @@ const SANIFOAM_TASK_SETS = [
     {id:'sfm_dilimleme_8',title:'Makine temizliği',note:'',mins:15},
     {id:'sfm_dilimleme_9',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
     {id:'sfm_dilimleme_10',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_kalip', name:'Kalıp — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Kalıp (FR 79)', type:'preventive', techDisc:'mechanical', tasks:[
+    {id:'sfm_kalip_1',title:'Tüm bıçakların keskinliğini test et; kırık, çatlak veya eğilmiş bıçakları değiştir',note:'',mins:15},
+    {id:'sfm_kalip_2',title:'Bıçakların birleşim yerlerinde aralanma olmamalı',note:'',mins:10},
+    {id:'sfm_kalip_3',title:'Kalıp zemininin düzlüğünü cetvelle kontrol et, eğilme olmamalı',note:'',mins:10},
+    {id:'sfm_kalip_4',title:'Kalıp zemin gövde çatlağı, bıçakta gevşek bağlantı ve deformasyon kontrolü',note:'',mins:10},
+    {id:'sfm_kalip_5',title:'Bakım sonrası numune kesimi yapılır; parça kalitesi ve kenar düzgünlüğü kontrol edilir',note:'',mins:10},
+    {id:'sfm_kalip_6',title:'Bıçak ve kalıp yüzeyindeki kontamine parçaları temizle',note:'',mins:10},
+    {id:'sfm_kalip_7',title:'Bıçakların oksitlenmesini önlemek için uygun koruyucu yağ uygula (pas önleyici ince film)',note:'',mins:5},
   ]},
   { id:'sfm_sjt', name:'SJT Su Jeti Kesim — Periyodik Bakım', desc:'Su Jeti Kesim — periyodik kontrol ve revizyon kalemleri', type:'preventive', techDisc:'hydraulic', tasks:[
     {id:'sfm_sjt_1',title:'Yüksek basınç vanalarının sızdırmazlık kontrolü',note:'',mins:10},
