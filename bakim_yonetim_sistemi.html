@@ -3973,6 +3973,7 @@ function delFailure(id){ if(!requireWrite())return;
 // ══════════════════════════════════════════
 function _autoMaintStatus(){
   db.maintenance.forEach(p=>{
+    if(p.comp && p.status!=='completed' && p.status!=='cancelled'){ p.status='completed'; return; } // tamamlanma tarihi varsa: tamamlandı
     if(p.status!=='scheduled') return;
     if(p.basis==='hour'){ const m=db.machines.find(x=>x.id===p.machineId); if(m && p.nextHours>0 && (m.runHours||0)>=p.nextHours) p.status='overdue'; }
     else if(p.sched && new Date(p.sched)<new Date()) p.status='overdue';
@@ -4143,6 +4144,7 @@ function saveMaint(){ if(!requireWrite())return;
   else if(!p.machineId){toast('Makine seçiniz!','danger');return;}
   if(p.basis==='hour'){ if(!p.intervalHours&&!p.nextHours){toast('Saatlik bakım için aralık veya sonraki bakım saati girin!','danger');return;} }
   else if(!p.sched){toast('Planlanan tarih zorunlu!','danger');return;}
+  if(p.comp && p.status!=='cancelled') p.status='completed';   // tamamlanma tarihi girildiyse durum: tamamlandı
   if(id){const i=db.maintenance.findIndex(x=>x.id===id);if(i>-1)db.maintenance[i]=p;}else db.maintenance.push(p);
   maybeSpawnNextMaint(p);
   save();bootstrap.Modal.getInstance(document.getElementById('modalMaint')).hide();
