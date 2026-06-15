@@ -6,7 +6,7 @@ name: Supabase Keep-Alive
 #
 # Kapsanan projeler:
 #   - CMMS Bakım            -> bgraqliedgmksqdbddkp  (mycosmosshop org)
-#   - Kalite+Doküman+DÖF+8D -> nnubrxbpthmkitueixbh  (cosmositio org)
+#   - Kalite+Doküman+DÖF+8D+PFMEA -> nnubrxbpthmkitueixbh  (cosmositio org)
 #   - ERP Portal            -> chchaielttnimuuezazb  (cosmositio org)
 #
 # Anon/publishable anahtarlar zaten genel (public) uygulama HTML'lerinde gömülü
