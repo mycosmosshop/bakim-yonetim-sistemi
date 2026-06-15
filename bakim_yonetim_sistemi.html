@@ -3966,8 +3966,9 @@ function renderMaint(){
   const list=db.maintenance.filter(p=>{
     const d=p.sched?p.sched.slice(0,10):'';
     const _l=locMids();
+    const mfOk = !mf || (mf.startsWith('fix:') ? p.fixtureId===mf.slice(4) : p.machineId===mf);
     return (!_l||_l.has(p.machineId))
-      &&(!mf||p.machineId===mf)&&(!sf||p.status===sf)&&(!tf||p.type===tf)
+      &&mfOk&&(!sf||p.status===sf)&&(!tf||p.type===tf)
       &&(!pf||d>=pf)&&(!pt||d<=pt);
   }).sort(_maintCmp);
 
@@ -6987,8 +6988,13 @@ function updateSelects(){
   const lbl=m=>`${m.code?m.code+' — ':''}${m.name||''}`;
   const opts  = `<option value="">— Seçiniz —</option>`+visibleMachines.map(m=>`<option value="${m.id}">${lbl(m)}</option>`).join('');
   const fOpts = `<option value="">Tüm Makineler</option>`+visibleMachines.map(m=>`<option value="${m.id}">${lbl(m)}</option>`).join('');
+  // Planlı bakım filtresi: makinelere ek olarak kalıplar (fix:<id>)
+  const visFix = (db.fixtures||[]).slice().sort((a,b)=>String(a.no||'').localeCompare(String(b.no||''),'tr'));
+  const flbl=f=>`${f.no||''}${f.name?(' — '+f.name):''}`;
+  const pFOpts = fOpts + (visFix.length?`<optgroup label="🧩 Kalıplar / Fikstürler">`+visFix.map(f=>`<option value="fix:${f.id}">🧩 ${flbl(f)}</option>`).join('')+`</optgroup>`:'');
   ['mFailMach','mPtMach','mTsMach'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=opts; });
-  ['fMachF','pMachF','tsMachF'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=fOpts; });
+  ['fMachF','tsMachF'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=fOpts; });
+  { const el=document.getElementById('pMachF'); if(el)el.innerHTML=pFOpts; }
   const dlm=document.getElementById('dlMaintMach'); if(dlm) dlm.innerHTML=visibleMachines.map(m=>`<option value="${lbl(m).replace(/"/g,'&quot;')}">`).join('');
 }
 function importMachineExcel(){
@@ -9759,7 +9765,7 @@ async function _exportMaintExcelImpl(){
   if(typeof ExcelJS==='undefined'){ toast('Excel kütüphanesi yüklenemedi, internet bağlantını kontrol et.','danger'); return; }
   // Ekrandaki filtrelerle aynı liste
   const mf=document.getElementById('pMachF')?.value||'', sf=document.getElementById('pStatF')?.value||'', tf=document.getElementById('pTypeF')?.value||'', pf=document.getElementById('pDateFrom')?.value||'', pt=document.getElementById('pDateTo')?.value||'';
-  const list=db.maintenance.filter(p=>{ const d=p.sched?p.sched.slice(0,10):''; const _l=locMids(); return (!_l||_l.has(p.machineId))&&(!mf||p.machineId===mf)&&(!sf||p.status===sf)&&(!tf||p.type===tf)&&(!pf||d>=pf)&&(!pt||d<=pt); }).sort((a,b)=>new Date(a.sched)-new Date(b.sched));
+  const list=db.maintenance.filter(p=>{ const d=p.sched?p.sched.slice(0,10):''; const _l=locMids(); const mfOk=!mf||(mf.startsWith('fix:')?p.fixtureId===mf.slice(4):p.machineId===mf); return (!_l||_l.has(p.machineId))&&mfOk&&(!sf||p.status===sf)&&(!tf||p.type===tf)&&(!pf||d>=pf)&&(!pt||d<=pt); }).sort((a,b)=>new Date(a.sched)-new Date(b.sched));
   if(!list.length){ toast('Aktarılacak bakım kaydı yok.','warning'); return; }
 
   const DARK='FF0F2F6E', HEAD='FF0B79C9';
