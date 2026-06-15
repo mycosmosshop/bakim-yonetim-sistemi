@@ -2647,8 +2647,17 @@ function _defaultKpiSet(){
 function _kpiKey(loc, year){ return (year?year+'_':'')+(loc||''); }
 
 // Bir KPI için config döndür (yıl + lokasyon önce, sonra yıl global, sonra '' global)
+// Aktif dashboard tarih aralığı tek bir takvim yılını kapsıyorsa o yılı döndür (hedef yıl-bazlı çözülsün)
+function _activeKpiYear(){
+  if(!_dashRangeActive) return '';
+  const f=_dashRange.from, t=_dashRange.to;
+  if(f&&t) return f.getFullYear()===t.getFullYear() ? String(f.getFullYear()) : '';
+  if(f) return String(f.getFullYear());
+  if(t) return String(t.getFullYear());
+  return '';
+}
 function getKpi(k, loc, year){
-  const yr = year || '';
+  const yr = year || _activeKpiYear();
   const l  = loc !== undefined ? loc : (gLocFilter||'');
   // 1) Yıl+Lokasyon
   if(yr&&l){ const c=kpiConfig[yr+'_'+l]?.[k]; if(c) return c; }
