@@ -2843,10 +2843,11 @@ function machMetrics(mid){
   const totalDown = allF.reduce((s,f)=>s+downtimeH(f),0);
   const installDate = machine ? new Date(machine.installDate||'2020-01-01') : new Date('2020-01-01');
   const totalH = _windowHours(installDate);
-  const operH = Math.max(0,totalH-totalDown);
+  const downForCalc = Math.min(totalDown, totalH);   // duruş pencereyi aşamaz (avail<0 / mtbf=0 garabetini önler)
+  const operH = Math.max(0,totalH-downForCalc);
   const mtbf = closedF.length>0 ? operH/closedF.length : operH;
   const mttr = closedF.length>0 ? totalDown/closedF.length : 0;
-  const avail = (totalH-totalDown)/totalH*100;
+  const avail = (totalH-downForCalc)/totalH*100;
   const fCost = allF.reduce((s,f)=>s+(f.cost||0),0);
   const pCost = db.maintenance.filter(p=>p.machineId===mid).reduce((s,p)=>s+(p.cost||0),0);
   const ptCost = db.parts.filter(p=>p.machineId===mid).reduce((s,p)=>s+(p.unitCost||0)*(p.qty||1),0);
@@ -4934,7 +4935,8 @@ function renderAnalytics(){
   function machineMttf(m){
     const fails = locFails().filter(f=>f.machineId===m.id).sort((a,b)=>new Date(a.startTime)-new Date(b.startTime));
     if(!fails.length||!m.installDate) return null;
-    return +((new Date(fails[0].startTime)-new Date(m.installDate))/3600000).toFixed(0);
+    const d=(new Date(fails[0].startTime)-new Date(m.installDate))/3600000;
+    return d<0?null:+d.toFixed(0);   // ilk arıza kurulumdan önceyse veri tutarsız -> gösterme
   }
   // Per-machine PMC
   function machinePmc(mid){
@@ -4943,6 +4945,9 @@ function renderAnalytics(){
     return +(sc.filter(p=>p.status==='completed').length/sc.length*100).toFixed(1);
   }
 
+  // Matris, Dashboard ile AYNI tarih aralığını kullansın (tutarlılık). Trend grafiği etkilenmez.
+  _readDashRange(); _dashRangeActive = true;
+  try {
   document.getElementById('anBody').innerHTML=locMachines().map(m=>{
     const mx   = machMetrics(m.id);
     const av   = parseFloat(mx.avail);
@@ -4974,6 +4979,7 @@ function renderAnalytics(){
       <td style="color:${avCl}">${lbl}</td>
     </tr>`;
   }).join('');
+  } finally { _dashRangeActive = false; }
   renderAnalyticsCharts();
   renderPareto();
   renderDeltaTrend();
@@ -8221,7 +8227,9 @@ function loadCerkezkoyAriza(){
   const now=new Date(); let nF=0, woN=1; const missing=[];
   CERKEZKOY_FAILS.forEach((f,di)=>{
     const mid=macByCode(f.code); if(!mid){ if(missing.indexOf(f.code)<0)missing.push(f.code); return; }
-    const since=new Date(now); since.setMonth(since.getMonth()-f.months);
+    const machine=db.machines.find(x=>x.id===mid);
+    let since=new Date(now); since.setMonth(since.getMonth()-f.months);
+    if(machine&&machine.installDate){ const inst=new Date(machine.installDate); if(inst>since) since=inst; } // kurulumdan önce arıza üretme
     let d=new Date(now); d.setDate(d.getDate()-Math.round(f.interval*0.4)-(f.offset||0));
     let oi=0;
     while(d>=since){
@@ -9336,7 +9344,8 @@ function openKpiDetail(key){
     let mttf = null;
     if(m.installDate && mFails.length>0){
       const first = mFails.sort((a,b)=>new Date(a.startTime)-new Date(b.startTime))[0];
-      mttf = +((new Date(first.startTime)-new Date(m.installDate))/3600000).toFixed(0);
+      const d=(new Date(first.startTime)-new Date(m.installDate))/3600000;
+      mttf = d<0?null:+d.toFixed(0);   // ilk arıza kurulumdan önceyse gösterme
     }
 
     const vals = {
