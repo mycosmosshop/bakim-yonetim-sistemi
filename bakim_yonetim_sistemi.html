@@ -4135,6 +4135,7 @@ function maybeSpawnNextMaint(p){
       period:0, periodUnit:p.periodUnit||'year', estDur:p.estDur||0, actDur:0,
       tech:p.tech||'', cost:0, desc:p.desc||'', status:'scheduled', wo:genWoNo(),
       taskSetId:p.taskSetId||'', techDisc:p.techDisc||'',
+      assetType:p.assetType||'makine', fixtureId:p.fixtureId||'', assetName:p.assetName||null,
       external:p.external||false, extCompany:p.extCompany||'', extContact:p.extContact||'', extPhone:p.extPhone||'',
       checklist:(p.checklist||[]).map(t=>({...t,done:false}))
     });
@@ -4159,6 +4160,7 @@ function maybeSpawnNextMaint(p){
     tech:p.tech||'', cost:0, desc:p.desc||'', status:'scheduled', wo:genWoNo(),
     taskSetId:p.taskSetId||'', periodBasis:p.periodBasis||'time',
     condMethod:p.condMethod||'', techDisc:p.techDisc||'',
+    assetType:p.assetType||'makine', fixtureId:p.fixtureId||'', assetName:p.assetName||null,
     checklist:(p.checklist||[]).map(t=>({...t,done:false}))
   });
   p._spawnedNext = true;
@@ -8101,7 +8103,7 @@ const CERKEZKOY_MOLDS = [
   {no:'SANIFOAM2024031357', urun:'227.0.127', ad:'A9606823383', mac:'VRG', d25:'2025-07-03', d26:'2026-07-03'},
   {no:'SANIFOAM2023032334', urun:'227.0.128', ad:'A9606823483', mac:'VRG', d25:'2025-07-10', d26:'2026-07-10'},
   {no:'SANIFOAM2024031360', urun:'227.0.133', ad:'A9606823983', mac:'VRG', d25:'2025-06-17', d26:'2026-06-17'},
-  {no:'SANIFOAM2023032331', urun:'227.0.134', ad:'A9606829720', mac:'VRG', d25:'2025-06-24', d26:'2026-06-22'},
+  {no:'SANIFOAM2023032331', urun:'227.0.134', ad:'A9606829720', mac:'VRG', d25:'2025-06-24', d26:'2026-06-24'},
   {no:'SANIFOAM2026011518-P418561', urun:'700.0.454', ad:'6FA.881.989', mac:'VRG', d25:'2025-06-04', d26:'2026-06-04'},
   {no:'SAN20240110-1330843', urun:'217.0.017', ad:'51.26625-0033', mac:'KP4', d25:'2025-07-22', d26:'2026-07-22'},
   {no:'SANIFOAM2024031874', urun:'217.0.018', ad:'51.26625-0034', mac:'VRG', d25:'2025-07-22', d26:'2026-07-22'},
