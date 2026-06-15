@@ -687,6 +687,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <button class="btn btn-outline-secondary btn-sm" onclick="loadDefaultTaskSets()"><i class="bi bi-download me-1"></i>Hazır Şablonları Yükle</button>
       <button class="btn btn-outline-info btn-sm" onclick="loadSanifoamTaskSets()"><i class="bi bi-buildings me-1"></i>Sanifoam Makine Setleri</button>
       <button class="btn btn-outline-success btn-sm" onclick="loadCerkezkoyPlan()" title="Çerkezköy 2025-2026 yıllık bakım planı: 12 makine + 11 kalıp + planlı bakımlar (uygun setlerle)"><i class="bi bi-calendar-check me-1"></i>Çerkezköy 2025-2026 Planı</button>
+      <button class="btn btn-outline-warning btn-sm" onclick="loadCerkezkoyAriza()" title="Çerkezköy makineleri için tekrarlayan arıza geçmişi + ilgili yedek parça stok kartları"><i class="bi bi-wrench-adjustable-circle me-1"></i>Arıza + Yedek Parça (Çerkezköy)</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -8177,6 +8178,82 @@ function loadCerkezkoyPlan(){
   try{renderMachines();}catch(e){} try{renderFixtures();}catch(e){} try{renderTaskSets();}catch(e){} try{renderMaint();}catch(e){} try{renderDashboard();}catch(e){}
   const nP=db.maintenance.filter(x=>String(x.id||'').startsWith('cz_')).length;
   toast('Çerkezköy planı yüklendi: '+CERKEZKOY_MACHINES.length+' makine, '+CERKEZKOY_MOLDS.length+' kalıp, '+nP+' planlı bakım ✔','success');
+}
+
+// ══ ÇERKEZKÖY ARIZA GEÇMİŞİ + YEDEK PARÇA (tekrarlanabilir/idempotent seed) ══
+// Kullanıcının bildirdiği tekrarlayan arızalar, ilgili makinelere frekansa göre geçmiş kayıt olarak üretilir.
+const CERKEZKOY_FAILS = [
+  {code:'SJT',       type:'hydraulic',  detect:'sensor',   loss:'breakdown', interval:75,  months:14, dur:4,   cost:2200, desc:'Döngü alarmı — yüksek basınç pompası arızası (pompa basıncı yetişmiyor)', root:'YB pompa conta/valf aşınması', res:'YB pompa conta takımı değişimi, basınç ayarı'},
+  {code:'SJT',       type:'mechanical', detect:'operator', loss:'defect',    interval:75,  months:14, dur:2,   cost:1400, desc:'İğne takımı (nozzle/needle) aşınması — kesim kalitesi düştü', root:'Normal aşınma (ömür)', res:'İğne takımı değişimi'},
+  {code:'SJT',       type:'mechanical', detect:'operator', loss:'defect',    interval:30,  months:12, dur:1,   cost:650,  desc:'Kalın su atması hatası — orifis (orifix) aşındı/genişledi', root:'Orifis aşınması', res:'Orifis (orifix) değişimi'},
+  {code:'VRG',       type:'mechanical', detect:'operator', loss:'breakdown', interval:135, months:18, dur:3,   cost:1300, desc:'Tahrik zinciri kopması', root:'Zincir yorulması / gerginlik', res:'Zincir değişimi ve gerginlik ayarı'},
+  {code:'DİKEY CNC', type:'mechanical', detect:'operator', loss:'breakdown', interval:30,  months:12, dur:2,   cost:900,  desc:'Şerit testere kırılması (CNC kesim)', root:'Testere yorulması / yanlış gerginlik', res:'CNC şerit testere değişimi'},
+  {code:'DİKEY CNC', type:'mechanical', detect:'periodic', loss:'speed',     interval:30,  months:12, dur:1,   cost:550,  offset:15, desc:'Bileme taşı körelmesi — testere bilenemiyor', root:'Bileme taşı aşınması', res:'Bileme taşı değişimi'},
+  {code:'ISM2',      type:'mechanical', detect:'operator', loss:'breakdown', interval:30,  months:12, dur:2,   cost:900,  desc:'Dikey kesim testeresi kırılması', root:'Testere yorulması / yanlış gerginlik', res:'Dikey kesim testere değişimi'},
+  {code:'YTY3',      type:'mechanical', detect:'operator', loss:'breakdown', interval:30,  months:12, dur:2,   cost:900,  desc:'Şerit testere kırılması (yatay kesim)', root:'Testere yorulması / yanlış gerginlik', res:'Yatay kesim testere değişimi'},
+  {code:'YTY3',      type:'mechanical', detect:'periodic', loss:'speed',     interval:30,  months:12, dur:1,   cost:550,  offset:15, desc:'Bileme taşı körelmesi — testere bilenemiyor', root:'Bileme taşı aşınması', res:'Bileme taşı değişimi'},
+  {code:'HP',        type:'mechanical', detect:'periodic', loss:'defect',    interval:365, months:24, dur:4,   cost:3500, desc:'Kalıp körelmesi — kesim kenar kalitesi bozuldu', root:'Kalıp bıçak körelmesi', res:'Kalıp taşlama (bileme)'},
+  {code:'SSLMM',     type:'electrical', detect:'sensor',   loss:'breakdown', interval:730, months:26, dur:4,   cost:3600, desc:'Silindir ısıtıcı rezistans arızası — sıcaklık tutmuyor', root:'Rezistans ömür sonu', res:'Rezistans değişimi'},
+  {code:'DLM',       type:'mechanical', detect:'operator', loss:'breakdown', interval:90,  months:15, dur:2,   cost:800,  desc:'Dilimleme bıçağı değişimi (körelme/aşınma)', root:'Bıçak aşınması', res:'Dilimleme bıçağı değişimi'},
+  {code:'DLM',       type:'mechanical', detect:'periodic', loss:'speed',     interval:180, months:18, dur:2,   cost:450,  offset:45, desc:'Dilimleme bıçağı taşlama (körelme)', root:'Bıçak körelmesi', res:'Bıçak taşlama (bileme)'}
+];
+const CERKEZKOY_PARTS = [
+  {code:'DİKEY CNC', name:'CNC şerit testere',                 no:'CNC-SRT-01', qty:15, min:5, cost:900,  lead:5,  crit:true,  sup:'Şerit testere tedarikçisi', note:'CNC kesim — ayda ~1 kırılma'},
+  {code:'SJT',       name:'Su jeti orifis (orifix)',           no:'SJT-ORF-01', qty:10, min:4, cost:600,  lead:7,  crit:true,  sup:'YB su jeti sarf tedarikçisi', note:'Kalın su atması — ayda ~1 değişim'},
+  {code:'DLM',       name:'Dilimleme bıçağı',                  no:'DLM-BCK-01', qty:10, min:3, cost:800,  lead:7,  crit:false, sup:'Bıçak tedarikçisi', note:'3 ayda bir değişim, 6 ayda bir taşlama'},
+  {code:'ISM2',      name:'Dikey kesim testere',               no:'DKY-SRT-01', qty:10, min:3, cost:900,  lead:5,  crit:true,  sup:'Şerit testere tedarikçisi', note:'Dikey kesim — ayda ~1 kırılma'},
+  {code:'SJT',       name:'Su jeti pompa conta takımı',        no:'SJT-PMP-KIT',qty:2,  min:1, cost:2200, lead:14, crit:true,  sup:'Pompa servisi', note:'Döngü alarmı / basınç düşüşü — takım'},
+  {code:'SJT',       name:'Su jeti iğne takımı (nozzle/needle)',no:'SJT-NDL-01', qty:2,  min:1, cost:1400, lead:10, crit:true,  sup:'YB su jeti sarf tedarikçisi', note:'2-3 ayda bir — takım'},
+  {code:'YTY3',      name:'Yatay kesim testere',               no:'YTY-SRT-01', qty:5,  min:2, cost:900,  lead:5,  crit:true,  sup:'Şerit testere tedarikçisi', note:'Yatay kesim — ayda ~1 kırılma'},
+  {code:'VRG',       name:'Vargel tahrik zinciri',             no:'VRG-ZNC-01', qty:1,  min:1, cost:1300, lead:7,  crit:false, sup:'Yerel zincir/dişli', note:'4-5 ayda bir kopma'},
+  {code:'LMM',       name:'Laminasyon bandı (konveyör bant)',  no:'LMM-BND-01', qty:1,  min:1, cost:4500, lead:30, crit:true,  sup:'Konveyör bant imalatçısı', note:'Yedek bant'}
+];
+function loadCerkezkoyAriza(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  if(!confirm('Çerkezköy ARIZA GEÇMİŞİ + YEDEK PARÇA yüklenecek:\n\n• Bildirilen tekrarlayan arızalar (su jeti, vargel, CNC/yatay testere, H-Pres, sıcak silindir, dilimleme) frekansa göre geçmiş kayıt olarak üretilir (hepsi çözülmüş/kapalı).\n• İlgili yedek parça stok kartları oluşturulur.\n\nÖnce yüklediğin makineler gerekir (Çerkezköy planı). Aynı kayıtlar GÜNCELLENİR (çift olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
+  db.machines=db.machines||[]; db.failures=db.failures||[]; db.parts=db.parts||[];
+  const macByCode=c=>{ const m=db.machines.find(x=>String(x.code||'').trim().toUpperCase()===String(c).trim().toUpperCase()); return m?m.id:null; };
+  const pad=n=>String(n).padStart(2,'0');
+  const dtLocal=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  // önceki cza_/czp_ kayıtları temizle (idempotent)
+  db.failures=db.failures.filter(x=>!String(x.id||'').startsWith('cza_'));
+  db.parts=db.parts.filter(x=>!String(x.id||'').startsWith('czp_'));
+  const now=new Date(); let nF=0, woN=1; const missing=[];
+  CERKEZKOY_FAILS.forEach((f,di)=>{
+    const mid=macByCode(f.code); if(!mid){ if(missing.indexOf(f.code)<0)missing.push(f.code); return; }
+    const since=new Date(now); since.setMonth(since.getMonth()-f.months);
+    let d=new Date(now); d.setDate(d.getDate()-Math.round(f.interval*0.4)-(f.offset||0));
+    let oi=0;
+    while(d>=since){
+      const st=new Date(d); st.setHours(9+(oi%3),(oi%2)*30,0,0);
+      const durH=Math.min(4,Math.max(1,f.dur+(oi%3)*0.5)); // arıza süresi 1-4 saat
+      const en=new Date(st.getTime()+durH*3600*1000);
+      db.failures.push({ id:'cza_'+f.code.replace(/[^A-Za-z0-9]/g,'')+'_'+di+'_'+oi,
+        machineId:mid, failureType:f.type, startTime:dtLocal(st), endTime:dtLocal(en),
+        desc:f.desc, rootCause:f.root, detect:f.detect, recurring:true,
+        qtyDefect:(f.loss==='defect'?(5+(oi%4)*3):0), qtyScrap:(f.loss==='defect'?(2+(oi%3)):0),
+        lossType:f.loss, tech:'', cost:f.cost, resolution:f.res, status:'closed',
+        wo:'AR-'+String(2000+woN++).padStart(4,'0'), rca:null });
+      nF++; oi++; d=new Date(d); d.setDate(d.getDate()-f.interval);
+    }
+  });
+  let nP=0;
+  CERKEZKOY_PARTS.forEach(p=>{
+    const mid=macByCode(p.code);
+    const rep=new Date(now); rep.setDate(rep.getDate()-20);
+    const nxt=new Date(now); nxt.setDate(nxt.getDate()+30);
+    db.parts.push({ id:'czp_'+p.no, partName:p.name, partNo:p.no, machineId:mid||'',
+      location:'Çerkezköy Bakım Ambarı', qty:p.qty, minQty:p.min, unitCost:p.cost,
+      supplier:p.sup, supPhone:'', supMail:'', supAddr:'',
+      repDate:dtLocal(rep).slice(0,10), nextDate:dtLocal(nxt).slice(0,10),
+      notes:p.note||'', isCritical:!!p.crit, leadTime:p.lead });
+    nP++;
+  });
+  save();
+  try{renderFailures();}catch(e){} try{renderParts();}catch(e){} try{renderDashboard();}catch(e){}
+  let msg='Arıza geçmişi: '+nF+' kayıt, Yedek parça: '+nP+' kart yüklendi ✔';
+  if(missing.length) msg+=' (Bulunamayan makine kodları: '+missing.join(', ')+' — önce Çerkezköy planını yükle)';
+  toast(msg, missing.length?'warning':'success');
 }
 
 // ── Maintenance Checklist (edit mode inside maintenance modal) ──
