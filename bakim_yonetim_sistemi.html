@@ -1692,7 +1692,9 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <div class="modal-body">
         <input type="hidden" id="mPId">
         <div class="row g-3">
-          <div class="col-md-6"><label class="form-label">Makine *</label><input class="form-control" id="mPMachText" list="dlMaintMach" autocomplete="off" placeholder="Makine seç veya yaz (kod / ad)…" oninput="onMaintMachInput()"><input type="hidden" id="mPMach"><datalist id="dlMaintMach"></datalist></div>
+          <div class="col-md-3"><label class="form-label">Bakım Hedefi</label><select class="form-select" id="mPAssetType" onchange="onMaintAssetTypeChange()"><option value="makine">🛠️ Makine</option><option value="kalip">🧩 Kalıp / Fikstür</option></select></div>
+          <div class="col-md-3" id="mPFixtureWrap" style="display:none"><label class="form-label">Kalıp / Fikstür</label><select class="form-select" id="mPFixture" onchange="onMaintFixtureChange()"></select></div>
+          <div class="col-md-6"><label class="form-label" id="mPMachLbl">Makine *</label><input class="form-control" id="mPMachText" list="dlMaintMach" autocomplete="off" placeholder="Makine seç veya yaz (kod / ad)…" oninput="onMaintMachInput()"><input type="hidden" id="mPMach"><datalist id="dlMaintMach"></datalist></div>
           <div class="col-md-6">
             <label class="form-label">Bakım Tipi</label>
             <select class="form-select" id="mPType">
@@ -4012,10 +4014,27 @@ function renderMaint(){
   _updateMaintSortInd();
 }
 
+// Bakım hedefi: Makine ↔ Kalıp/Fikstür seçimi
+function onMaintAssetTypeChange(){
+  const t=document.getElementById('mPAssetType')?.value||'makine';
+  const wrap=document.getElementById('mPFixtureWrap'); if(wrap)wrap.style.display=(t==='kalip')?'':'none';
+  const lbl=document.getElementById('mPMachLbl'); if(lbl)lbl.textContent=(t==='kalip')?'Kesim Makinesi':'Makine *';
+}
+function _fillMaintFixtureSel(selId){
+  const sel=document.getElementById('mPFixture'); if(!sel)return;
+  const fx=(db.fixtures||[]).slice().sort((a,b)=>String(a.no||'').localeCompare(String(b.no||'')));
+  sel.innerHTML='<option value="">— Kalıp seçiniz —</option>'+fx.map(f=>`<option value="${f.id}">${(f.no||'')+(f.name?(' — '+f.name):'')}</option>`).join('');
+  if(selId)sel.value=selId;
+}
+function onMaintFixtureChange(){
+  const f=(db.fixtures||[]).find(x=>x.id===document.getElementById('mPFixture').value);
+  if(f&&f.machineId){ document.getElementById('mPMach').value=f.machineId; const m=db.machines.find(x=>x.id===f.machineId); const t=document.getElementById('mPMachText'); if(t&&m)t.value=_maintMachLabel(m); }
+}
 function openMaintModal(p){
   document.getElementById('mPId').value=p?p.id:'';
   document.getElementById('mPMach').value=p?(p.machineId||''):'';
   { const _mm=p?db.machines.find(x=>x.id===p.machineId):null; const _t=document.getElementById('mPMachText'); if(_t) _t.value=_mm?_maintMachLabel(_mm):''; }
+  { const ats=document.getElementById('mPAssetType'); if(ats)ats.value=(p&&p.assetType==='kalip')?'kalip':'makine'; _fillMaintFixtureSel(p?(p.fixtureId||''):''); onMaintAssetTypeChange(); }
   document.getElementById('mPType').value=p?(p.type||'preventive'):'preventive';
   document.getElementById('mPSched').value=p?(p.sched||''):'';
   document.getElementById('mPComp').value=p?(p.comp||''):'';
@@ -4085,8 +4104,10 @@ function saveMaint(){ if(!requireWrite())return;
     external:document.getElementById('mPExternal')?.checked||false,
     extCompany:document.getElementById('mPExtCompany')?.value||'',
     extContact:document.getElementById('mPExtContact')?.value||'',
-    extPhone:document.getElementById('mPExtPhone')?.value||''};
-  if(!p.machineId){toast('Makine seçiniz!','danger');return;}
+    extPhone:document.getElementById('mPExtPhone')?.value||'',
+    assetType:document.getElementById('mPAssetType')?.value||'makine', fixtureId:'', assetName:null};
+  if(p.assetType==='kalip'){ const f=(db.fixtures||[]).find(x=>x.id===(document.getElementById('mPFixture')?.value||'')); if(!f){toast('Kalıp seçiniz!','danger');return;} p.fixtureId=f.id; p.assetName=(f.no||'')+(f.name?(' — '+f.name):''); if(!p.machineId&&f.machineId)p.machineId=f.machineId; }
+  else if(!p.machineId){toast('Makine seçiniz!','danger');return;}
   if(p.basis==='hour'){ if(!p.intervalHours&&!p.nextHours){toast('Saatlik bakım için aralık veya sonraki bakım saati girin!','danger');return;} }
   else if(!p.sched){toast('Planlanan tarih zorunlu!','danger');return;}
   if(id){const i=db.maintenance.findIndex(x=>x.id===id);if(i>-1)db.maintenance[i]=p;}else db.maintenance.push(p);
@@ -8088,7 +8109,7 @@ function loadCerkezkoyPlan(){
   if(!confirm('Çerkezköy 2025-2026 Yıllık Bakım Planı yüklenecek:\n\n• 12 makine + 11 kalıp (fikstür)\n• 2025 (tamamlandı) + 2026 (planlandı) bakımları, uygun setlerle\n\nAynı kod/no\'lu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
   db.machines=db.machines||[]; db.fixtures=db.fixtures||[]; db.maintenance=db.maintenance||[]; db.taskSets=db.taskSets||[];
   if(!db.taskSets.some(t=>String(t.id||'').startsWith('sfm_'))){ db.taskSets.push(...JSON.parse(JSON.stringify(SANIFOAM_TASK_SETS))); }
-  const macId={};
+  const macId={}, fixId={};
   // 1) MAKİNELER — kod/ad bazlı dedup
   CERKEZKOY_MACHINES.forEach(m=>{
     let ex=db.machines.find(x=>String(x.code||'').trim().toUpperCase()===m.code.toUpperCase()||String(x.name||'').trim()===m.name);
@@ -8101,17 +8122,18 @@ function loadCerkezkoyPlan(){
     let ex=db.fixtures.find(x=>String(x.no||'').trim()===k.no);
     if(!ex){ ex={id:'czk'+uid()}; db.fixtures.push(ex); }
     Object.assign(ex,{ no:k.no, name:k.urun+' — '+k.ad, type:'mold', location:'Çerkezköy Kalıphane', machineIds:(macId[k.mac]?[macId[k.mac]]:[]), machineId:(macId[k.mac]||''), status:'active', nextMaint:k.d26, lastMaint:k.d25, period:12, periodUnit:'month', notes:'Ürün '+k.urun+' / '+k.ad+' · Kesim: '+k.mac+' · Set: Kalıp (BSM-KAL-01)' });
+    fixId[k.no]=ex.id;
   });
   // 3) PLANLI BAKIMLAR — eski cz_ kayıtları temizle (idempotent), yeniden oluştur
   db.maintenance=db.maintenance.filter(x=>!String(x.id||'').startsWith('cz_'));
   const _setTasks=(setId,done,date)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?(s.tasks||[]).map((t,i)=>({id:uid(),no:i+1,title:t.title,note:t.note||'',mins:t.mins||0,done:!!done,doneBy:'',doneAt:done?(date+'T08:00:00'):null})):[]; };
   const _estH=(setId)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?Math.max(0.5,Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10):1; };
-  const addM=(mid,setId,date,year,desc,key,assetName)=>{ if(!mid||!date)return; const done=(year===2025);
-    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, assetName:assetName||null, assetType:assetName?'kalip':'makine', tech:'', cost:0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_setTasks(setId,done,date), external:false, wo:'' }); };
+  const addM=(mid,setId,date,year,desc,key,assetName,fixtureId)=>{ if(!mid||!date)return; const done=(year===2025);
+    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, assetName:assetName||null, assetType:assetName?'kalip':'makine', fixtureId:fixtureId||'', tech:'', cost:0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_setTasks(setId,done,date), external:false, wo:'' }); };
   CERKEZKOY_MACHINES.forEach(m=>{ if(!m.sfm)return; const mid=macId[m.code]; const key='m_'+m.code.replace(/[^A-Za-z0-9]/g,'');
     addM(mid,m.sfm,m.d25,2025,'Yıllık Periyodik Bakım — '+m.name,key); addM(mid,m.sfm,m.d26,2026,'Yıllık Periyodik Bakım — '+m.name,key); });
   CERKEZKOY_MOLDS.forEach(k=>{ const mid=macId[k.mac]; if(!mid)return; const key='k_'+k.no.replace(/[^A-Za-z0-9]/g,''); const kAd=k.no+' — '+k.urun+' / '+k.ad; const desc='KALIP BAKIMI · Kesim: '+k.mac;
-    addM(mid,'sfm_kalip',k.d25,2025,desc,key,kAd); addM(mid,'sfm_kalip',k.d26,2026,desc,key,kAd); });
+    addM(mid,'sfm_kalip',k.d25,2025,desc,key,kAd,fixId[k.no]); addM(mid,'sfm_kalip',k.d26,2026,desc,key,kAd,fixId[k.no]); });
   save();
   try{renderMachines();}catch(e){} try{renderFixtures();}catch(e){} try{renderTaskSets();}catch(e){} try{renderMaint();}catch(e){} try{renderDashboard();}catch(e){}
   const nP=db.maintenance.filter(x=>String(x.id||'').startsWith('cz_')).length;
