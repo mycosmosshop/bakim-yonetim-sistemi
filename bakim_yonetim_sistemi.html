@@ -2863,14 +2863,15 @@ function machMetrics(mid){
   const operH = Math.max(0,totalH-downForCalc);
   const mtbf = closedF.length>0 ? operH/closedF.length : operH;
   const mttr = closedF.length>0 ? totalDown/closedF.length : 0;
-  const avail = (totalH-downForCalc)/totalH*100;
+  let avail = Math.max(0,Math.min(100,(totalH-downForCalc)/totalH*100));
+  if(totalDown>0) avail = Math.min(99.9, Math.floor(avail*10)/10);   // arıza/duruş varsa %100'e yuvarlama (floor)
   const fCost = allF.reduce((s,f)=>s+(f.cost||0),0);
   const pCost = db.maintenance.filter(p=>p.machineId===mid).reduce((s,p)=>s+(p.cost||0),0);
   const ptCost = db.parts.filter(p=>p.machineId===mid).reduce((s,p)=>s+(p.unitCost||0)*(p.qty||1),0);
   return {
     failCount:allF.length, totalDown:totalDown.toFixed(1),
     mtbf:mtbf.toFixed(0), mttr:mttr.toFixed(1),
-    avail:Math.max(0,Math.min(100,avail)).toFixed(1),
+    avail:avail.toFixed(1),
     totalCost: fCost+pCost+ptCost,
     maintCount: db.maintenance.filter(p=>p.machineId===mid).length
   };
@@ -8192,7 +8193,7 @@ function loadCerkezkoyPlan(){
   const _setTasks=(setId,done,date)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?(s.tasks||[]).map((t,i)=>({id:uid(),no:i+1,title:t.title,note:t.note||'',mins:t.mins||0,done:!!done,doneBy:'',doneAt:done?(date+'T08:00:00'):null})):[]; };
   const _estH=(setId)=>{ const s=(db.taskSets||[]).find(x=>x.id===setId); return s?Math.max(0.5,Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10):1; };
   const _applyNotes=(checklist,notes)=>{ if(notes&&notes.length){ notes.forEach(n=>{ const it=checklist.find(t=>String(t.title||'').includes(n[0])); if(it) it.note=n[1]; }); } return checklist; };
-  const addM=(mid,setId,date,year,desc,key,assetName,fixtureId,parts,cost,notes)=>{ if(!mid||!date)return; const done=(year===2025);
+  const addM=(mid,setId,date,year,desc,key,assetName,fixtureId,parts,cost,notes)=>{ if(!mid||!date)return; const done=(year===2025)||(new Date(date)<=new Date());
     db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, assetName:assetName||null, assetType:assetName?'kalip':'makine', fixtureId:fixtureId||'', partsUsed:parts||'', tech:'', cost:cost||0, estDur:_estH(setId), actDur:done?_estH(setId):0, checklist:_applyNotes(_setTasks(setId,done,date),notes), external:false, wo:'' }); };
   CERKEZKOY_MACHINES.forEach(m=>{ if(!m.sfm)return; const mid=macId[m.code]; const key='m_'+m.code.replace(/[^A-Za-z0-9]/g,''); const pr=CERKEZKOY_MAC_PARTS[m.code];
     addM(mid,m.sfm,m.d25,2025,'Yıllık Periyodik Bakım — '+m.name,key,null,'',pr?pr.parts:'',pr?pr.cost:0,pr?pr.notes:null); addM(mid,m.sfm,m.d26,2026,'Yıllık Periyodik Bakım — '+m.name,key,null,'',pr?pr.parts:'',pr?pr.cost:0,pr?pr.notes:null); });
