@@ -686,6 +686,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <div class="d-flex gap-2">
       <button class="btn btn-outline-secondary btn-sm" onclick="loadDefaultTaskSets()"><i class="bi bi-download me-1"></i>Hazır Şablonları Yükle</button>
       <button class="btn btn-outline-info btn-sm" onclick="loadSanifoamTaskSets()"><i class="bi bi-buildings me-1"></i>Sanifoam Makine Setleri</button>
+      <button class="btn btn-outline-success btn-sm" onclick="loadCerkezkoyPlan()" title="Çerkezköy 2025-2026 yıllık bakım planı: 12 makine + 11 kalıp + planlı bakımlar (uygun setlerle)"><i class="bi bi-calendar-check me-1"></i>Çerkezköy 2025-2026 Planı</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -8052,6 +8053,67 @@ function loadSanifoamTaskSets(){
   save();
   renderTaskSets();
   toast(`${SANIFOAM_TASK_SETS.length} Sanifoam makine bakım seti ${had?'güncellendi':'eklendi'} ✔`,'success');
+}
+
+// ══ ÇERKEZKÖY 2025-2026 YILLIK BAKIM PLANI (makine + kalıp + planlı bakım) — tekrarlanabilir/dedup'lı seed ══
+const CERKEZKOY_MACHINES = [
+  {sk:'910.5.043', code:'ISM2', name:'ISM2 ISM DIKEY KESIM 2', dept:'Kesim', sfm:'sfm_cnc_kesim', d25:'2025-07-07', d26:'2026-07-07'},
+  {sk:'910.5.052', code:'KP4', name:'KP4 KESME PRESI HIDROLIK 900*1200', dept:'Kesim', sfm:'sfm_kesme_pres', d25:'2025-10-27', d26:'2026-10-27'},
+  {sk:'910.5.087', code:'DLM', name:'DLM DILIMLEME MAKINESI', dept:'Kesim', sfm:'sfm_dilimleme', d25:'2025-10-18', d26:'2026-10-18'},
+  {sk:'910.5.086', code:'LMM', name:'LAMİNASYON MAKİNESİ', dept:'Laminasyon', sfm:'sfm_laminasyon', d25:'2025-08-09', d26:'2026-08-09'},
+  {sk:'910.5.109', code:'KOM2', name:'KOMP 2 HAVA KOMPRESÖRÜ 2', dept:'Atölye', sfm:null, d25:null, d26:null},
+  {sk:'910.5.122', code:'FRT 3', name:'FORKLİFT', dept:'Depo', sfm:null, d25:null, d26:null},
+  {sk:'910.5.161', code:'SJT', name:'SJT SU JETİ KESİM', dept:'Kesim', sfm:'sfm_sjt', d25:'2025-03-20', d26:'2026-03-20'},
+  {sk:'910.5.157', code:'HP', name:'H-PRES MAKİNESİ', dept:'Kesim', sfm:'sfm_kesme_pres', d25:'2025-11-01', d26:'2026-11-01'},
+  {sk:'910.5.651', code:'VRG', name:'VARGEL KESİM MAKİNESİ 2', dept:'Kesim', sfm:'sfm_kesme_pres', d25:'2025-09-15', d26:'2026-09-15'},
+  {sk:'910.5.165', code:'YTY3', name:'ELİTCORE YATAY KESİM MAKİNESİ', dept:'Kesim', sfm:'sfm_yatay_kesim', d25:'2025-11-03', d26:'2026-11-03'},
+  {sk:'910.5.166', code:'SSLMM', name:'SICAK SİLİNDİR LAMİNASYON', dept:'Laminasyon', sfm:'sfm_laminasyon', d25:'2025-12-16', d26:'2026-12-16'},
+  {sk:'910.5.961', code:'DİKEY CNC', name:'DİKEY CNC KESİM MAKİNESİ', dept:'Kesim', sfm:'sfm_cnc_kesim', d25:'2025-12-18', d26:'2026-12-18'},
+];
+const CERKEZKOY_MOLDS = [
+  {no:'SANIFOAM202402098', urun:'227.0.116', ad:'A9606820183', mac:'VRG', d25:'2025-07-06', d26:'2026-07-06'},
+  {no:'SANIFOAM2023032326', urun:'227.0.117', ad:'A9606821883', mac:'VRG', d25:'2025-06-13', d26:'2026-06-13'},
+  {no:'SANIFOAM2023101188', urun:'227.0.125', ad:'A9606822683', mac:'VRG', d25:'2025-06-20', d26:'2026-06-20'},
+  {no:'SANIFOAM2023052363', urun:'227.0.126', ad:'A9606822983', mac:'KP4', d25:'2025-06-27', d26:'2026-06-27'},
+  {no:'SANIFOAM2024031357', urun:'227.0.127', ad:'A9606823383', mac:'VRG', d25:'2025-07-03', d26:'2026-07-03'},
+  {no:'SANIFOAM2023032334', urun:'227.0.128', ad:'A9606823483', mac:'VRG', d25:'2025-07-10', d26:'2026-07-10'},
+  {no:'SANIFOAM2024031360', urun:'227.0.133', ad:'A9606823983', mac:'VRG', d25:'2025-06-17', d26:'2026-06-17'},
+  {no:'SANIFOAM2023032331', urun:'227.0.134', ad:'A9606829720', mac:'VRG', d25:'2025-06-24', d26:'2026-06-22'},
+  {no:'SANIFOAM2026011518-P418561', urun:'700.0.454', ad:'6FA.881.989', mac:'VRG', d25:'2025-06-04', d26:'2026-06-04'},
+  {no:'SAN20240110-1330843', urun:'217.0.017', ad:'51.26625-0033', mac:'KP4', d25:'2025-07-22', d26:'2026-07-22'},
+  {no:'SANIFOAM2024031874', urun:'217.0.018', ad:'51.26625-0034', mac:'VRG', d25:'2025-07-22', d26:'2026-07-22'},
+];
+function loadCerkezkoyPlan(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  if(!confirm('Çerkezköy 2025-2026 Yıllık Bakım Planı yüklenecek:\n\n• 12 makine + 11 kalıp (fikstür)\n• 2025 (tamamlandı) + 2026 (planlandı) bakımları, uygun setlerle\n\nAynı kod/no\'lu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
+  db.machines=db.machines||[]; db.fixtures=db.fixtures||[]; db.maintenance=db.maintenance||[]; db.taskSets=db.taskSets||[];
+  if(!db.taskSets.some(t=>String(t.id||'').startsWith('sfm_'))){ db.taskSets.push(...JSON.parse(JSON.stringify(SANIFOAM_TASK_SETS))); }
+  const macId={};
+  // 1) MAKİNELER — kod/ad bazlı dedup
+  CERKEZKOY_MACHINES.forEach(m=>{
+    let ex=db.machines.find(x=>String(x.code||'').trim().toUpperCase()===m.code.toUpperCase()||String(x.name||'').trim()===m.name);
+    if(!ex){ ex={id:'czm_'+m.code.replace(/[^A-Za-z0-9]/g,'')}; db.machines.push(ex); }
+    Object.assign(ex,{ name:m.name, code:m.code, dept:m.dept, location:'Çerkezköy', criticality:ex.criticality||(m.sfm?'high':'medium'), status:ex.status||'running', notes:'Sanifoam Kodu: '+m.sk });
+    macId[m.code]=ex.id;
+  });
+  // 2) KALIPLAR (fikstür) — no bazlı dedup
+  CERKEZKOY_MOLDS.forEach(k=>{
+    let ex=db.fixtures.find(x=>String(x.no||'').trim()===k.no);
+    if(!ex){ ex={id:'czk'+uid()}; db.fixtures.push(ex); }
+    Object.assign(ex,{ no:k.no, name:k.urun+' — '+k.ad, type:'mold', location:'Çerkezköy Kalıphane', machineIds:(macId[k.mac]?[macId[k.mac]]:[]), machineId:(macId[k.mac]||''), status:'active', nextMaint:k.d26, lastMaint:k.d25, period:12, periodUnit:'month', notes:'Ürün '+k.urun+' / '+k.ad+' · Kesim: '+k.mac+' · Set: Kalıp (BSM-KAL-01)' });
+  });
+  // 3) PLANLI BAKIMLAR — eski cz_ kayıtları temizle (idempotent), yeniden oluştur
+  db.maintenance=db.maintenance.filter(x=>!String(x.id||'').startsWith('cz_'));
+  const addM=(mid,setId,date,year,desc,key)=>{ if(!mid||!date)return; const done=(year===2025);
+    db.maintenance.push({ id:'cz_'+key+'_'+year, machineId:mid, type:'preventive', basis:'date', sched:date, comp:done?date:null, status:done?'completed':'scheduled', period:12, periodUnit:'month', taskSetId:setId, desc:desc, tech:'', cost:0, estDur:1, actDur:done?1:0, checklist:[], external:false, wo:'' }); };
+  CERKEZKOY_MACHINES.forEach(m=>{ if(!m.sfm)return; const mid=macId[m.code]; const key='m_'+m.code.replace(/[^A-Za-z0-9]/g,'');
+    addM(mid,m.sfm,m.d25,2025,'Yıllık Periyodik Bakım — '+m.name,key); addM(mid,m.sfm,m.d26,2026,'Yıllık Periyodik Bakım — '+m.name,key); });
+  CERKEZKOY_MOLDS.forEach(k=>{ const mid=macId[k.mac]; if(!mid)return; const key='k_'+k.no.replace(/[^A-Za-z0-9]/g,''); const desc='KALIP BAKIMI — '+k.no+' ('+k.urun+' / '+k.ad+') · '+k.mac;
+    addM(mid,'sfm_kalip',k.d25,2025,desc,key); addM(mid,'sfm_kalip',k.d26,2026,desc,key); });
+  save();
+  try{renderMachines();}catch(e){} try{renderFixtures();}catch(e){} try{renderTaskSets();}catch(e){} try{renderMaint();}catch(e){} try{renderDashboard();}catch(e){}
+  const nP=db.maintenance.filter(x=>String(x.id||'').startsWith('cz_')).length;
+  toast('Çerkezköy planı yüklendi: '+CERKEZKOY_MACHINES.length+' makine, '+CERKEZKOY_MOLDS.length+' kalıp, '+nP+' planlı bakım ✔','success');
 }
 
 // ── Maintenance Checklist (edit mode inside maintenance modal) ──
