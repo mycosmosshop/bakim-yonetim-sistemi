@@ -9545,7 +9545,8 @@ let formSettings = {};
 
 function loadFormSettings(){
   try{ formSettings = JSON.parse(localStorage.getItem(PRINT_FORM_KEY)||'{}'); }catch(e){ formSettings={}; }
-  if(!formSettings.effDate)    formSettings.effDate    = new Date().toLocaleDateString('tr-TR');
+  // Yürürlük tarihi tüm formlarda sabit: 02.01.2025 (otomatik bugüne düşmüşse de düzelt)
+  if(!formSettings.effDate || formSettings.effDate===new Date().toLocaleDateString('tr-TR')) formSettings.effDate = '02.01.2025';
   if(!formSettings.failDocNo)  formSettings.failDocNo  = 'BYS-ARZ-001';
   if(!formSettings.failRevNo)  formSettings.failRevNo  = '00 / '+formSettings.effDate;
   if(!formSettings.maintDocNo) formSettings.maintDocNo = 'BYS-BKM-001';
