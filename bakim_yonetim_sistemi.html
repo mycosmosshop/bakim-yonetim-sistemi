@@ -10250,7 +10250,41 @@ async function cloudPush(){
     );
     setSyncStatus(error ? 'error' : 'ok');
     if(error) console.warn('cloudPush', error);
+    else { syncCmmsMetrics(); }
   }catch(e){ setSyncStatus('error'); console.warn('cloudPush', e); }
+}
+
+// ── KPI Takip köprüsü: aylık MTBF/MTTR özetini cmms_metrics tablosuna yaz (anon okunur) ──
+// KPI Takip uygulaması bu özetten lokasyon+yıl+ay bazında değer çeker.
+async function syncCmmsMetrics(){
+  if(!sb) return;
+  try{
+    const locs = [...new Set((db.machines||[]).map(m=>m.location).filter(Boolean))];
+    if(!locs.length) return;
+    const now = new Date();
+    const years = [now.getFullYear(), now.getFullYear()-1];
+    const _sR = _dashRange, _sA = _dashRangeActive;
+    const rows = [];
+    for(const loc of locs){
+      for(const yr of years){
+        for(let mo=0; mo<12; mo++){
+          const from = new Date(yr, mo, 1);
+          const to   = new Date(yr, mo+1, 0, 23, 59, 59, 999);
+          _dashRange = { from, to }; _dashRangeActive = true;
+          let k = null;
+          try{ k = calcFleetKPIs(loc); }catch(e){}
+          if(k && (k.mtbf != null || k.mttr != null || k.availability != null)){
+            rows.push({ location: loc, year: yr, month: mo+1, mtbf: k.mtbf, mttr: k.mttr, availability: k.availability, updated_at: new Date().toISOString() });
+          }
+        }
+      }
+    }
+    _dashRange = _sR; _dashRangeActive = _sA;
+    for(let i=0; i<rows.length; i+=200){
+      const { error } = await sb.from('cmms_metrics').upsert(rows.slice(i, i+200), { onConflict: 'location,year,month' });
+      if(error){ console.warn('syncCmmsMetrics', error); break; }
+    }
+  }catch(e){ console.warn('syncCmmsMetrics', e); }
 }
 
 function scheduleCloudSync(){
