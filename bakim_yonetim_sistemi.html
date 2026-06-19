@@ -6344,8 +6344,10 @@ function deleteManualAction(id){
 function renderReports(){
   _initRptControls();
   const year   = +document.getElementById('rptYear')?.value || new Date().getFullYear();
-  const fromM  = +document.getElementById('rptMonthFrom')?.value||0;
-  const toM    = +document.getElementById('rptMonthTo')?.value||11;
+  // NOT: Ocak=0 falsy oldugu icin '||' kullanilamaz (Ay Bitis=Ocak iken yanlislikla Aralik=11 oluyordu).
+  const _fmEl=document.getElementById('rptMonthFrom'), _tmEl=document.getElementById('rptMonthTo');
+  const fromM  = (_fmEl && _fmEl.value!=='') ? +_fmEl.value : 0;
+  const toM    = (_tmEl && _tmEl.value!=='') ? +_tmEl.value : 11;
   const locVal = document.getElementById('rptLoc')?.value||'';
   const sections = _rptSections();
   const activeKpis = _rptActiveKpis();
@@ -6938,8 +6940,10 @@ function _printRptImpl(){
     toast('Önce raporu oluşturun.','warning'); return;
   }
   const year   = document.getElementById('rptYear')?.value || '';
-  const fromM  = +document.getElementById('rptMonthFrom')?.value || 0;
-  const toM    = +document.getElementById('rptMonthTo')?.value || 11;
+  // Ocak=0 falsy: '||' kullanma (Ay Bitis=Ocak iken Aralik'a kaymasin)
+  const _fmEl2=document.getElementById('rptMonthFrom'), _tmEl2=document.getElementById('rptMonthTo');
+  const fromM  = (_fmEl2 && _fmEl2.value!=='') ? +_fmEl2.value : 0;
+  const toM    = (_tmEl2 && _tmEl2.value!=='') ? +_tmEl2.value : 11;
   const locVal = document.getElementById('rptLoc')?.value || '';
   const mNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
 
