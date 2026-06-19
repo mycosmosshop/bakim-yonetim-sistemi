@@ -6227,34 +6227,37 @@ function _rptActiveKpis(){ return [...document.querySelectorAll('#rptKpiToggles 
 function _rptSections(){ return [...document.querySelectorAll('#rptSectionToggles input:checked')].map(i=>i.value); }
 
 // Bir dönem aralığı için tüm aylık verileri hesapla
+// Tüm dönem (year + fromM..toM) için tek hesap — Dashboard kartlarıyla AYNI yöntem (calcFleetKPIs).
+function _rptPeriodKPI(loc, year, fromM, toM){
+  const _sr=_dashRange, _sa=_dashRangeActive;
+  _dashRange={from:new Date(year,fromM,1), to:new Date(new Date(year,toM+1,1).getTime()-1)}; _dashRangeActive=true;
+  const k=calcFleetKPIs(loc);
+  _dashRange=_sr; _dashRangeActive=_sa;
+  return k;
+}
 function _rptCalcMonths(locs, year, fromM, toM){
   const months=[]; const mNames=['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+  const _savedRange=_dashRange, _savedActive=_dashRangeActive;
   for(let m=fromM;m<=toM;m++){
     const d0=new Date(year,m,1), d1=new Date(year,m+1,1);
     const res={label:mNames[m], month:m, year};
+    // Analitik aylık trend ile AYNI yöntem: ayın penceresini kur, calcFleetKPIs ile hesapla.
+    _dashRange={from:d0, to:new Date(d1.getTime()-1)}; _dashRangeActive=true;
     locs.forEach(loc=>{
+      const k=calcFleetKPIs(loc);
       const mids = loc ? new Set(db.machines.filter(x=>x.location===loc).map(x=>x.id)) : null;
       const fails = (mids ? db.failures.filter(f=>mids.has(f.machineId)) : db.failures)
                     .filter(f=>f.startTime&&new Date(f.startTime)>=d0&&new Date(f.startTime)<d1);
-      const maints = (mids ? db.maintenance.filter(p=>mids.has(p.machineId)) : db.maintenance)
-                    .filter(p=>p.sched&&new Date(p.sched)>=d0&&new Date(p.sched)<d1);
-      const machines = mids ? db.machines.filter(x=>x.location===loc) : db.machines;
-      const planH = 720 * machines.length; // toplam plan süresi
-      const downH = fails.reduce((s,f)=>s+downtimeH(f),0);
-      const avail = planH>0 ? Math.min(100,+((planH-downH)/planH*100).toFixed(1)) : null;
-      const cntF  = fails.length;
-      const avgMttr = cntF>0 ? +(downH/cntF).toFixed(1) : null;
-      const totalH = planH>0&&cntF>0 ? +((planH-downH)/cntF).toFixed(1) : null;
-      const prev   = maints.filter(p=>p.type==='preventive'||p.type==='predictive');
-      const pmr    = maints.length>0 ? +(prev.length/maints.length*100).toFixed(1) : null;
-      const unpl   = maints.length>0 ? +(maints.filter(p=>p.type==='corrective').length/maints.length*100).toFixed(1) : null;
-      const pmcArr = maints.filter(p=>p.type==='preventive'||p.type==='predictive');
-      const pmc    = pmcArr.length>0 ? +(pmcArr.filter(p=>p.status==='completed').length/pmcArr.length*100).toFixed(1) : null;
-      const cost   = fails.reduce((s,f)=>s+(f.cost||0),0) + maints.reduce((s,p)=>s+(p.cost||0),0);
-      res[loc||'__all'] = { avail, mttr:avgMttr, mtbf:totalH, pmr, unpl, pmc, cost, failCount:cntF, maintCount:maints.length };
+      const maints = _maintKpi((mids ? db.maintenance.filter(p=>mids.has(p.machineId)) : db.maintenance)
+                    .filter(p=>p.sched&&new Date(p.sched)>=d0&&new Date(p.sched)<d1));
+      const cost = fails.reduce((s,f)=>s+(f.cost||0),0) + maints.reduce((s,p)=>s+(p.cost||0),0);
+      res[loc||'__all'] = { avail:k.availability, mttr:k.mttr, mtbf:k.mtbf, mttf:k.mttf,
+                            pmr:k.pmr, unpl:k.unplanned, pmc:k.pmc, cost,
+                            failCount:fails.length, maintCount:maints.length };
     });
     months.push(res);
   }
+  _dashRange=_savedRange; _dashRangeActive=_savedActive;
   return months;
 }
 
@@ -6373,13 +6376,9 @@ function renderReports(){
       html += `<div class="rpt-section card-dark">
         <div class="rpt-section-title"><i class="bi bi-speedometer2" style="color:#ab47bc"></i>📊 KPI Özeti — ${year} ${mNames[fromM]}–${mNames[toM]}</div>`;
       locs.forEach(loc=>{
-        const locKey = loc||'__all';
-        // Dönem ortalaması
-        const avg={};
-        KPI_DATA_KEY.forEach(dk=>{
-          const vals=monthData.map(r=>r[locKey]?.[dk]).filter(v=>v!==null&&v!==undefined);
-          avg[dk]=vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
-        });
+        // Tüm dönem tek hesap — Dashboard kartlarıyla AYNI yöntem (calcFleetKPIs)
+        const k=_rptPeriodKPI(loc, year, fromM, toM);
+        const avg={ mtbf:k.mtbf, mttr:k.mttr, avail:k.availability, pmr:k.pmr, unpl:k.unplanned, pmc:k.pmc };
         if(locs.length>1) html+=`<div style="font-size:.88rem;font-weight:700;color:#ab47bc;margin:.75rem 0 .4rem">${loc}</div>`;
         html+=`<div class="row g-2 mb-3">`;
         visKpis.forEach(k=>{
@@ -6464,11 +6463,9 @@ function renderReports(){
       </tr></thead><tbody>`;
     locs.forEach(loc=>{
       const locKey=loc||'__all';
-      const avg={};
-      KPI_DATA_KEY.forEach(dk=>{
-        const vals=monthData.map(r=>r[locKey]?.[dk]).filter(v=>v!==null&&v!==undefined);
-        avg[dk]=vals.length?+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):null;
-      });
+      // Tüm dönem tek hesap — Dashboard/Analitik ile AYNI yöntem
+      const k=_rptPeriodKPI(loc, year, fromM, toM);
+      const avg={ mtbf:k.mtbf, mttr:k.mttr, avail:k.availability, pmr:k.pmr, unpl:k.unplanned, pmc:k.pmc };
       const totalFails=monthData.reduce((s,r)=>s+(r[locKey]?.failCount||0),0);
       const totalCost=monthData.reduce((s,r)=>s+(r[locKey]?.cost||0),0);
       html+=`<tr><td style="font-weight:600">${loc}</td>
