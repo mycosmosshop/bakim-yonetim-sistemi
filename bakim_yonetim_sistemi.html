@@ -885,11 +885,11 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <!-- Yıl & Dönem -->
       <div class="col-md-2">
         <label class="form-label" style="font-size:.78rem;color:var(--muted)"><i class="bi bi-calendar3 me-1"></i>Yıl</label>
-        <select class="form-select form-select-sm" id="rptYear"></select>
+        <input type="number" class="form-control form-control-sm" id="rptYear" min="2000" max="2100" step="1" onchange="renderReports()" placeholder="Yıl">
       </div>
       <div class="col-md-2">
         <label class="form-label" style="font-size:.78rem;color:var(--muted)"><i class="bi bi-calendar-range me-1"></i>Ay Başlangıç</label>
-        <select class="form-select form-select-sm" id="rptMonthFrom">
+        <select class="form-select form-select-sm" id="rptMonthFrom" onchange="renderReports()">
           <option value="0">Ocak</option><option value="1">Şubat</option><option value="2">Mart</option>
           <option value="3">Nisan</option><option value="4">Mayıs</option><option value="5">Haziran</option>
           <option value="6">Temmuz</option><option value="7">Ağustos</option><option value="8">Eylül</option>
@@ -898,7 +898,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       </div>
       <div class="col-md-2">
         <label class="form-label" style="font-size:.78rem;color:var(--muted)"><i class="bi bi-calendar-range me-1"></i>Ay Bitiş</label>
-        <select class="form-select form-select-sm" id="rptMonthTo">
+        <select class="form-select form-select-sm" id="rptMonthTo" onchange="renderReports()">
           <option value="0">Ocak</option><option value="1">Şubat</option><option value="2">Mart</option>
           <option value="3">Nisan</option><option value="4">Mayıs</option><option value="5">Haziran</option>
           <option value="6">Temmuz</option><option value="7">Ağustos</option><option value="8">Eylül</option>
@@ -912,8 +912,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <option value="">🌐 Tüm Lokasyonlar (Karşılaştırmalı)</option>
         </select>
       </div>
-      <div class="col-md-3">
-        <button class="btn btn-primary btn-sm w-100" onclick="renderReports()"><i class="bi bi-play-fill me-1"></i>Raporu Oluştur</button>
+      <div class="col-md-3 d-flex align-items-end">
+        <span style="font-size:.72rem;color:var(--muted)"><i class="bi bi-lightning-charge-fill me-1" style="color:#42a5f5"></i>Filtreler değişince rapor otomatik güncellenir</span>
       </div>
       <!-- Lokasyon checkbox paneli (karşılaştırmalı modda görünür) -->
       <div class="col-12" id="rptLocCheckboxPanel" style="display:none;margin-top:.25rem;padding:.5rem .25rem;border-top:1px solid var(--border)">
@@ -6170,13 +6170,8 @@ ${pages.join('\n')}
 
 function _initRptControls(){
   const yrSel = document.getElementById('rptYear');
-  if(yrSel && !yrSel.options.length){
-    const cur = new Date().getFullYear();
-    [cur-2,cur-1,cur,cur+1].forEach(y=>{
-      const o=document.createElement('option'); o.value=y; o.textContent=y;
-      if(y===cur) o.selected=true;
-      yrSel.appendChild(o);
-    });
+  if(yrSel && !yrSel.value){
+    yrSel.value = new Date().getFullYear();   // serbest yazılabilir yıl girişi (ileri yıllar da yazılabilir)
     // ay bitiş default: şu anki ay
     const mtEl=document.getElementById('rptMonthTo');
     if(mtEl) mtEl.value=new Date().getMonth();
