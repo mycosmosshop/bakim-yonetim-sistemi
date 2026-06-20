@@ -8840,7 +8840,7 @@ function openFixtureModal(f=null){
   document.getElementById('mFixMachList').innerHTML = visMachines.length
     ? visMachines.map(m=>`<label style="display:flex;align-items:center;gap:.45rem;font-size:.83rem;padding:2px 0;cursor:pointer"><input type="checkbox" class="form-check-input mFixMachChk" value="${m.id}" ${selIds.includes(m.id)?'checked':''}> ${m.name}</label>`).join('')
     : '<div style="color:var(--muted);font-size:.8rem">Bu lokasyonda makine yok</div>';
-  document.getElementById('fixModalTitle').innerHTML=`<i class="bi bi-bounding-box-circles me-2"></i>${f?'Fikstür Düzenle':'Yeni Fikstür / Kalıp'}`;
+  document.getElementById('fixModalTitle').innerHTML=`<i class="bi bi-bounding-box-circles me-2"></i>${f?'Fikstür-Kalıp Düzenle':'Yeni Fikstür-Kalıp'}`;
   new bootstrap.Modal(document.getElementById('modalFixture')).show();
 }
 
