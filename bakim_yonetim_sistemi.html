@@ -952,7 +952,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
 <section id="fixtures" class="section">
   <div class="page-hdr">
     <div><h2><i class="bi bi-bounding-box-circles me-2" style="color:#ff7043"></i>Fikstür &amp; Kalıp Yönetimi</h2><small>Fikstür envanteri, bakım planı ve doğrulama takibi</small></div>
-    <button class="btn btn-sm text-white me-2" style="background:#1565c0" onclick="pullMoldUsage2026()" title="LeanSys üretim verisinden kalıpların 2026 baskı (kullanım) sayısını çeker"><i class="bi bi-arrow-repeat me-1"></i>Baskı Çek (2026)</button>
+    <button class="btn btn-sm text-white me-2" style="background:#1565c0" onclick="pullMoldUsage2026()" title="LeanSys üretim verisinden kalıpların baskı (kullanım) sayısını çeker — tıklayınca YIL sorulur"><i class="bi bi-arrow-repeat me-1"></i>Baskı Çek (yıl sor)</button>
     <button class="btn btn-sm text-white me-2" style="background:#1d6f42" onclick="exportFixtureExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
     <button class="btn btn-sm" style="background:#ff7043;color:#fff" onclick="openFixtureModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Fikstür</button>
   </div>
@@ -8663,7 +8663,7 @@ function renderFixtures(){
   document.getElementById('fixBody').innerHTML = list.map(f=>{
     const d=_fixDue(f);
     const pressTxt = (d.pressActive && (f.usageLimit>0 || f.usage))
-      ? `<div style="font-size:.72rem;margin-top:2px;${d.pressDue?'color:#ff5252;font-weight:700':'color:#90caf9'}" title="${f.usageYear?f.usageYear+' baskı':'baskı'}">🔁 ${(f.usage||0).toLocaleString('tr-TR')}${f.usageLimit>0?'/'+f.usageLimit.toLocaleString('tr-TR'):''} baskı${d.pressDue?' ⚠️':''}</div>` : '';
+      ? `<div style="font-size:.72rem;margin-top:2px;${d.pressDue?'color:#ff5252;font-weight:700':'color:#90caf9'}" title="${f.usageYear?f.usageYear+' yılı baskısı':'baskı'}">🔁 ${(f.usage||0).toLocaleString('tr-TR')}${f.usageLimit>0?'/'+f.usageLimit.toLocaleString('tr-TR'):''} baskı${f.usageYear?' <span style="opacity:.7">('+f.usageYear+')</span>':''}${d.pressDue?' ⚠️':''}</div>` : '';
     const dateTxt = d.dateActive ? `${fmtD(f.nextMaint)||'—'}${d.dateDue?' ⚠️':''}` : '<span class="text-muted" style="font-size:.72rem">baskıya göre</span>';
     return `<tr>
       <td style="font-weight:700;font-size:.85rem;color:#ff7043">${f.no||'—'}</td>
@@ -8900,12 +8900,22 @@ function _syncPressDueMaintenance(){
   return created;
 }
 
-// ── 2026 baskı (kullanım) sayılarını LeanSys üretim özetinden çek ──
+// ── Belirtilen YIL için baskı (kullanım) sayılarını LeanSys üretim özetinden çek ──
 // uretim_ozet (nnubrxbpthmkitueixbh, anon) → kalıbın kesim makinesindeki ürün üretim adedi = baskı.
+// Tıklayınca YIL sorulur; yalnız o yıl çekilir. Farklı yıl kayıtlıysa karışmasın diye onay ister.
 async function pullMoldUsage2026(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — çekilemedi.','warning'); return; }
-  const YEAR=2026;
-  toast('2026 üretim verisi okunuyor…','info');
+  const cur=new Date().getFullYear();
+  const ans=prompt('Hangi YIL için baskı (üretim) sayısı çekilsin?\n\nNOT: O yıl için "uretim_ozet" dolu olmalı (ağ açıkken: _uretim_kalip_refresh.ps1 -Year <yıl>).\nYalnızca girdiğiniz yılın üretimi çekilir.', String(cur));
+  if(ans===null) return;
+  const YEAR=parseInt(String(ans).replace(/[^0-9]/g,''),10);
+  if(!YEAR || YEAR<2000 || YEAR>2100){ toast('Geçersiz yıl. (ör. 2026)','danger'); return; }
+  // Karışma önlemi: kalıplarda farklı yıl baskısı kayıtlıysa onay al
+  const otherYears=[...new Set((db.fixtures||[]).map(f=>f.usageYear).filter(y=>y&&Number(y)!==YEAR))];
+  if(otherYears.length){
+    if(!confirm('Bazı kalıplarda farklı yıl ('+otherYears.join(', ')+') baskısı kayıtlı.\n\n'+YEAR+' verisiyle DEĞİŞTİRİLECEK (yıllar karışmasın diye hepsi '+YEAR+' olur).\n\nDevam edilsin mi?')) return;
+  }
+  toast(YEAR+' üretim verisi okunuyor…','info');
   try{
     const NN_URL='https://nnubrxbpthmkitueixbh.supabase.co';
     const NN_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
@@ -8920,7 +8930,7 @@ async function pullMoldUsage2026(){
       const data=await res.json();
       if(!Array.isArray(data)||!data.length) break; rows=rows.concat(data); if(data.length<1000) break; off+=1000;
     }
-    if(!rows.length){ toast('2026 üretim özeti boş. Ağ açıkken _uretim_kalip_refresh.ps1 çalıştırın.','warning'); return; }
+    if(!rows.length){ toast(YEAR+' üretim özeti boş. Ağ açıkken: _uretim_kalip_refresh.ps1 -Year '+YEAR,'warning'); return; }
     const byStok={}; rows.forEach(r=>{ const k=String(r.stok_kodu||'').trim(); if(!k)return; (byStok[k]=byStok[k]||[]).push(r); });
     const MAC_SYN={ 'VRG':['VRG','VARGEL'], 'KP4':['KP4'] };
     const machHit=(mac,r)=>{ if(!mac) return true; const syn=MAC_SYN[mac.toUpperCase()]||[mac.toUpperCase()]; const hay=((r.makine_kodu||'')+' '+(r.makine_adi||'')).toUpperCase(); return syn.some(s=>hay.includes(s)); };
@@ -8937,7 +8947,7 @@ async function pullMoldUsage2026(){
     const nPlan=_syncPressDueMaintenance();
     save(); renderFixtures();
     try{ renderMaint(); }catch(e){} try{ renderDashboard(); }catch(e){}
-    let msg='2026 baskı sayıları güncellendi: '+upd+' kalıp';
+    let msg=YEAR+' baskı sayıları güncellendi: '+upd+' kalıp';
     if(nPlan) msg+=' · '+nPlan+' kalıp baskı limiti dolu → Planlı Bakıma eklendi';
     if(fellBack.length) msg+=' · '+fellBack.length+' kalıpta makine eşleşmedi (ürün toplamı alındı)';
     if(miss.length) msg+=' · '+miss.length+' kalıpta üretim verisi yok';
