@@ -1360,8 +1360,9 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           </div>
           <div class="col-md-8"><label class="form-label">Doğrulama Notu</label><input type="text" class="form-control" id="mFixVerNote" placeholder="Doğrulama açıklaması"></div>
           <div class="col-12"><hr style="border-color:var(--border)"></div>
-          <div class="col-md-6"><label class="form-label">Kullanım / Baskı Sayısı <small class="text-muted">(Baskı Çek ile dolar)</small></label><input type="number" class="form-control" id="mFixUsage" min="0" value="0"></div>
-          <div class="col-md-6"><label class="form-label">Baskı / Kullanım Limiti (bakım eşiği)</label><input type="number" class="form-control" id="mFixUsageLimit" min="0" placeholder="örn: 50000 — baskı esaslı bakım için"></div>
+          <div class="col-md-4"><label class="form-label">Kullanım / Baskı Sayısı <small class="text-muted">(Baskı Çek ile dolar)</small></label><input type="number" class="form-control" id="mFixUsage" min="0" value="0"></div>
+          <div class="col-md-4"><label class="form-label">Baskı Eşiği (sonraki bakım)</label><input type="number" class="form-control" id="mFixUsageLimit" min="0" placeholder="örn: 50000"></div>
+          <div class="col-md-4"><label class="form-label">Baskı Periyodu (her N baskıda)</label><input type="number" class="form-control" id="mFixPressPeriod" min="0" placeholder="örn: 50000"><small class="text-muted" style="font-size:.72rem">Bakım tamamlanınca eşik bu kadar ilerler (toplam baskı korunur)</small></div>
           <div class="col-12"><label class="form-label">Notlar</label><textarea class="form-control" id="mFixNotes" rows="2"></textarea></div>
         </div>
       </div>
@@ -4185,6 +4186,22 @@ function dedupMaint(){ if(!requireWrite())return;
 // Periyodik bakım: tamamlanınca bir sonraki planlı bakımı otomatik oluştur
 function maybeSpawnNextMaint(p){
   if(!p || p.status!=='completed' || p._spawnedNext) return;
+  // Baskı esaslı kalıp bakımı tamamlandı → TOPLAM BASKI KORUNUR, eşik bir sonraki periyoda ilerler
+  if(p.pressDue && p.fixtureId){
+    const fx=(db.fixtures||[]).find(x=>x.id===p.fixtureId);
+    if(fx){
+      const step = (fx.pressPeriod>0 ? fx.pressPeriod : (fx.usageLimit>0 ? fx.usageLimit : 0));
+      if(step>0){
+        let lim = (fx.usageLimit>0 ? fx.usageLimit : (fx.usage||0));
+        do { lim += step; } while(lim <= (fx.usage||0));   // aşım büyükse birden çok periyot ilerlet
+        fx.usageLimit = lim;   // kullanım (toplam baskı) DEĞİŞMEZ
+        try{ renderFixtures(); }catch(e){}
+        toast(`🔁 ${fx.no||fx.name}: baskı eşiği ${lim.toLocaleString('tr-TR')}'e ilerletildi (toplam baskı korundu)`,'info');
+      }
+    }
+    p._spawnedNext=true;
+    return;
+  }
   // Saatlik (çalışma saati) bazlı
   if(p.basis==='hour'){
     if(!(p.intervalHours>0)) return;
@@ -8743,6 +8760,7 @@ function openFixtureModal(f=null){
   document.getElementById('mFixVerNote').value = f?(f.verNote||''):'';
   document.getElementById('mFixUsage').value   = f?(f.usage||0):0;
   document.getElementById('mFixUsageLimit').value = f?(f.usageLimit||''):'';
+  document.getElementById('mFixPressPeriod').value = f?(f.pressPeriod||''):'';
   document.getElementById('mFixMaintBasis').value = f?(f.maintBasis||'date'):'date';
   document.getElementById('mFixNotes').value   = f?(f.notes||''):'';
   _fixBasisHint();
@@ -8783,6 +8801,7 @@ function saveFixture(){ if(!requireWrite())return;
     verNote:document.getElementById('mFixVerNote').value,
     usage:parseInt(document.getElementById('mFixUsage').value)||0,
     usageLimit:parseInt(document.getElementById('mFixUsageLimit').value)||0,
+    pressPeriod:parseInt(document.getElementById('mFixPressPeriod').value)||0,
     maintBasis:document.getElementById('mFixMaintBasis').value||'date',
     notes:document.getElementById('mFixNotes').value
   };
