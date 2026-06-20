@@ -1360,9 +1360,15 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           </div>
           <div class="col-md-8"><label class="form-label">Doğrulama Notu</label><input type="text" class="form-control" id="mFixVerNote" placeholder="Doğrulama açıklaması"></div>
           <div class="col-12"><hr style="border-color:var(--border)"></div>
-          <div class="col-md-4"><label class="form-label">Kullanım / Baskı Sayısı <small class="text-muted">(Baskı Çek ile dolar)</small></label><input type="number" class="form-control" id="mFixUsage" min="0" value="0"></div>
-          <div class="col-md-4"><label class="form-label">Baskı Eşiği (sonraki bakım)</label><input type="number" class="form-control" id="mFixUsageLimit" min="0" placeholder="örn: 50000"></div>
-          <div class="col-md-4"><label class="form-label">Baskı Periyodu (her N baskıda)</label><input type="number" class="form-control" id="mFixPressPeriod" min="0" placeholder="örn: 50000"><small class="text-muted" style="font-size:.72rem">Bakım tamamlanınca eşik bu kadar ilerler (toplam baskı korunur)</small></div>
+          <div class="col-md-4"><label class="form-label">Kullanım / Baskı Sayısı <small class="text-muted">(Baskı Çek ile dolar)</small></label><input type="number" class="form-control" id="mFixUsage" min="0" value="0" oninput="_fixEsikHint()"></div>
+          <div class="col-md-4"><label class="form-label">Baskı Eşiği (sonraki bakım)</label>
+            <div class="input-group">
+              <input type="number" class="form-control" id="mFixUsageLimit" min="0" placeholder="otomatik" oninput="_fixEsikHint()">
+              <button class="btn btn-outline-secondary flex-grow-0" type="button" onclick="_fixAutoEsik(true)" title="Periyoda göre otomatik hesapla">↻ Oto</button>
+            </div>
+            <small id="mFixEsikHint" class="text-muted" style="font-size:.72rem"></small>
+          </div>
+          <div class="col-md-4"><label class="form-label">Baskı Periyodu (her N baskıda)</label><input type="number" class="form-control" id="mFixPressPeriod" min="0" placeholder="örn: 50000" oninput="_fixAutoEsik(false)"><small class="text-muted" style="font-size:.72rem">Bunu gir → Eşik otomatik dolar. Bakım bitince eşik bu kadar ilerler (toplam baskı korunur).</small></div>
           <div class="col-12"><label class="form-label">Notlar</label><textarea class="form-control" id="mFixNotes" rows="2"></textarea></div>
         </div>
       </div>
@@ -8678,6 +8684,27 @@ function renderFixtures(){
   }).join('') || '<tr><td colspan="10" class="text-center text-muted py-4">Kayıt bulunamadı</td></tr>';
 }
 
+// Baskı eşiği ipucu: kaç baskı kaldı / aşıldı
+function _fixEsikHint(){
+  const el=document.getElementById('mFixEsikHint'); if(!el) return;
+  const usage=parseInt(document.getElementById('mFixUsage').value)||0;
+  const lim=parseInt(document.getElementById('mFixUsageLimit').value)||0;
+  if(lim<=0){ el.textContent='Boş bırak → Periyoda göre otomatik dolar. Elle de girebilirsin.'; el.style.color=''; return; }
+  const kalan=lim-usage;
+  if(kalan>0){ el.textContent='Sonraki bakıma '+kalan.toLocaleString('tr-TR')+' baskı kaldı.'; el.style.color='#90caf9'; }
+  else { el.textContent='⚠ Eşik '+Math.abs(kalan).toLocaleString('tr-TR')+' baskı aşıldı — bakım gerekli.'; el.style.color='#ff8a80'; }
+}
+// Periyoda göre Eşiği otomatik ayarla (mevcut toplamın üstündeki ilk periyot katı).
+// force=false → yalnız Eşik boşsa doldurur (elle gireni ezmez); force=true → "↻ Oto" butonu, üzerine yazar.
+function _fixAutoEsik(force){
+  const per=parseInt(document.getElementById('mFixPressPeriod').value)||0;
+  const limEl=document.getElementById('mFixUsageLimit');
+  if(per>0 && (force || limEl.value.trim()==='')){
+    const usage=parseInt(document.getElementById('mFixUsage').value)||0;
+    limEl.value=Math.ceil((usage+1)/per)*per;
+  }
+  _fixEsikHint();
+}
 function _fixBasisHint(){
   const b=document.getElementById('mFixMaintBasis')?.value||'date';
   const el=document.getElementById('mFixBasisHint'); if(!el) return;
@@ -8763,7 +8790,7 @@ function openFixtureModal(f=null){
   document.getElementById('mFixPressPeriod').value = f?(f.pressPeriod||''):'';
   document.getElementById('mFixMaintBasis').value = f?(f.maintBasis||'date'):'date';
   document.getElementById('mFixNotes').value   = f?(f.notes||''):'';
-  _fixBasisHint();
+  _fixBasisHint(); _fixEsikHint();
   // Populate machine checkbox list (çoklu seçim)
   const visMachines = gLocFilter ? db.machines.filter(m=>m.location===gLocFilter) : db.machines;
   const selIds = f ? (Array.isArray(f.machineIds)?f.machineIds:(f.machineId?[f.machineId]:[])) : [];
