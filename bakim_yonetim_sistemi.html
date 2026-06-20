@@ -8790,8 +8790,10 @@ function saveFixture(){ if(!requireWrite())return;
   if(id){ const old=db.fixtures.find(x=>x.id===id)||{}; if(old.prodCode)f.prodCode=old.prodCode; if(old.cutMac)f.cutMac=old.cutMac; if(old.usageYear)f.usageYear=old.usageYear; }
   if(id){ const i=db.fixtures.findIndex(x=>x.id===id); if(i>-1)db.fixtures[i]=f; }
   else db.fixtures.push(f);
+  const nPlan=_syncPressDueMaintenance();   // baskı limiti dolduysa Planlı Bakıma ekle
   save(); bootstrap.Modal.getInstance(document.getElementById('modalFixture')).hide();
-  renderFixtures(); toast('Fikstür kaydedildi');
+  renderFixtures(); try{ renderMaint(); }catch(e){} try{ renderDashboard(); }catch(e){}
+  toast('Fikstür kaydedildi'+(nPlan?' · baskı limiti dolu → Planlı Bakıma eklendi':''));
 }
 
 function delFixture(id){ if(!requireWrite())return;
@@ -8821,6 +8823,27 @@ function _fixIsPressDue(fx){
   if(!fx || fx.status==='scrapped') return false;
   const basis=fx.maintBasis||'date';
   return (basis==='press'||basis==='both') && (fx.usageLimit||0)>0 && (fx.usage||0)>=fx.usageLimit;
+}
+// Baskı limiti dolan kalıplar için PLANLI BAKIM kaydı oluştur (tekilleştir) → takvim/dashboard/Planlı Bakım listesine girer.
+// Açık (tamamlanmamış) baskı-bakımı varsa tekrar oluşturmaz. Bakım tamamlanıp kullanım sıfırlanınca temizlenir.
+function _syncPressDueMaintenance(){
+  if(!db.maintenance) db.maintenance=[];
+  const today=new Date().toISOString().slice(0,10);
+  let created=0;
+  (db.fixtures||[]).forEach(fx=>{
+    if(!_fixIsPressDue(fx)) return;
+    const open=db.maintenance.some(p=>p.fixtureId===fx.id && p.pressDue && p.status!=='completed' && p.status!=='cancelled');
+    if(open) return;
+    db.maintenance.push({
+      id:'pmpress_'+fx.id+'_'+Date.now(), machineId:fx.machineId||'', type:'preventive', basis:'date', pressDue:true,
+      sched:today, comp:null, status:'scheduled', period:0, periodUnit:'month', taskSetId:'',
+      desc:'Kalıp baskı bakımı — baskı limiti doldu ('+(fx.usage||0).toLocaleString('tr-TR')+'/'+(fx.usageLimit||0).toLocaleString('tr-TR')+')',
+      assetType:'kalip', fixtureId:fx.id, assetName:(fx.no||'')+(fx.name?(' — '+fx.name):''),
+      partsUsed:'', tech:fx.tech||'', cost:0, estDur:1, actDur:0, checklist:[], external:false, wo:''
+    });
+    created++;
+  });
+  return created;
 }
 
 // ── 2026 baskı (kullanım) sayılarını LeanSys üretim özetinden çek ──
@@ -8857,8 +8880,11 @@ async function pullMoldUsage2026(){
       f.usage=Math.round(sel.reduce((a,r)=>a+(Number(r.qty)||0),0));
       f.usageYear=YEAR; upd++;
     });
+    const nPlan=_syncPressDueMaintenance();
     save(); renderFixtures();
+    try{ renderMaint(); }catch(e){} try{ renderDashboard(); }catch(e){}
     let msg='2026 baskı sayıları güncellendi: '+upd+' kalıp';
+    if(nPlan) msg+=' · '+nPlan+' kalıp baskı limiti dolu → Planlı Bakıma eklendi';
     if(fellBack.length) msg+=' · '+fellBack.length+' kalıpta makine eşleşmedi (ürün toplamı alındı)';
     if(miss.length) msg+=' · '+miss.length+' kalıpta üretim verisi yok';
     toast(msg, miss.length||fellBack.length?'warning':'success');
