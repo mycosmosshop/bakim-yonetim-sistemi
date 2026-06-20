@@ -8817,17 +8817,20 @@ function _fixCutMac(f){
 async function pullMoldUsage2026(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — çekilemedi.','warning'); return; }
   const YEAR=2026;
-  if(!(window.supabase&&window.supabase.createClient)){ toast('Supabase kütüphanesi yüklenemedi.','danger'); return; }
   toast('2026 üretim verisi okunuyor…','info');
   try{
     const NN_URL='https://nnubrxbpthmkitueixbh.supabase.co';
     const NN_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
-    const nn=window.supabase.createClient(NN_URL,NN_ANON);
+    // ÖNEMLİ: supabase-js istemcisi sayfadaki oturumla anon yerine farklı rol gönderip RLS'i boş
+    // döndürebiliyor → doğrudan REST fetch (apikey+Bearer=anon) ile birebir anon okuma yapıyoruz.
+    const hdr={ apikey:NN_ANON, Authorization:'Bearer '+NN_ANON };
     let rows=[],off=0;
     while(true){
-      const {data,error}=await nn.from('uretim_ozet').select('stok_kodu,makine_kodu,makine_adi,qty').eq('year',YEAR).range(off,off+999);
-      if(error){ toast('uretim_ozet okunamadı: '+error.message+' — tabloyu kurup _uretim_kalip_refresh.ps1 çalıştırın.','danger'); return; }
-      if(!data||!data.length) break; rows=rows.concat(data); if(data.length<1000) break; off+=1000;
+      const url=NN_URL+'/rest/v1/uretim_ozet?year=eq.'+YEAR+'&select=stok_kodu,makine_kodu,makine_adi,qty&limit=1000&offset='+off;
+      const res=await fetch(url,{headers:hdr});
+      if(!res.ok){ const t=await res.text().catch(()=> ''); toast('uretim_ozet okunamadı: HTTP '+res.status+' '+t.slice(0,140),'danger'); return; }
+      const data=await res.json();
+      if(!Array.isArray(data)||!data.length) break; rows=rows.concat(data); if(data.length<1000) break; off+=1000;
     }
     if(!rows.length){ toast('2026 üretim özeti boş. Ağ açıkken _uretim_kalip_refresh.ps1 çalıştırın.','warning'); return; }
     const byStok={}; rows.forEach(r=>{ const k=String(r.stok_kodu||'').trim(); if(!k)return; (byStok[k]=byStok[k]||[]).push(r); });
