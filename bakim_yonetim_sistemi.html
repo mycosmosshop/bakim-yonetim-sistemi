@@ -1360,7 +1360,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           </div>
           <div class="col-md-8"><label class="form-label">Doğrulama Notu</label><input type="text" class="form-control" id="mFixVerNote" placeholder="Doğrulama açıklaması"></div>
           <div class="col-12"><hr style="border-color:var(--border)"></div>
-          <div class="col-md-4"><label class="form-label">Kullanım / Baskı Sayısı <small class="text-muted">(Baskı Çek ile dolar)</small></label><input type="number" class="form-control" id="mFixUsage" min="0" value="0" oninput="_fixEsikHint()"></div>
+          <div class="col-md-4"><label class="form-label">Kullanım / Baskı Sayısı <small class="text-muted">(ömür boyu toplam — Baskı Çek ile dolar)</small></label><input type="number" class="form-control" id="mFixUsage" min="0" value="0" oninput="_fixEsikHint()"><small id="mFixUsageBreakdown" class="text-muted" style="font-size:.72rem"></small></div>
           <div class="col-md-4"><label class="form-label">Baskı Eşiği (sonraki bakım)</label>
             <div class="input-group">
               <input type="number" class="form-control" id="mFixUsageLimit" min="0" placeholder="otomatik" oninput="_fixEsikHint()">
@@ -1368,7 +1368,9 @@ body.tech-mode #mobileMenuBtn{display:none !important}
             </div>
             <small id="mFixEsikHint" class="text-muted" style="font-size:.72rem"></small>
           </div>
-          <div class="col-md-4"><label class="form-label">Baskı Periyodu (her N baskıda)</label><input type="number" class="form-control" id="mFixPressPeriod" min="0" placeholder="örn: 50000" oninput="_fixAutoEsik(false)"><small class="text-muted" style="font-size:.72rem">Bunu gir → Eşik otomatik dolar. Bakım bitince eşik bu kadar ilerler (toplam baskı korunur).</small></div>
+          <div class="col-md-4"><label class="form-label">Baskı Periyodu (her N baskıda)</label><input type="number" class="form-control" id="mFixPressPeriod" min="0" placeholder="örn: 50000" oninput="_fixAutoEsik(false)"><small class="text-muted" style="font-size:.72rem">Bunu gir → Eşik otomatik dolar. Bakım bitince eşik bu kadar ilerler.</small></div>
+          <div class="col-md-6"><label class="form-label">Baskı Ömrü (toplam — kalıp değişim eşiği)</label><input type="number" class="form-control" id="mFixLifeLimit" min="0" placeholder="örn: 1000000" oninput="_fixLifeHint()"><small class="text-muted" style="font-size:.72rem">Ömür boyu toplam baskı bu sayıya ulaşınca <b>"yeni kalıp gerekli"</b> uyarısı çıkar (opsiyonel).</small></div>
+          <div class="col-md-6"><label class="form-label">Ömür Durumu</label><div id="mFixLifeHint" style="padding:.45rem .65rem;border:1px solid var(--border);border-radius:8px;background:var(--bg3);font-size:.8rem;min-height:38px">—</div></div>
           <div class="col-12"><label class="form-label">Notlar</label><textarea class="form-control" id="mFixNotes" rows="2"></textarea></div>
         </div>
       </div>
@@ -8654,20 +8656,29 @@ function renderFixtures(){
   const faulty   = locFix.filter(f=>f.status==='faulty').length;
   const maint    = locFix.filter(f=>f.status==='maintenance').length;
   const overdueM = locFix.filter(f=>_fixDue(f).due).length;
+  const lifeOver = locFix.filter(f=>(f.lifeLimit||0)>0 && (f.usage||0)>=f.lifeLimit).length;
   document.getElementById('fixKpi').innerHTML=`
-    <div class="col-3"><div class="kpi"><div class="kpi-label"><i class="bi bi-bounding-box-circles"></i>Toplam</div><div class="kpi-value" style="color:#ff7043">${locFix.length}</div></div></div>
-    <div class="col-3"><div class="kpi"><div class="kpi-label"><i class="bi bi-check-circle"></i>Aktif</div><div class="kpi-value text-success">${active}</div></div></div>
-    <div class="col-3"><div class="kpi"><div class="kpi-label"><i class="bi bi-exclamation-circle"></i>Arızalı</div><div class="kpi-value text-danger">${faulty}</div></div></div>
-    <div class="col-3"><div class="kpi"><div class="kpi-label"><i class="bi bi-clock-history"></i>Gecikmış Bakım</div><div class="kpi-value" style="color:#fb8c00">${overdueM}</div></div></div>`;
+    <div class="col"><div class="kpi"><div class="kpi-label"><i class="bi bi-bounding-box-circles"></i>Toplam</div><div class="kpi-value" style="color:#ff7043">${locFix.length}</div></div></div>
+    <div class="col"><div class="kpi"><div class="kpi-label"><i class="bi bi-check-circle"></i>Aktif</div><div class="kpi-value text-success">${active}</div></div></div>
+    <div class="col"><div class="kpi"><div class="kpi-label"><i class="bi bi-exclamation-circle"></i>Arızalı</div><div class="kpi-value text-danger">${faulty}</div></div></div>
+    <div class="col"><div class="kpi"><div class="kpi-label"><i class="bi bi-clock-history"></i>Gecikmış Bakım</div><div class="kpi-value" style="color:#fb8c00">${overdueM}</div></div></div>
+    <div class="col"><div class="kpi"><div class="kpi-label"><i class="bi bi-arrow-repeat"></i>Ömrü Dolan</div><div class="kpi-value" style="color:${lifeOver?'#ff5252':'#69f0ae'}">${lifeOver}</div></div></div>`;
 
   document.getElementById('fixBody').innerHTML = list.map(f=>{
     const d=_fixDue(f);
+    const _life=f.lifeLimit||0; const _lpct=_life>0?Math.round((f.usage||0)/_life*100):0;
+    const lifeBadge = _life>0 ? ((f.usage||0)>=_life
+      ? '<span class="ms-1 badge bg-danger" style="font-size:.65rem" title="Ömür boyu '+(f.usage||0).toLocaleString('tr-TR')+'/'+_life.toLocaleString('tr-TR')+' baskı">⛔ Ömür doldu — yeni kalıp</span>'
+      : (_lpct>=90 ? '<span class="ms-1 badge" style="background:#fb8c00;color:#000;font-size:.65rem" title="Ömür boyu '+(f.usage||0).toLocaleString('tr-TR')+'/'+_life.toLocaleString('tr-TR')+' baskı">Ömür %'+_lpct+'</span>' : '')) : '';
+    const _yrs=(f.usageByYear?Object.keys(f.usageByYear).sort():[]);
+    const _yrLbl=_yrs.length?(_yrs.length>1?_yrs[0]+'-'+_yrs[_yrs.length-1]:_yrs[0]):(f.usageYear||'');
+    const _yrTitle=_yrs.length?('Yıllara göre → '+_yrs.map(y=>y+': '+(Number(f.usageByYear[y])||0).toLocaleString('tr-TR')).join(' · ')+' (ömür boyu toplam)'):'baskı';
     const pressTxt = (d.pressActive && (f.usageLimit>0 || f.usage))
-      ? `<div style="font-size:.72rem;margin-top:2px;${d.pressDue?'color:#ff5252;font-weight:700':'color:#90caf9'}" title="${f.usageYear?f.usageYear+' yılı baskısı':'baskı'}">🔁 ${(f.usage||0).toLocaleString('tr-TR')}${f.usageLimit>0?'/'+f.usageLimit.toLocaleString('tr-TR'):''} baskı${f.usageYear?' <span style="opacity:.7">('+f.usageYear+')</span>':''}${d.pressDue?' ⚠️':''}</div>` : '';
+      ? `<div style="font-size:.72rem;margin-top:2px;${d.pressDue?'color:#ff5252;font-weight:700':'color:#90caf9'}" title="${_yrTitle}">🔁 ${(f.usage||0).toLocaleString('tr-TR')}${f.usageLimit>0?'/'+f.usageLimit.toLocaleString('tr-TR'):''} baskı${_yrLbl?' <span style="opacity:.7">('+_yrLbl+')</span>':''}${d.pressDue?' ⚠️':''}</div>` : '';
     const dateTxt = d.dateActive ? `${fmtD(f.nextMaint)||'—'}${d.dateDue?' ⚠️':''}` : '<span class="text-muted" style="font-size:.72rem">baskıya göre</span>';
     return `<tr>
       <td style="font-weight:700;font-size:.85rem;color:#ff7043">${f.no||'—'}</td>
-      <td style="font-weight:600;font-size:.85rem">${f.name||'—'}${d.pressDue?'<span class="ms-1 badge bg-danger" style="font-size:.65rem">Baskı Limiti!</span>':''}</td>
+      <td style="font-weight:600;font-size:.85rem">${f.name||'—'}${d.pressDue?'<span class="ms-1 badge bg-danger" style="font-size:.65rem">Baskı Limiti!</span>':''}${lifeBadge}</td>
       <td><span style="background:#1c2128;padding:2px 8px;border-radius:20px;font-size:.72rem">${FIX_TYPE_LBL[f.type]||f.type}</span></td>
       <td style="font-size:.82rem">${f.location||'—'}</td>
       <td style="font-size:.82rem;color:#42a5f5">${f.raf||'—'}</td>
@@ -8712,6 +8723,25 @@ function _fixAutoEsik(force){
     limEl.value=Math.ceil((usage+1)/per)*per;
   }
   _fixEsikHint();
+}
+// Baskı ömrü ipucu (ömür boyu toplam vs ömür limiti)
+function _fixLifeHint(){
+  const el=document.getElementById('mFixLifeHint'); if(!el) return;
+  const usage=parseInt(document.getElementById('mFixUsage').value)||0;
+  const life=parseInt(document.getElementById('mFixLifeLimit').value)||0;
+  if(life<=0){ el.innerHTML='<span class="text-muted">Ömür limiti girilmedi (opsiyonel).</span>'; return; }
+  const pct=Math.round(usage/life*100);
+  if(usage>=life) el.innerHTML='<b style="color:#ff5252">⛔ Ömür doldu (%'+pct+') — YENİ KALIP gerekli!</b>';
+  else if(pct>=90) el.innerHTML='<b style="color:#fb8c00">⚠ Ömrün %'+pct+'\'i doldu — yeni kalıp planla.</b>';
+  else el.innerHTML='<span style="color:#69f0ae">Ömür %'+pct+' · kalan '+(life-usage).toLocaleString('tr-TR')+' baskı.</span>';
+}
+// Kullanım yıl kırılımı (usageByYear) küçük not
+function _fixUsageBreakdown(f){
+  const el=document.getElementById('mFixUsageBreakdown'); if(!el) return;
+  const by=(f&&f.usageByYear)||null;
+  if(!by||!Object.keys(by).length){ el.textContent=''; return; }
+  const parts=Object.keys(by).sort().map(y=>y+': '+(Number(by[y])||0).toLocaleString('tr-TR'));
+  el.textContent='Yıllara göre → '+parts.join(' · ');
 }
 function _fixBasisHint(){
   const b=document.getElementById('mFixMaintBasis')?.value||'date';
@@ -8796,9 +8826,10 @@ function openFixtureModal(f=null){
   document.getElementById('mFixUsage').value   = f?(f.usage||0):0;
   document.getElementById('mFixUsageLimit').value = f?(f.usageLimit||''):'';
   document.getElementById('mFixPressPeriod').value = f?(f.pressPeriod||''):'';
+  document.getElementById('mFixLifeLimit').value = f?(f.lifeLimit||''):'';
   document.getElementById('mFixMaintBasis').value = f?(f.maintBasis||'date'):'date';
   document.getElementById('mFixNotes').value   = f?(f.notes||''):'';
-  _fixBasisHint(); _fixEsikHint();
+  _fixBasisHint(); _fixEsikHint(); _fixLifeHint(); _fixUsageBreakdown(f);
   // Populate machine checkbox list (çoklu seçim)
   const visMachines = gLocFilter ? db.machines.filter(m=>m.location===gLocFilter) : db.machines;
   const selIds = f ? (Array.isArray(f.machineIds)?f.machineIds:(f.machineId?[f.machineId]:[])) : [];
@@ -8837,11 +8868,12 @@ function saveFixture(){ if(!requireWrite())return;
     usage:parseInt(document.getElementById('mFixUsage').value)||0,
     usageLimit:parseInt(document.getElementById('mFixUsageLimit').value)||0,
     pressPeriod:parseInt(document.getElementById('mFixPressPeriod').value)||0,
+    lifeLimit:parseInt(document.getElementById('mFixLifeLimit').value)||0,
     maintBasis:document.getElementById('mFixMaintBasis').value||'date',
     notes:document.getElementById('mFixNotes').value
   };
-  // Formda alanı olmayan (köprü) bilgileri koru: ürün kodu, kesim makinesi, baskı yılı
-  if(id){ const old=db.fixtures.find(x=>x.id===id)||{}; if(old.prodCode)f.prodCode=old.prodCode; if(old.cutMac)f.cutMac=old.cutMac; if(old.usageYear)f.usageYear=old.usageYear; }
+  // Formda alanı olmayan (köprü) bilgileri koru: ürün kodu, kesim makinesi, yıl kırılımı/yılı
+  if(id){ const old=db.fixtures.find(x=>x.id===id)||{}; if(old.prodCode)f.prodCode=old.prodCode; if(old.cutMac)f.cutMac=old.cutMac; if(old.usageYear)f.usageYear=old.usageYear; if(old.usageByYear)f.usageByYear=old.usageByYear; }
   if(id){ const i=db.fixtures.findIndex(x=>x.id===id); if(i>-1)db.fixtures[i]=f; }
   else db.fixtures.push(f);
   const nPlan=_syncPressDueMaintenance();   // baskı limiti dolduysa Planlı Bakıma ekle
@@ -8910,11 +8942,7 @@ async function pullMoldUsage2026(){
   if(ans===null) return;
   const YEAR=parseInt(String(ans).replace(/[^0-9]/g,''),10);
   if(!YEAR || YEAR<2000 || YEAR>2100){ toast('Geçersiz yıl. (ör. 2026)','danger'); return; }
-  // Karışma önlemi: kalıplarda farklı yıl baskısı kayıtlıysa onay al
-  const otherYears=[...new Set((db.fixtures||[]).map(f=>f.usageYear).filter(y=>y&&Number(y)!==YEAR))];
-  if(otherYears.length){
-    if(!confirm('Bazı kalıplarda farklı yıl ('+otherYears.join(', ')+') baskısı kayıtlı.\n\n'+YEAR+' verisiyle DEĞİŞTİRİLECEK (yıllar karışmasın diye hepsi '+YEAR+' olur).\n\nDevam edilsin mi?')) return;
-  }
+  // Not: yıllar ayrı saklanır (usageByYear), karışmaz; toplam = tüm yılların ömür-boyu toplamı.
   toast(YEAR+' üretim verisi okunuyor…','info');
   try{
     const NN_URL='https://nnubrxbpthmkitueixbh.supabase.co';
@@ -8941,9 +8969,15 @@ async function pullMoldUsage2026(){
       const mac=_fixCutMac(f);
       let sel=list.filter(r=>machHit(mac,r));
       if(!sel.length){ sel=list; fellBack.push((f.no||f.name)+' ['+prod+']'); }  // makine eşleşmedi → ürün toplamı
-      f.usage=Math.round(sel.reduce((a,r)=>a+(Number(r.qty)||0),0));
+      const yearTotal=Math.round(sel.reduce((a,r)=>a+(Number(r.qty)||0),0));
+      f.usageByYear = f.usageByYear || {};
+      f.usageByYear[YEAR] = yearTotal;                 // o yılı güncelle (idempotent — çift saymaz)
+      f.usage = Object.keys(f.usageByYear).reduce((a,y)=>a+(Number(f.usageByYear[y])||0),0); // ÖMÜR BOYU toplam
       f.usageYear=YEAR; upd++;
     });
+    // Ömür uyarıları (ömür boyu toplam ≥ limit / %90)
+    const lifeDone=[], lifeNear=[];
+    (db.fixtures||[]).forEach(f=>{ const L=f.lifeLimit||0; if(L>0){ if((f.usage||0)>=L) lifeDone.push(f.no||f.name); else if((f.usage||0)>=0.9*L) lifeNear.push(f.no||f.name); } });
     const nPlan=_syncPressDueMaintenance();
     save(); renderFixtures();
     try{ renderMaint(); }catch(e){} try{ renderDashboard(); }catch(e){}
@@ -8952,6 +8986,8 @@ async function pullMoldUsage2026(){
     if(fellBack.length) msg+=' · '+fellBack.length+' kalıpta makine eşleşmedi (ürün toplamı alındı)';
     if(miss.length) msg+=' · '+miss.length+' kalıpta üretim verisi yok';
     toast(msg, miss.length||fellBack.length?'warning':'success');
+    if(lifeDone.length) toast('⛔ ÖMRÜ DOLDU — yeni kalıp gerekli: '+lifeDone.join(', '),'danger');
+    else if(lifeNear.length) toast('⚠ Kalıp ömrü yaklaştı (%90+): '+lifeNear.join(', '),'warning');
     if(miss.length) console.log('Üretim verisi bulunamayan ürünler:', miss);
     if(fellBack.length) console.log('Makine eşleşmeyip ürün toplamı alınanlar:', fellBack);
   }catch(e){ toast('Baskı çekme hatası: '+(e&&e.message),'danger'); }
