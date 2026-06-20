@@ -8681,7 +8681,7 @@ function renderFixtures(){
     const _lastEff=_fixLastMaintEff(f);
     const dateTxt = d.dateActive ? `${fmtD(_fixNextMaintEff(f))||'—'}${d.dateDue?' ⚠️':''}` : '<span class="text-muted" style="font-size:.72rem">baskıya göre</span>';
     return `<tr>
-      <td style="font-weight:700;font-size:.85rem;color:#ff7043">${f.no||'—'}</td>
+      <td><a href="#" onclick="event.preventDefault();gotoFixtureMaint('${f.id}')" style="font-weight:700;font-size:.85rem;color:#ff7043;text-decoration:none;cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'" title="Son bakım kaydına git">${f.no||'—'}</a></td>
       <td style="font-weight:600;font-size:.85rem">${f.name||'—'}${d.pressDue?'<span class="ms-1 badge bg-danger" style="font-size:.65rem">Baskı Limiti!</span>':''}${lifeBadge}</td>
       <td><span style="background:#1c2128;padding:2px 8px;border-radius:20px;font-size:.72rem">${FIX_TYPE_LBL[f.type]||f.type}</span></td>
       <td style="font-size:.82rem">${f.location||'—'}</td>
@@ -8895,6 +8895,19 @@ function setFixtureStatus(id,status){
   const f=db.fixtures.find(x=>x.id===id); if(!f)return;
   f.status=status; save(); renderFixtures();
   toast(status==='maintenance'?'Fikstür bakıma alındı':'Durum güncellendi');
+}
+
+// Fikstür No tıklanınca → kalıbın SON BAKIM kaydını (Planlı Bakım) aç
+function gotoFixtureMaint(fixtureId){
+  const linked=(db.maintenance||[]).filter(p=>p.fixtureId===fixtureId);
+  if(!linked.length){ toast('Bu kalıp için bakım kaydı yok (Planlı Bakım\'da oluşturabilirsiniz).','info'); nav('maintenance'); return; }
+  const completed=linked.filter(p=>p.status==='completed'&&p.comp).sort((a,b)=>new Date(b.comp)-new Date(a.comp));
+  const target = completed[0] || linked.slice().sort((a,b)=>new Date(b.sched||0)-new Date(a.sched||0))[0];
+  nav('maintenance');
+  setTimeout(()=>{
+    try{ const fEl=document.getElementById('pMachF'); if(fEl){ fEl.value='fix:'+fixtureId; renderMaint(); } }catch(e){}
+    try{ openMaintModal(target); }catch(e){}  // openMaintModal modalı kendisi açar
+  }, 80);
 }
 
 // ── Kalıp ürün kodu / kesim makinesi (alan yoksa Notlar'dan ayıkla) ──
