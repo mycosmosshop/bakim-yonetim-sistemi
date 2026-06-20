@@ -5362,7 +5362,8 @@ function _agCount(){
     if(loc && fx.location !== loc) return false;
     if(fx.status==='scrapped') return false;
     const basis=fx.maintBasis||'date';
-    const dateDue = basis!=='press' && fx.nextMaint && (()=>{const d=new Date(fx.nextMaint);return d>=d0&&d<d1;})();
+    const _nx=_fixNextMaintEff(fx);
+    const dateDue = basis!=='press' && _nx && (()=>{const d=new Date(_nx);return d>=d0&&d<d1;})();
     return dateDue || _fixIsPressDue(fx);
   }).length;
   // Bakım Setleri (makineye atanmış veya bakım kaydıyla bağlı)
@@ -5443,12 +5444,13 @@ function autoGenPlanForm(){
       if(loc && fx.location !== loc) return;
       if(fx.status==='scrapped') return;
       const basis=fx.maintBasis||'date';
-      const dateDue = basis!=='press' && fx.nextMaint && (()=>{const d=new Date(fx.nextMaint);return d>=d0&&d<d1;})();
+      const _nx=_fixNextMaintEff(fx);
+      const dateDue = basis!=='press' && _nx && (()=>{const d=new Date(_nx);return d>=d0&&d<d1;})();
       const pressDue = _fixIsPressDue(fx);
       if(!dateDue && !pressDue) return;
       if(seenFix.has(fx.id)) return; seenFix.add(fx.id);
       const pressTag = pressDue ? ` [baskı ${(fx.usage||0).toLocaleString('tr-TR')}/${(fx.usageLimit||0).toLocaleString('tr-TR')} doldu]` : '';
-      addItem(`Kalıp/Fikstür Bakımı — ${fx.name} (${fx.no||''})${pressTag}`, fx.machineId||'', dateDue?(fx.nextMaint||''):'', 0, fx.tech||'', fx.location||'');
+      addItem(`Kalıp/Fikstür Bakımı — ${fx.name} (${fx.no||''})${pressTag}`, fx.machineId||'', dateDue?(_nx||''):'', 0, fx.tech||'', fx.location||'');
     });
   }
   // Bakım Setleri — her görev ayrı kalem olarak
@@ -8648,7 +8650,8 @@ function renderFixtures(){
     if(f.status==='scrapped') return {dateDue:false,pressDue:false,due:false,dateActive:false,pressActive:false};
     const basis=f.maintBasis||'date';
     const dateActive=basis!=='press', pressActive=basis!=='date';
-    const dateDue=dateActive && !!f.nextMaint && f.nextMaint<today;
+    const _next=_fixNextMaintEff(f);
+    const dateDue=dateActive && !!_next && _next<today;
     const pressDue=pressActive && f.usageLimit>0 && (f.usage||0)>=f.usageLimit;
     return {dateDue,pressDue,due:dateDue||pressDue,dateActive,pressActive};
   };
@@ -8675,7 +8678,8 @@ function renderFixtures(){
     const _yrTitle=_yrs.length?('Yıllara göre → '+_yrs.map(y=>y+': '+(Number(f.usageByYear[y])||0).toLocaleString('tr-TR')).join(' · ')+' (ömür boyu toplam)'):'baskı';
     const pressTxt = (d.pressActive && (f.usageLimit>0 || f.usage))
       ? `<div style="font-size:.72rem;margin-top:2px;${d.pressDue?'color:#ff5252;font-weight:700':'color:#90caf9'}" title="${_yrTitle}">🔁 ${(f.usage||0).toLocaleString('tr-TR')}${f.usageLimit>0?'/'+f.usageLimit.toLocaleString('tr-TR'):''} baskı${_yrLbl?' <span style="opacity:.7">('+_yrLbl+')</span>':''}${d.pressDue?' ⚠️':''}</div>` : '';
-    const dateTxt = d.dateActive ? `${fmtD(f.nextMaint)||'—'}${d.dateDue?' ⚠️':''}` : '<span class="text-muted" style="font-size:.72rem">baskıya göre</span>';
+    const _lastEff=_fixLastMaintEff(f);
+    const dateTxt = d.dateActive ? `${fmtD(_fixNextMaintEff(f))||'—'}${d.dateDue?' ⚠️':''}` : '<span class="text-muted" style="font-size:.72rem">baskıya göre</span>';
     return `<tr>
       <td style="font-weight:700;font-size:.85rem;color:#ff7043">${f.no||'—'}</td>
       <td style="font-weight:600;font-size:.85rem">${f.name||'—'}${d.pressDue?'<span class="ms-1 badge bg-danger" style="font-size:.65rem">Baskı Limiti!</span>':''}${lifeBadge}</td>
@@ -8683,7 +8687,7 @@ function renderFixtures(){
       <td style="font-size:.82rem">${f.location||'—'}</td>
       <td style="font-size:.82rem;color:#42a5f5">${f.raf||'—'}</td>
       <td style="font-size:.82rem">${_fixMachNames(f)}</td>
-      <td style="font-size:.78rem">${fmtD(f.lastMaint)}</td>
+      <td style="font-size:.78rem" title="${_lastEff.count?_lastEff.count+' tamamlanmış bakım kaydı (geçmiş Planlı Bakım sekmesinde)':''}">${fmtD(_lastEff.date)||'—'}${_lastEff.count>1?' <span style="opacity:.6;font-size:.72rem">('+_lastEff.count+' kayıt)</span>':''}</td>
       <td style="font-size:.78rem;${d.dateDue?'color:#ff5252;font-weight:700':''}">${dateTxt}${pressTxt}</td>
       <td style="font-size:.78rem">${f.verResult?FIX_VER_LBL[f.verResult]+'<br><small style="color:var(--muted)">'+fmtD(f.verDate)+'</small>':'—'}</td>
       <td><span class="${FIX_STAT_CL[f.status]||'b-scheduled'}">${FIX_STAT_LBL[f.status]||f.status}</span></td>
@@ -8903,6 +8907,27 @@ function _fixCutMac(f){
   if(f&&f.cutMac) return String(f.cutMac).trim();
   const m=String((f&&f.notes)||'').match(/Kesim:\s*([A-Za-z0-9]+)/i);
   return m?m[1].trim():'';
+}
+// Kalıba bağlı TAMAMLANMIŞ bakım kayıtlarından gerçek son bakım tarihi (geçmiş kayıtlar korunur, sadece gösterim).
+function _fixLastMaintEff(fx){
+  let last=fx.lastMaint||'';
+  let cnt=0;
+  (db.maintenance||[]).forEach(p=>{ if(p.fixtureId===fx.id && p.status==='completed' && p.comp){ cnt++; if(!last || new Date(p.comp)>new Date(last)) last=p.comp; } });
+  return {date:last, count:cnt};
+}
+// Gerçek sonraki bakım tarihi: tarih esaslıysa (son bakım + periyot); baskı esaslıysa tarih yok.
+function _fixNextMaintEff(fx){
+  const basis=fx.maintBasis||'date';
+  if(basis==='press') return '';
+  const last=_fixLastMaintEff(fx).date;
+  if(fx.period>0 && last){
+    const d=new Date(last);
+    if(fx.periodUnit==='year') d.setFullYear(d.getFullYear()+fx.period);
+    else if(fx.periodUnit==='month') d.setMonth(d.getMonth()+fx.period);
+    else d.setDate(d.getDate()+fx.period);
+    return d.toISOString().slice(0,10);
+  }
+  return fx.nextMaint||'';
 }
 // Baskı esaslı bakım vadesi doldu mu (kullanım ≥ limit)? — plan/sayaçlarda kullanılır.
 function _fixIsPressDue(fx){
@@ -10259,9 +10284,9 @@ function _exportFixtureExcelImpl(){
   genExcelReport({
     sheet:'Fikstür-Kalıp', formName:'FİKSTÜR / KALIP LİSTESİ', reportTitle:'FİKSTÜR & KALIP LİSTESİ',
     docNo:formSettings.fixDocNo, revNo:formSettings.fixRevNo,
-    columns:[{header:'#',width:5},{header:'FİKSTÜR NO',width:14},{header:'AD / AÇIKLAMA',width:24,align:'left'},{header:'TİP',width:12},{header:'LOKASYON',width:14},{header:'RAF',width:10},{header:'İLGİLİ MAKİNE(LER)',width:30,align:'left',wrap:true},{header:'SON BAKIM',width:13},{header:'SONRAKİ BAKIM',width:14},{header:'DURUM',width:12,kind:'status'}],
-    rows:list.map((f,i)=>({values:[i+1,f.no||'—',f.name||'—',FIX_TYPE_LBL[f.type]||f.type||'—',f.location||'—',f.raf||'—',_fixMachNames(f),f.lastMaint?fmtD(f.lastMaint):'—',f.nextMaint?fmtD(f.nextMaint):'—',FIX_STAT_LBL[f.status]||f.status||'—'],statusKey:f.status})),
-    statusIndex:9,
+    columns:[{header:'#',width:5},{header:'FİKSTÜR NO',width:14},{header:'AD / AÇIKLAMA',width:24,align:'left'},{header:'TİP',width:12},{header:'LOKASYON',width:14},{header:'RAF',width:10},{header:'İLGİLİ MAKİNE(LER)',width:30,align:'left',wrap:true},{header:'SON BAKIM',width:13},{header:'SONRAKİ BAKIM',width:14},{header:'BASKI SAYISI',width:13},{header:'SONRAKİ BASKI EŞİĞİ',width:16},{header:'DURUM',width:12,kind:'status'}],
+    rows:list.map((f,i)=>{ const le=_fixLastMaintEff(f), ne=_fixNextMaintEff(f); return {values:[i+1,f.no||'—',f.name||'—',FIX_TYPE_LBL[f.type]||f.type||'—',f.location||'—',f.raf||'—',_fixMachNames(f),le.date?fmtD(le.date):'—',ne?fmtD(ne):'—',(f.usage||0).toLocaleString('tr-TR'),(f.usageLimit>0?f.usageLimit.toLocaleString('tr-TR'):'—'),FIX_STAT_LBL[f.status]||f.status||'—'],statusKey:f.status}; }),
+    statusIndex:11,
     filename:`Fikstur_Kalip_Listesi_${new Date().toISOString().slice(0,10)}.xlsx`
   });
 }
