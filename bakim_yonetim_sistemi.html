@@ -8699,7 +8699,15 @@ function _fixEsikHint(){
 function _fixAutoEsik(force){
   const per=parseInt(document.getElementById('mFixPressPeriod').value)||0;
   const limEl=document.getElementById('mFixUsageLimit');
-  if(per>0 && (force || limEl.value.trim()==='')){
+  if(per<=0){
+    if(force){   // Oto'ya basıldı ama periyot yok → yönlendir
+      const el=document.getElementById('mFixEsikHint');
+      if(el){ el.textContent='Önce "Baskı Periyodu" girin (ör. 50000), sonra ↻ Oto.'; el.style.color='#ffcc80'; }
+      try{ document.getElementById('mFixPressPeriod').focus(); }catch(e){}
+    }
+    return;
+  }
+  if(force || limEl.value.trim()===''){
     const usage=parseInt(document.getElementById('mFixUsage').value)||0;
     limEl.value=Math.ceil((usage+1)/per)*per;
   }
