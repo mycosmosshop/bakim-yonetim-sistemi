@@ -5332,12 +5332,13 @@ function _agCount(){
     if(w.status==='closed'||w.status==='cancelled') return false;
     return mids ? mids.has(w.machineId) : true;
   }).length;
-  // Kalıp/Fikstür (nextMaint bu ay)
+  // Kalıp/Fikstür: tarihli (nextMaint bu ay, tarih esaslı) VEYA baskı limiti dolmuş (baskı esaslı)
   const cntFix = (db.fixtures||[]).filter(fx=>{
-    if(!fx.nextMaint) return false;
-    const d=new Date(fx.nextMaint); if(d<d0||d>=d1) return false;
     if(loc && fx.location !== loc) return false;
-    return true;
+    if(fx.status==='scrapped') return false;
+    const basis=fx.maintBasis||'date';
+    const dateDue = basis!=='press' && fx.nextMaint && (()=>{const d=new Date(fx.nextMaint);return d>=d0&&d<d1;})();
+    return dateDue || _fixIsPressDue(fx);
   }).length;
   // Bakım Setleri (makineye atanmış veya bakım kaydıyla bağlı)
   const linkedTsIds_cnt = new Set(
@@ -5410,15 +5411,19 @@ function autoGenPlanForm(){
       addItem(`${WO_TYPE_LBL[w.type]||w.type||'İş Emri'} — ${w.title||mName(w.machineId)} [${w.woNo||''}]`, w.machineId, w.dueDate||'', w.estHours||0, w.tech||'', w.desc||'');
     });
   }
-  // Kalıp/Fikstür
+  // Kalıp/Fikstür: tarih esaslı (nextMaint bu ay) + baskı esaslı (limit doldu)
   if(document.getElementById('agChkFix').checked){
-    (db.fixtures||[]).filter(fx=>{
-      if(!fx.nextMaint) return false;
-      const d=new Date(fx.nextMaint); if(d<d0||d>=d1) return false;
-      if(loc && fx.location !== loc) return false;
-      return true;
-    }).forEach(fx=>{
-      addItem(`Kalıp/Fikstür Bakımı — ${fx.name} (${fx.no||''})`, fx.machineId||'', fx.nextMaint||'', 0, fx.tech||'', fx.location||'');
+    const seenFix=new Set();
+    (db.fixtures||[]).forEach(fx=>{
+      if(loc && fx.location !== loc) return;
+      if(fx.status==='scrapped') return;
+      const basis=fx.maintBasis||'date';
+      const dateDue = basis!=='press' && fx.nextMaint && (()=>{const d=new Date(fx.nextMaint);return d>=d0&&d<d1;})();
+      const pressDue = _fixIsPressDue(fx);
+      if(!dateDue && !pressDue) return;
+      if(seenFix.has(fx.id)) return; seenFix.add(fx.id);
+      const pressTag = pressDue ? ` [baskı ${(fx.usage||0).toLocaleString('tr-TR')}/${(fx.usageLimit||0).toLocaleString('tr-TR')} doldu]` : '';
+      addItem(`Kalıp/Fikstür Bakımı — ${fx.name} (${fx.no||''})${pressTag}`, fx.machineId||'', dateDue?(fx.nextMaint||''):'', 0, fx.tech||'', fx.location||'');
     });
   }
   // Bakım Setleri — her görev ayrı kalem olarak
@@ -8810,6 +8815,12 @@ function _fixCutMac(f){
   if(f&&f.cutMac) return String(f.cutMac).trim();
   const m=String((f&&f.notes)||'').match(/Kesim:\s*([A-Za-z0-9]+)/i);
   return m?m[1].trim():'';
+}
+// Baskı esaslı bakım vadesi doldu mu (kullanım ≥ limit)? — plan/sayaçlarda kullanılır.
+function _fixIsPressDue(fx){
+  if(!fx || fx.status==='scrapped') return false;
+  const basis=fx.maintBasis||'date';
+  return (basis==='press'||basis==='both') && (fx.usageLimit||0)>0 && (fx.usage||0)>=fx.usageLimit;
 }
 
 // ── 2026 baskı (kullanım) sayılarını LeanSys üretim özetinden çek ──
