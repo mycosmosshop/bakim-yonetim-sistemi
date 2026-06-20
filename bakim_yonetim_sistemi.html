@@ -10273,8 +10273,8 @@ async function syncCmmsMetrics(){
           _dashRange = { from, to }; _dashRangeActive = true;
           let k = null;
           try{ k = calcFleetKPIs(loc); }catch(e){}
-          if(k && (k.mtbf != null || k.mttr != null || k.availability != null)){
-            rows.push({ location: loc, year: yr, month: mo+1, mtbf: k.mtbf, mttr: k.mttr, availability: k.availability, updated_at: new Date().toISOString() });
+          if(k && (k.mtbf != null || k.mttr != null || k.availability != null || k.pmr != null || k.pmc != null || k.unplanned != null || k.mttf != null)){
+            rows.push({ location: loc, year: yr, month: mo+1, mtbf: k.mtbf, mttr: k.mttr, availability: k.availability, pmr: k.pmr, pmc: k.pmc, unplanned: k.unplanned, mttf: k.mttf, updated_at: new Date().toISOString() });
           }
         }
       }

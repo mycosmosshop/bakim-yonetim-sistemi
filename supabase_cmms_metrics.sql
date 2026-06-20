@@ -13,9 +13,20 @@ create table if not exists public.cmms_metrics (
   mtbf         numeric,
   mttr         numeric,
   availability numeric,
+  pmr          numeric,           -- Planlı Bakım Oranı %
+  pmc          numeric,           -- Planlı Bakım Uyumu %
+  unplanned    numeric,           -- Plansız Bakım %
+  mttf         numeric,           -- Ortalama ilk arızaya kadar süre (saat)
   updated_at   timestamptz default now(),
   primary key (location, year, month)
 );
+
+-- Tabloyu daha önce oluşturduysan eksik sütunları ekler (yeniden çalıştırması güvenli):
+alter table public.cmms_metrics
+  add column if not exists pmr       numeric,
+  add column if not exists pmc       numeric,
+  add column if not exists unplanned numeric,
+  add column if not exists mttf      numeric;
 
 alter table public.cmms_metrics enable row level security;
 
