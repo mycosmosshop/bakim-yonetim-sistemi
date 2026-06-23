@@ -519,6 +519,10 @@ body.tech-mode #mobileMenuBtn{display:none !important}
   <div id="overdueAlert" style="display:none" class="alert-overdue mb-3"></div>
   <div class="card-dark">
     <div class="d-flex gap-2 mb-3 flex-wrap">
+      <input type="text" class="form-control form-control-sm" style="width:240px" id="pSrch" placeholder="Ara… (makine, kalıp, açıklama, teknisyen)" oninput="renderMaint()">
+      <select class="form-select form-select-sm" style="width:auto" id="pAssetF" onchange="renderMaint()" title="Bakım hedefi türü">
+        <option value="">Makine + Kalıp</option><option value="makine">Sadece Makine</option><option value="kalip">Sadece Kalıp</option>
+      </select>
       <select class="form-select form-select-sm" style="width:auto" id="pMachF" onchange="renderMaint()"><option value="">Tüm Makineler</option></select>
       <select class="form-select form-select-sm" style="width:auto" id="pStatF" onchange="renderMaint()">
         <option value="">Tüm Durumlar</option><option value="scheduled">Planlandı</option>
@@ -4007,21 +4011,28 @@ function _maintWhen(p){
   }
   return fmtD(p.sched);
 }
+// Planlı Bakım ortak filtre (arama + makine/kalıp + makine + durum + tip + tarih) — renderMaint/PDF/Excel ortak kullanır
+function _maintFilterFn(){
+  const srch=(document.getElementById('pSrch')?.value||'').toLowerCase().trim();
+  const af=document.getElementById('pAssetF')?.value||'';
+  const mf=document.getElementById('pMachF')?.value||'';
+  const sf=document.getElementById('pStatF')?.value||'';
+  const tf=document.getElementById('pTypeF')?.value||'';
+  const pf=document.getElementById('pDateFrom')?.value||'';
+  const pt=document.getElementById('pDateTo')?.value||'';
+  const _l=locMids();
+  return p=>{
+    const d=p.sched?p.sched.slice(0,10):'';
+    const isKalip=(p.assetType==='kalip'||!!p.fixtureId);
+    const mfOk=!mf||(mf.startsWith('fix:')?p.fixtureId===mf.slice(4):p.machineId===mf);
+    const afOk=!af||(af==='kalip'?isKalip:!isKalip);
+    const srOk=!srch||mName(p.machineId).toLowerCase().includes(srch)||(p.assetName||'').toLowerCase().includes(srch)||(p.desc||'').toLowerCase().includes(srch)||(p.tech||'').toLowerCase().includes(srch)||(p.wo||'').toLowerCase().includes(srch);
+    return (!_l||_l.has(p.machineId))&&mfOk&&afOk&&srOk&&(!sf||p.status===sf)&&(!tf||p.type===tf)&&(!pf||d>=pf)&&(!pt||d<=pt);
+  };
+}
 function renderMaint(){
   _autoMaintStatus();
-  const mf=document.getElementById('pMachF').value;
-  const sf=document.getElementById('pStatF').value;
-  const tf=document.getElementById('pTypeF').value;
-  const pf=document.getElementById('pDateFrom').value;
-  const pt=document.getElementById('pDateTo').value;
-  const list=db.maintenance.filter(p=>{
-    const d=p.sched?p.sched.slice(0,10):'';
-    const _l=locMids();
-    const mfOk = !mf || (mf.startsWith('fix:') ? p.fixtureId===mf.slice(4) : p.machineId===mf);
-    return (!_l||_l.has(p.machineId))
-      &&mfOk&&(!sf||p.status===sf)&&(!tf||p.type===tf)
-      &&(!pf||d>=pf)&&(!pt||d<=pt);
-  }).sort(_maintCmp);
+  const list=db.maintenance.filter(_maintFilterFn()).sort(_maintCmp);
 
   const schd=locMaint().filter(p=>p.status==='scheduled').length;
   const comp=locMaint().filter(p=>p.status==='completed').length;
@@ -10045,14 +10056,7 @@ async function printAllFailuresPdf(){
 // ── Toplu PDF (ZIP): filtrelenen PLANLI BAKIMLARI ayrı PDF olarak üretir ──
 // Tarih/saat ve alt bilgiler kaydın KENDİ dönemine göre alınır (tamamlanma||planlanan), "şu an" değil.
 function _filteredMaintenance(){
-  const mf=document.getElementById('pMachF')?.value||'', sf=document.getElementById('pStatF')?.value||'', tf=document.getElementById('pTypeF')?.value||'';
-  const pf=document.getElementById('pDateFrom')?.value||'', pt=document.getElementById('pDateTo')?.value||'';
-  const _l=locMids();
-  return db.maintenance.filter(p=>{
-    const d=p.sched?p.sched.slice(0,10):'';
-    const mfOk = !mf || (mf.startsWith('fix:') ? p.fixtureId===mf.slice(4) : p.machineId===mf);
-    return (!_l||_l.has(p.machineId))&&mfOk&&(!sf||p.status===sf)&&(!tf||p.type===tf)&&(!pf||d>=pf)&&(!pt||d<=pt);
-  }).sort((a,b)=> new Date(b.comp||b.sched||0) - new Date(a.comp||a.sched||0));
+  return db.maintenance.filter(_maintFilterFn()).sort((a,b)=> new Date(b.comp||b.sched||0) - new Date(a.comp||a.sched||0));
 }
 async function printAllMaintPdf(){
   const list=_filteredMaintenance();
@@ -10378,9 +10382,8 @@ function _exportFixtureExcelImpl(){
 function exportMaintExcel(){ _askPrintDate(()=>_exportMaintExcelImpl()); }
 async function _exportMaintExcelImpl(){
   if(typeof ExcelJS==='undefined'){ toast('Excel kütüphanesi yüklenemedi, internet bağlantını kontrol et.','danger'); return; }
-  // Ekrandaki filtrelerle aynı liste
-  const mf=document.getElementById('pMachF')?.value||'', sf=document.getElementById('pStatF')?.value||'', tf=document.getElementById('pTypeF')?.value||'', pf=document.getElementById('pDateFrom')?.value||'', pt=document.getElementById('pDateTo')?.value||'';
-  const list=db.maintenance.filter(p=>{ const d=p.sched?p.sched.slice(0,10):''; const _l=locMids(); const mfOk=!mf||(mf.startsWith('fix:')?p.fixtureId===mf.slice(4):p.machineId===mf); return (!_l||_l.has(p.machineId))&&mfOk&&(!sf||p.status===sf)&&(!tf||p.type===tf)&&(!pf||d>=pf)&&(!pt||d<=pt); }).sort((a,b)=>new Date(a.sched)-new Date(b.sched));
+  // Ekrandaki filtrelerle aynı liste (arama + makine/kalıp dahil)
+  const list=db.maintenance.filter(_maintFilterFn()).sort((a,b)=>new Date(a.sched)-new Date(b.sched));
   if(!list.length){ toast('Aktarılacak bakım kaydı yok.','warning'); return; }
 
   const DARK='FF0F2F6E', HEAD='FF0B79C9';
