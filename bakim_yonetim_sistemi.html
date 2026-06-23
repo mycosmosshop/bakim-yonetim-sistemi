@@ -511,6 +511,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <button class="btn btn-success btn-sm" onclick="openMaintModal()"><i class="bi bi-plus-lg me-1"></i>Bakım Planla</button>
       <button class="btn btn-outline-warning btn-sm" onclick="autoAssignAllMachines()"><i class="bi bi-lightning-charge-fill me-1"></i>Tümüne Bakım Ata</button>
       <button class="btn btn-outline-secondary btn-sm" onclick="dedupMaint()" title="Aynı makine+tarih+tip+kalıp olan çift planlı bakım kayıtlarından en dolusunu tutup fazlalığı siler"><i class="bi bi-stack me-1"></i>Çift Kayıtları Temizle</button>
+      <button class="btn btn-sm btn-outline-danger" onclick="printAllMaintPdf()" title="Filtrelenen tüm planlı bakımları ayrı PDF olarak üretip ZIP indirir (tarih/saat ve alt bilgiler kaydın kendi dönemine göre)"><i class="bi bi-file-earmark-pdf me-1"></i>Toplu PDF (ZIP)</button>
       <button class="btn btn-sm text-white" style="background:#1d6f42" onclick="exportMaintExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel'e Aktar</button>
     </div>
   </div>
@@ -10039,6 +10040,75 @@ async function printAllFailuresPdf(){
   a.href=url; a.download='Arizalar_PDF_'+new Date().toISOString().slice(0,10)+'.zip'; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),4000);
   toast(list.length+' arıza PDF olarak ZIP indirildi ✔','success');
+}
+
+// ── Toplu PDF (ZIP): filtrelenen PLANLI BAKIMLARI ayrı PDF olarak üretir ──
+// Tarih/saat ve alt bilgiler kaydın KENDİ dönemine göre alınır (tamamlanma||planlanan), "şu an" değil.
+function _filteredMaintenance(){
+  const mf=document.getElementById('pMachF')?.value||'', sf=document.getElementById('pStatF')?.value||'', tf=document.getElementById('pTypeF')?.value||'';
+  const pf=document.getElementById('pDateFrom')?.value||'', pt=document.getElementById('pDateTo')?.value||'';
+  const _l=locMids();
+  return db.maintenance.filter(p=>{
+    const d=p.sched?p.sched.slice(0,10):'';
+    const mfOk = !mf || (mf.startsWith('fix:') ? p.fixtureId===mf.slice(4) : p.machineId===mf);
+    return (!_l||_l.has(p.machineId))&&mfOk&&(!sf||p.status===sf)&&(!tf||p.type===tf)&&(!pf||d>=pf)&&(!pt||d<=pt);
+  }).sort((a,b)=> new Date(b.comp||b.sched||0) - new Date(a.comp||a.sched||0));
+}
+async function printAllMaintPdf(){
+  const list=_filteredMaintenance();
+  if(!list.length){ toast('Yazdırılacak planlı bakım yok.','warning'); return; }
+  if(!confirm(list.length+' planlı bakım için ayrı PDF oluşturulup ZIP olarak indirilecek.\n(Tarih/saat ve alt bilgiler her kaydın KENDİ dönemine göre alınır.)\n\nBu işlem biraz sürebilir. Devam?')) return;
+  try{ await _ensureBulkLibs(); }catch(e){ toast('PDF/ZIP kütüphanesi yüklenemedi (internet bağlantını kontrol et).','danger'); return; }
+  const { jsPDF }=window.jspdf; const zip=new JSZip();
+  let host=document.getElementById('_bulkPdfHost');
+  if(!host){ host=document.createElement('div'); host.id='_bulkPdfHost'; host.style.cssText='position:fixed;left:-99999px;top:0;background:#fff;z-index:-1'; document.body.appendChild(host); }
+  const _e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const cell=(l,v)=>`<td style="border:1px solid #ccc;padding:6px;width:50%"><div style="color:#777;font-size:10px">${l}</div>${_e(v)}</td>`;
+  const area=(l,v)=>`<div style="border:1px solid #ccc;padding:8px;margin-bottom:6px;font-size:12px;min-height:34px"><div style="color:#777;font-size:10px;margin-bottom:2px">${l}</div>${_e(v||'')}</div>`;
+  const _PU={day:'gün',week:'hafta',month:'ay',year:'yıl'};
+  toast('PDF oluşturuluyor… (0/'+list.length+')','info');
+  for(let i=0;i<list.length;i++){
+    const p=list[i], m=db.machines.find(x=>x.id===p.machineId)||{};
+    const _refD=(p.comp||p.sched)?new Date(p.comp||p.sched):new Date();   // O DÖNEM: tamamlanma || planlanan tarih
+    const _kt=_refD.toLocaleDateString('tr-TR'), _ot=_refD.toLocaleString('tr-TR');
+    const _cl=p.checklist||[], _clDone=_cl.filter(t=>t.done).length;
+    const _clSec=_cl.length?`<div style="margin-top:8px;font-size:10px;color:#777;margin-bottom:3px">Bakım Kontrol Listesi (${_clDone}/${_cl.length} tamamlandı)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px"><thead><tr style="background:#eef1f5">
+      <th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Kontrol / Görev</th><th style="border:1px solid #bbb;padding:4px 6px;text-align:left">Açıklama</th><th style="border:1px solid #bbb;padding:4px 6px;width:60px;text-align:center">Durum</th></tr></thead>
+      <tbody>${_cl.map(t=>`<tr><td style="border:1px solid #ccc;padding:3px 6px">${_e(t.title||'')}</td><td style="border:1px solid #ccc;padding:3px 6px;color:#555">${_e(t.note||'')}</td><td style="border:1px solid #ccc;padding:3px 6px;text-align:center;font-size:13px">${t.done?'☑':'☐'}</td></tr>`).join('')}</tbody></table>`:'';
+    host.innerHTML=`<div style="font-family:Arial,Helvetica,sans-serif;color:#111;padding:24px;width:740px;box-sizing:border-box;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1b5e20;padding-bottom:8px;margin-bottom:12px">
+        <div style="font-size:18px;font-weight:700;color:#1b5e20">SANIFOAM — PLANLI BAKIM KAYIT FORMU</div>
+        <div style="font-size:11px;color:#555">Kayıt Tarihi: ${_kt}</div></div>
+      <div style="font-size:12px;margin-bottom:10px">${p.assetName?`<b>Kalıp:</b> ${_e(p.assetName)} &nbsp;|&nbsp; `:''}<b>Makine:</b> ${_e((m.code?m.code+' — ':'')+(m.name||'—'))} &nbsp;|&nbsp; <b>Lokasyon:</b> ${_e(m.location||'—')} &nbsp;|&nbsp; <b>Departman:</b> ${_e(m.dept||'—')}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px">
+        <tr>${cell('İş Emri No',p.wo||'—')}${cell('Bakım Tipi',TYPE_PL[p.type]||p.type)}</tr>
+        <tr>${cell('Planlanan Tarih',fmtD(p.sched))}${cell('Tamamlanma Tarihi',fmtD(p.comp))}</tr>
+        <tr>${cell('Tahmini Süre',(p.estDur||0)+' saat')}${cell('Gerçekleşen Süre',p.actDur>0?p.actDur+' saat':'—')}</tr>
+        <tr>${cell('Teknisyen / Ekip',p.tech||'—')}${cell('Maliyet',fmt(p.cost))}</tr>
+        <tr>${cell('Durum',STAT_PL[p.status]||p.status)}${cell('Periyot',p.period?(p.period+' '+(_PU[p.periodUnit]||p.periodUnit||'')):'—')}</tr>
+      </table>
+      ${p.external?area('Dış Servis','Firma: '+(p.extCompany||'—')+'  |  Yetkili: '+(p.extContact||'—')+'  |  Tel: '+(p.extPhone||'—')):''}
+      ${area('Açıklama / Yapılan İşlemler',p.desc)}${area('Değişen Parça / Malzeme',p.partsUsed)}
+      ${_clSec}
+      <div style="margin-top:22px;font-size:12px"><b>Bakım Sorumlusu:</b> ${_e(p.tech||'')} &nbsp;&nbsp;&nbsp; İmza: ____________ &nbsp;&nbsp; Tarih: __________</div>
+      <div style="margin-top:16px;font-size:9px;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:6px">Bu form CMMS Pro Bakım Yönetim Sistemi tarafından ${_ot} tarihinde oluşturulmuştur.</div>
+    </div>`;
+    const canvas=await html2canvas(host.firstElementChild,{scale:2,backgroundColor:'#ffffff'});
+    const img=canvas.toDataURL('image/jpeg',0.92);
+    const pdf=new jsPDF('p','mm','a4'); const pw=210, ph=297, mg=10, iw=pw-mg*2, ih=iw*canvas.height/canvas.width;
+    pdf.addImage(img,'JPEG',mg,mg,iw,Math.min(ih,ph-mg*2));
+    const mc=(m.code||mName(p.machineId)||'makine').replace(/[^A-Za-z0-9]/g,'_').slice(0,20);
+    zip.file(String(i+1).padStart(3,'0')+'_'+mc+'_'+((p.comp||p.sched||'').slice(0,10))+'.pdf', pdf.output('blob'));
+    if(i%5===4||i===list.length-1) toast('PDF oluşturuluyor… ('+(i+1)+'/'+list.length+')','info');
+    await new Promise(r=>setTimeout(r,0));
+  }
+  host.innerHTML='';
+  const content=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(content), a=document.createElement('a');
+  a.href=url; a.download='Planli_Bakim_PDF_'+new Date().toISOString().slice(0,10)+'.zip'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast(list.length+' planlı bakım PDF olarak ZIP indirildi ✔','success');
 }
 
 function _renderFailureForm(id){
