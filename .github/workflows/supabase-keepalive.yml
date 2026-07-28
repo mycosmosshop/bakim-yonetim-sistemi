@@ -18,8 +18,12 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    - cron: '0 6 */2 * *'   # her 2 günde bir, 06:00 UTC
+    # HER GÜN. 7 gunluk pause penceresinde 7 sans olur; 2 gunde bir olsaydi
+    # ust uste 3 kacirilan calisma projeyi duraklatmaya yeterdi.
+    - cron: '0 6 * * *'
   workflow_dispatch:          # "Run workflow" ile elle de çalıştırılabilir
+  push:                       # her push'ta da calis (cron devre disi kalirsa yedek)
+    branches: [main]
 
 jobs:
   ping:
@@ -43,9 +47,15 @@ jobs:
             NAME="${row%%|*}"; rest="${row#*|}"
             REF="${rest%%|*}"; rest="${rest#*|}"
             TBL="${rest%%|*}"; KEY="${rest#*|}"
-            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-              "https://$REF.supabase.co/rest/v1/$TBL?select=*&limit=1" \
-              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || echo 000)
+            # 3 deneme: gecici 5xx/aglayan istek yuzunden yanlis alarm e-postasi
+            # gelmesin (yanlis alarm, gercek alarmi da gormezden gelmeye alistirir).
+            for try in 1 2 3; do
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+                "https://$REF.supabase.co/rest/v1/$TBL?select=*&limit=1" \
+                -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || echo 000)
+              [ "$CODE" = "200" ] && break
+              [ "$try" != "3" ] && sleep 20
+            done
             if [ "$CODE" = "200" ]; then
               echo "✅ $NAME ($REF): HTTP $CODE — aktif tutuldu"
             else
