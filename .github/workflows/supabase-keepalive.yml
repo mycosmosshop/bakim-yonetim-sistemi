@@ -24,11 +24,15 @@ on:
   workflow_dispatch:          # "Run workflow" ile elle de çalıştırılabilir
   push:                       # her push'ta da calis (cron devre disi kalirsa yedek)
     branches: [main]
+    paths-ignore: ['.keepalive-stamp']   # kendi damga commit'i sonsuz dongu yapmasin
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write         # aylik damga commit'i icin
     steps:
+      - uses: actions/checkout@v4
       - name: Tüm Supabase projelerini ping'le
         run: |
           set -u
@@ -69,3 +73,18 @@ jobs:
             exit 1
           fi
           echo "Tum projeler aktif. ✔"
+
+      # GitHub, 60 gun hic commit gelmeyen repolarda zamanlanmis workflow'lari
+      # otomatik devre disi birakir -> ping durur -> Supabase yine duraklatir.
+      # Ayda bir kucuk damga commit'i atarak repoyu "aktif" tutuyoruz.
+      - name: Repoyu canli tut (aylik damga)
+        run: |
+          STAMP=$(date -u +%Y-%m)
+          [ "$(cat .keepalive-stamp 2>/dev/null)" = "$STAMP" ] && { echo "Bu ay zaten damgalanmis: $STAMP"; exit 0; }
+          echo "$STAMP" > .keepalive-stamp
+          git config user.name  "keepalive-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .keepalive-stamp
+          git commit -m "keepalive damgasi: $STAMP [skip ci]"
+          git push
+          echo "Repo damgalandi: $STAMP"
