@@ -345,6 +345,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <hr class="sb-divider">
     <a href="#" onclick="openKpiSettings();return false"><i class="bi bi-sliders"></i>KPI Hedefleri</a>
     <a href="#" onclick="openFormSettings();return false"><i class="bi bi-file-earmark-text"></i>Form Ayarları</a>
+    <a href="#" onclick="openWhatsAppOtomatik();return false"><i class="bi bi-whatsapp"></i>Otomatik WhatsApp</a>
     <a href="#" onclick="exportData(event)"><i class="bi bi-download"></i>Veri Dışa Aktar</a>
     <a href="#" onclick="document.getElementById('importFile').click();return false"><i class="bi bi-upload"></i>Veri İçe Aktar</a>
 
@@ -2671,6 +2672,7 @@ function requireWrite(){ if(canWrite()) return true; toast('Yalnızca görüntü
 function save(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — değişiklik kaydedilmedi.','warning'); return; }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync();
+  _bakimAnlikPlanla();   // otomatik WhatsApp hatirlatmasi icin sunucudaki kopyayi tazele
 }
 function saveKpiStore(){ localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig)); scheduleCloudSync(); }
 
@@ -3115,6 +3117,94 @@ function getLast12Months(){
 }
 
 // ── Saha / Personel ekranı ──
+// ══ Otomatik WhatsApp bakim hatirlatmasi ══
+// Uygulama kapaliyken de calissin diye: yaklasan bakim listesi Apps
+// Script'e itilir, oradaki saatlik tetikleyici gunde bir kez gonderir.
+const CMMS_GAS_KEY = 'cmms_gas_url';
+function _bakimGasUrl(){ try{ return localStorage.getItem(CMMS_GAS_KEY)||''; }catch(e){ return ''; } }
+
+// Anlik kopya: tarihli ve acik bakimlar. GUN HESABI YAPILMAZ — kopya
+// birkac gun eski olabilir; gun farkini Apps Script gonderirken hesaplar.
+function _bakimAnlikVeri(){
+  const liste=(db.maintenance||[])
+    .filter(p=>(p.status==='scheduled'||p.status==='overdue') && p.sched)
+    .map(p=>({ makine:mName(p.machineId), tip:TYPE_PL[p.type]||p.type,
+               tarih:String(p.sched).slice(0,10), tek:String(p.tech||'').trim(),
+               lok:mLoc(p.machineId) }));
+  return { action:'bakimAnlik', bakimlar:liste, lokasyon:'' };
+}
+
+async function bakimAnlikGonder(){
+  const url=_bakimGasUrl(); if(!url) return false;
+  try{
+    await fetch(url,{ method:'POST', headers:{'Content-Type':'text/plain'},
+      body: JSON.stringify(_bakimAnlikVeri()) });
+    return true;
+  }catch(e){ console.warn('bakım anlık kopya gönderilemedi:', e && e.message); return false; }
+}
+
+let _waPushTimer=null;
+function _bakimAnlikPlanla(){
+  if(!_bakimGasUrl()) return;
+  clearTimeout(_waPushTimer);
+  _waPushTimer=setTimeout(bakimAnlikGonder, 3000);
+}
+
+// Sunucunun kendi gercekleri (JSONP — Apps Script CORS'a kapali)
+function _bakimDurumSor(){
+  return new Promise((cz,rd)=>{
+    const url=_bakimGasUrl(); if(!url){ rd(new Error('adres yok')); return; }
+    const fn='_bd'+Date.now(), sc=document.createElement('script');
+    const zaman=setTimeout(()=>{ temizle(); rd(new Error('sunucu yanıt vermedi')); }, 20000);
+    function temizle(){ clearTimeout(zaman); delete window[fn]; sc.remove(); }
+    window[fn]=(o)=>{ temizle(); cz(o); };
+    sc.onerror=()=>{ temizle(); rd(new Error('adrese ulaşılamadı')); };
+    sc.src=url+(url.indexOf('?')<0?'?':'&')+'action=bakimDurum&callback='+fn;
+    document.body.appendChild(sc);
+  });
+}
+
+async function openWhatsAppOtomatik(){
+  const mevcut=_bakimGasUrl();
+  const girilen=prompt(
+    'OTOMATİK WHATSAPP BAKIM HATIRLATMASI\n\n'+
+    'Apps Script web uygulaması adresini yapıştırın (.../exec).\n'+
+    'Kalibrasyon için kullandığınız adresin aynısı.\n\n'+
+    'Boş bırakıp Tamam derseniz otomatik gönderim kapanır.', mevcut);
+  if(girilen===null) return;
+  const url=String(girilen).trim();
+  if(url && !/^https:\/\/script\.google\.com\/.*\/exec$/.test(url)){
+    toast('Adres .../exec ile bitmeli — kaydedilmedi.','warning'); return;
+  }
+  try{ localStorage.setItem(CMMS_GAS_KEY, url); }catch(e){}
+  if(!url){ toast('Otomatik gönderim kapatıldı.','info'); return; }
+
+  toast('Bakım listesi gönderiliyor…','info');
+  const gitti=await bakimAnlikGonder();
+  if(!gitti){ toast('Liste gönderilemedi — adresi kontrol edin.','danger'); return; }
+
+  let d=null;
+  try{ d=await _bakimDurumSor(); }catch(e){ toast('Durum okunamadı: '+e.message,'warning'); return; }
+
+  const eksik=[];
+  if(!d.anahtarVar) eksik.push('• BAKIM_WA_KEY (CallMeBot anahtarı) tanımlı değil');
+  if(!d.telefon)    eksik.push('• BAKIM_WA_TEL (alıcı numara) tanımlı değil');
+  if(!d.tetikleyici) eksik.push('• Saatlik tetikleyici kurulu değil (bakimKontrol)');
+
+  alert('DURUM\n\n'+
+    'Sunucudaki liste : '+d.bakimSayisi+' bakım (gönderildi: '+(d.anlikZaman||'—')+')\n'+
+    'Eşiğe giren      : '+d.yaklasan+' bakım ('+d.esikGun+' gün)\n'+
+    'Teknisyen süzgeci: '+(d.teknisyen||'yok — herkesinki gider')+'\n'+
+    'Alıcı            : '+(d.telefon||'—')+'\n'+
+    'Gönderim saati   : '+d.saat+':00 sonrası, günde bir\n'+
+    'Son gönderim     : '+(d.sonGonderim||'henüz yok')+'\n'+
+    'Son sonuç        : '+(d.sonSonuc||'—')+'\n'+
+    (eksik.length ? '\nEKSİKLER\n'+eksik.join('\n')+
+       '\n\nApps Script > Proje Ayarları > Komut Dosyası Özellikleri\n'+
+       've Tetikleyiciler bölümünden tamamlanır.'
+     : '\nKurulum tamam — hatırlatma otomatik gidecek.'));
+}
+
 // ══ WhatsApp'a yaklasan bakim listesi ══
 // Mesaji hazirlar ve WhatsApp'i acar — GONDERMEZ. Gonder'e kullanici basar.
 // Sunucu/API/token yok: sadece wa.me baglantisi.
