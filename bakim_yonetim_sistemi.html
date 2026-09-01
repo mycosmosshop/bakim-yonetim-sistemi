@@ -3304,8 +3304,14 @@ function calcFleetKPIs(forLoc){
   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
   const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0, cntMttf=0;
+  // MTTF neden olculemedi? Ciplak "Veri yok" kullaniciyi yanlis yere
+  // goturuyor (kurulum tarihi girili oldugu halde deger gelmiyor).
+  const mttfDisi = { tarihYok:0, sansurlu:0, arizasiz:0 };
+  const _kb = _kayitBasiTarihi();
   _ml.forEach(m=>{
     const mx = machMetrics(m.id);
+    // Hic arizasi olmayan makine de MTTF'e giremez (ilk ariza yok)
+    if(!db.failures.some(f=>f.machineId===m.id && _dfFilter(f))) mttfDisi.arizasiz++;
     sumAvail += parseFloat(mx.avail);
     const mFails = db.failures.filter(f=>f.machineId===m.id && _dfFilter(f));
     if(mFails.length>0){
@@ -3315,6 +3321,8 @@ function calcFleetKPIs(forLoc){
       // tutarsiz veri kurallari her ekranda ayni.
       const _mttfH = _mttfSaat(m, mFails);
       if(_mttfH!==null){ sumMttf += _mttfH; cntMttf++; }
+      else if(!m.installDate) mttfDisi.tarihYok++;
+      else if(_kb && new Date(m.installDate) < _kb) mttfDisi.sansurlu++;
       cntF++;
     }
   });
@@ -3367,6 +3375,8 @@ function calcFleetKPIs(forLoc){
     mtbf:         cntF>0 ? +(sumMtbf/cntF).toFixed(0)   : null,
     mttr:         cntF>0 ? +(sumMttr/cntF).toFixed(1)   : null,
     mttf:         cntMttf>0 ? +(sumMttf/cntMttf).toFixed(0) : null,
+    mttfDisi:     mttfDisi,
+    mttfSayi:     cntMttf,
     availability: hasData ? +(sumAvail/n).toFixed(1)     : null,
     pmr:          hasData && _lm.length>0 ? +pmrVal.toFixed(1)       : null,
     unplanned:    hasData && _lm.length>0 ? +unplannedVal.toFixed(1) : null,
@@ -4391,6 +4401,7 @@ function renderDashboard(){
           <span class="kpi-dir">${def.higherBetter?'\u2191 y\u00fcksek':'\u2193 d\u00fc\u015f\u00fck'}</span>
           <div class="kpi-target-bar"><div class="kpi-target-fill" style="width:${noData?0:ev.pct}%;background:${ev.color}"></div></div>
           <span style="font-size:.7rem;color:#555">${noData?'Veri yok':ev.pct>=100?'\u2713 Tamam':ev.pct.toFixed(0)+'%'}</span>
+          ${k==='mttf' && _mttfNot ? `<div style="font-size:.68rem;color:#ffa726;margin-top:3px;max-width:230px;line-height:1.35">${_mttfNot}</div>` : ''}
         </div>
         <div class="kpi-sub" style="margin-top:.2rem">Hedef: ${ev.target??getKpi(k).target} ${def.unit}</div>
       </div></div>`;
@@ -8454,6 +8465,18 @@ function _renderKpiRows(){
     mtbf:fleet.mtbf, mttr:fleet.mttr, mttf:fleet.mttf,
     availability:fleet.availability, pmr:fleet.pmr, unplanned:fleet.unplanned, pmc:fleet.pmc
   };
+  // MTTF olculemiyorsa SEBEBINI yaz. "Veri yok" tek basina kullaniciyi
+  // eksik veri aramaya gonderiyor; asil sebep genelde sansur kurali.
+  const _md = fleet.mttfDisi || {};
+  const _mdParca = [];
+  if(_md.tarihYok)  _mdParca.push(_md.tarihYok + ' makinede kurulum tarihi yok');
+  if(_md.sansurlu)  _mdParca.push(_md.sansurlu + ' makine arıza kaydı tutulmadan önce kurulmuş');
+  if(_md.arizasiz)  _mdParca.push(_md.arizasiz + ' makinenin bu dönemde arızası yok');
+  const _mttfNot = (fleet.mttf===null && _mdParca.length)
+    ? 'Ölçülemiyor: ' + _mdParca.join(' · ')
+      + '. MTTF kurulumdan İLK arızaya kadar geçen süredir; kayıt tutmadan önce '
+      + 'kurulan makinede o süre bilinmez, uydurma sayı üretilmez.'
+    : '';
   // Ensure config slot exists
   const storeKey = _kpiModalYear ? (_kpiModalYear+'_'+_kpiModalLoc) : _kpiModalLoc;
   if(!kpiConfig[storeKey]){
