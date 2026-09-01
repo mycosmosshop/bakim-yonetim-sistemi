@@ -7480,7 +7480,9 @@ function renderReports(){
       const dH=mFails.reduce((s,f)=>s+downtimeH(f),0);
       const _mx=machMetrics(m.id);
       const av=_mx.avail!==undefined?+_mx.avail:null;
-      const mttrV=mFails.length>0?+_mx.mttr:null;
+      // MTTR yalnizca KAPALI arizalardan hesaplanir; hepsi acikken deger
+      // yok demektir, "0 saat" degil.
+      const mttrV=mFails.filter(f=>f.status==='closed').length>0?+_mx.mttr:null;
       const mtbfV=mFails.length>0?+_mx.mtbf:null;
       // Raporlar makine tablosu da ortak PMC hesabini kullanir
       const pmcV=_pmcOran(mMaints);
@@ -11381,8 +11383,12 @@ function openKpiDetail(key){
     const schedPl  = _maintKpi(dashMaint()).filter(p=>p.machineId===m.id&&(p.type==='preventive'||p.type==='predictive'));
     const compPl   = schedPl.filter(p=>p.status==='completed').length;
     const allMaint = _maintKpi(dashMaint()).filter(p=>p.machineId===m.id);
-    const plannedH = allMaint.filter(p=>p.type==='preventive'||p.type==='predictive').reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
-    const correctH = allMaint.filter(p=>p.type==='corrective'||p.type==='overhaul').reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
+    // PMR paydasi: YALNIZCA yapilmis bakim (panodaki _yapildi kuraliyla
+    // ayni). Once yapilmamis bakimin tahmini suresi de sayiliyordu ve
+    // kart PMR'i oldugundan yuksek gosteriyordu.
+    const _kYapildi = p => p.status==='completed';
+    const plannedH = allMaint.filter(p=>(p.type==='preventive'||p.type==='predictive')&&_kYapildi(p)).reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
+    const correctH = allMaint.filter(p=>(p.type==='corrective'||p.type==='overhaul')&&_kYapildi(p)).reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
     const failDH   = mFails.reduce((s,f)=>s+downtimeH(f),0);
     const totalMH  = plannedH+correctH+failDH;
 
@@ -11390,7 +11396,7 @@ function openKpiDetail(key){
     const mttf = _mttfSaat(m, mFails);
 
     const vals = {
-      mtbf:         closedF.length>0 ? +mx.mtbf : null,
+      mtbf:         mFails.length>0 ? +mx.mtbf : null,   // MTBF TUM arizalari sayar
       mttr:         closedF.length>0 ? +mx.mttr : null,
       mttf:         mttf,
       availability: +mx.avail,
