@@ -8385,6 +8385,7 @@ const ANKARA_MACHINES = [
   "dept": "DEPO",
   "sk": "910.5.019",
   "plan": "SAATLİK BAKIM YAPILIR",
+  "saatlik": true,
   "comp": "",
   "set": ""
  },
@@ -8394,6 +8395,7 @@ const ANKARA_MACHINES = [
   "dept": "ATELYE",
   "sk": "910.5.812",
   "plan": "SAATLİK BAKIM YAPILIR",
+  "saatlik": true,
   "comp": "",
   "set": ""
  },
@@ -8425,7 +8427,7 @@ const ANKARA_MACHINES = [
   "set": "sfm_cnc_kesim"
  },
  {
-  "code": "ÇPRS",
+  "code": "CPRS",
   "name": "ÇÖP PRESİ",
   "dept": "PRES",
   "sk": "910.5.704",
@@ -8757,7 +8759,8 @@ function loadAnkaraPlan(){
     +'• PL15\'teki 8 makine + arıza kayıtlarından gelen ISM1 DIKEY MAK ANK\n'
     +'• ISM1 Mart 2026 sonunda Çerkezköy\'e devredildi: Ankara\'da PASİF olur,\n'
     +'  planlı bakımı açılmaz (PL15\'te zaten satırı yok), 11.03.2026 arızası kalır.\n'
-    +'• FRT ve KOMP1 saatlik bakım — onlara da plan kaydı açılmaz.\n'
+    +'• FRT FORKLIFT ve KOMP1: PL15\'te "SAATLİK BAKIM YAPILIR" — saatlik\n'
+    +'  bakım kaydı açılır. Plan saat aralığı vermiyor; aralığı siz girersiniz.\n'
     +'• Tarihi geçmiş ve yapılmış olanlar KAPATILIR\n\n'
     +'Aynı kodlu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
 
@@ -8779,17 +8782,27 @@ function loadAnkaraPlan(){
   });
 
   const macId=_ankMacId();
-  // PL15'te plan satiri olmayan makineye ait "PL15 planli bakim" kaydi
-  // kaynaksizdir (once hatali yazilmisti) — temizlenir.
-  const planSiz=new Set(ANKARA_MACHINES.filter(m=>!/^\d{4}-\d{2}-\d{2}$/.test(m.plan))
-    .map(m=>macId[m.code]).filter(Boolean));
-  let nS=0;
-  if(planSiz.size){
-    const once=db.maintenance.length;
-    db.maintenance=db.maintenance.filter(p=>!(planSiz.has(p.machineId)
-      && String(p.desc||'').indexOf('PL15 yıllık planlı bakım')===0));
-    nS=once-db.maintenance.length;
-  }
+  // Yukleyicinin bu surumde uretecegi kayit kimlikleri
+  const gecerli=new Set();
+  ANKARA_MACHINES.forEach(m=>{
+    const k=m.code.replace(/[^A-Za-z0-9]/g,'');
+    if(/^\d{4}-\d{2}-\d{2}$/.test(m.plan)) gecerli.add('ank_p_'+k+'_2026');
+    else if(m.saatlik) gecerli.add('ank_ph_'+k);
+  });
+  // PL15'te hicbir bakim satiri olmayan makine (ISM1: Mart sonunda devredildi)
+  const kayitsiz=new Set(ANKARA_MACHINES
+    .filter(m=>!/^\d{4}-\d{2}-\d{2}$/.test(m.plan) && !m.saatlik)
+    .map(m=>macId[m.code]).filter(x=>!!x));
+  const once=db.maintenance.length;
+  db.maintenance=db.maintenance.filter(p=>{
+    const id=String(p.id||'');
+    // (a) yukleyiciye ait ama artik uretilmeyen kimlik ( or. kod duzeltmesi)
+    if((id.indexOf('ank_p_')===0||id.indexOf('ank_ph_')===0) && !gecerli.has(id)) return false;
+    // (b) hic bakim satiri olmayan makineye yazilmis PL15 kaydi (turemis olanlar dahil)
+    if(kayitsiz.has(p.machineId) && String(p.desc||'').indexOf('PL15')===0) return false;
+    return true;
+  });
+  let nS=once-db.maintenance.length;
   let nP=0, nK=0;
   ANKARA_MACHINES.forEach(m=>{
     // "SAATLİK BAKIM YAPILIR" bir tarih degil; plana kayit acilmaz
@@ -8805,6 +8818,24 @@ function loadAnkaraPlan(){
       tech:ANKARA_TEKNISYEN, cost:0,
       estDur:_ankEstH(m.set), actDur:m.comp?_ankEstH(m.set):0,
       checklist:_ankSetTasks(m.set, !!m.comp, m.comp||m.plan),
+      external:false, wo:'', partsUsed:'' });
+  });
+
+  // PL15'te "SAATLİK BAKIM YAPILIR" yazan makineler: planda VARLAR, sadece
+  // tarihli degiller. Saat araligi planda yazmadigi icin 0 birakilir —
+  // uydurulmaz; nextHours=0 iken _autoMaintStatus 'gecikmis' yazmaz.
+  ANKARA_MACHINES.filter(m=>m.saatlik).forEach(m=>{
+    const mid=macId[m.code]; if(!mid) return;
+    const id='ank_ph_'+m.code.replace(/[^A-Za-z0-9]/g,'');
+    let ex=db.maintenance.find(x=>x.id===id);
+    if(!ex){ ex={id:id}; db.maintenance.push(ex); nP++; }
+    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'hour',
+      sched:null, comp:null, status:'scheduled',
+      intervalHours:ex.intervalHours||0, nextHours:ex.nextHours||0,
+      period:0, periodUnit:'month',
+      desc:'PL15: SAATLİK BAKIM YAPILIR — saat aralığı planda belirtilmemiş',
+      assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
+      tech:ANKARA_TEKNISYEN, cost:0, estDur:0, actDur:0, checklist:[],
       external:false, wo:'', partsUsed:'' });
   });
 
