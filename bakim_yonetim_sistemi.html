@@ -2854,6 +2854,9 @@ const fmt = (n) => new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY
 const fmtDt = (s) => s ? new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
 const fmtD = (s) => s ? new Date(s).toLocaleDateString('tr-TR') : '—';
 const daysDiff = (s) => Math.round((new Date(s)-new Date())/86400000);
+// Tek tirnakli onclick icine JSON basarken kesme isareti ozniteligi erken
+// kapatir ve dugme calismaz (or. "Çerkezköy'e devredildi" notu). Hep bunu kullan.
+const attrJson = (o) => JSON.stringify(o).replace(/'/g, '&apos;');
 
 function downtimeH(f){
   const end = f.endTime ? new Date(f.endTime) : new Date();
@@ -3195,7 +3198,7 @@ function renderPersonnel(){
         <div style="font-size:.75rem;color:var(--muted)">${TYPE_PL[p.type]||p.type} · ${p.basis==='hour'?`⏱️ ${p.nextHours||0} sa`:fmtD(p.sched)} ${ov?'<span style="color:#ff5252;font-weight:600">(gecikmiş)</span>':''}${p.external?` · <span style="color:#26c6da">🚚 ${p.extCompany||'Dış servis'}</span>`:''}</div></div>
       <div class="d-flex gap-1">
         ${w?`<button class="btn btn-sm btn-success" onclick="quickCompleteMaint('${p.id}')"><i class="bi bi-check2 me-1"></i>Tamamla</button>`:''}
-        ${w?`<button class="btn btn-sm btn-outline-light" title="Düzenle" onclick='openMaintModal(${JSON.stringify(p)})'><i class="bi bi-pencil"></i></button>`:''}
+        ${w?`<button class="btn btn-sm btn-outline-light" title="Düzenle" onclick='openMaintModal(${attrJson(p)})'><i class="bi bi-pencil"></i></button>`:''}
       </div>
     </div>`;
   }).join('') : '<p style="color:var(--muted);text-align:center;padding:1rem;font-size:.85rem">Bekleyen bakım yok 🎉</p>';
@@ -3902,7 +3905,7 @@ function renderMachines(){
       <td style="font-size:.78rem;color:var(--muted)">${fmtD(m.installDate)}</td>
       <td>
         <button class="btn btn-sm btn-outline-info me-1" style="padding:2px 7px" title="Makine Kartı" onclick="openMachineCard('${m.id}')"><i class="bi bi-card-text"></i></button>
-        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openMachineModal(${JSON.stringify(m)})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openMachineModal(${attrJson(m)})'><i class="bi bi-pencil"></i></button>
         <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delMachine('${m.id}')"><i class="bi bi-trash"></i></button>
       </td></tr>`;
   }).join('');
@@ -4006,7 +4009,7 @@ function renderFailures(){
       <td><span class="${STAT_F[f.status]||'b-closed'}">${STAT_FL[f.status]||f.status}</span></td>
       <td>
         <button class="btn btn-sm btn-outline-secondary me-1" style="padding:2px 7px" title="Form Yazdır" onclick="printFailureForm('${f.id}')"><i class="bi bi-printer"></i></button>
-        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openFailureModal(${JSON.stringify(f)})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openFailureModal(${attrJson(f)})'><i class="bi bi-pencil"></i></button>
         <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delFailure('${f.id}')"><i class="bi bi-trash"></i></button>
       </td></tr>`;
   }).join('');
@@ -4166,7 +4169,7 @@ function renderMaint(){
     <td><span class="${STAT_P[p.status]||'b-scheduled'}">${STAT_PL[p.status]||p.status}</span></td>
     <td>
       <button class="btn btn-sm btn-outline-secondary me-1" style="padding:2px 7px" title="Form Yazdır" onclick="printMaintForm('${p.id}')"><i class="bi bi-printer"></i></button>
-      <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openMaintModal(${JSON.stringify(p)})'><i class="bi bi-pencil"></i></button>
+      <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openMaintModal(${attrJson(p)})'><i class="bi bi-pencil"></i></button>
       <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delMaint('${p.id}')"><i class="bi bi-trash"></i></button>
     </td></tr>`;
   }).join('');
@@ -4876,7 +4879,7 @@ function renderParts(){
       <td style="font-weight:600;font-size:.875rem">${p.partName}${critBadge}${isLow?'<span style="font-size:.65rem;background:#e65100;color:#fff;padding:1px 5px;border-radius:10px;margin-left:4px">⚠️ DÜŞÜK STOK</span>':''}</td>
       ${activeCols.map(c=>_ptCell(p,c.key,total,dd,warn,isLow)).join('')}
       <td style="white-space:nowrap">
-        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openPartModal(${JSON.stringify(p)})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openPartModal(${attrJson(p)})'><i class="bi bi-pencil"></i></button>
         <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delPart('${p.id}')"><i class="bi bi-trash"></i></button>
       </td></tr>`;
   }).join('')||`<tr><td colspan="${activeCols.length+3}" class="text-center text-muted py-4">Aramanıza uygun parça bulunamadı.</td></tr>`;
@@ -5306,7 +5309,7 @@ function renderRcaList(){
               <span style="font-weight:700;font-size:.88rem">${mName(f.machineId)}</span>
               <span class="text-muted ms-2" style="font-size:.78rem">${fmtD(f.startTime?.split('T')[0])}</span>
             </div>
-            <button class="btn btn-sm btn-outline-primary" style="padding:2px 8px;font-size:.75rem" onclick='openFailureModal(${JSON.stringify(f)})'><i class="bi bi-pencil"></i> Düzenle</button>
+            <button class="btn btn-sm btn-outline-primary" style="padding:2px 8px;font-size:.75rem" onclick='openFailureModal(${attrJson(f)})'><i class="bi bi-pencil"></i> Düzenle</button>
           </div>
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:.5rem">${f.desc||'Arıza'}</div>
           <div style="font-size:.82rem">
@@ -7826,7 +7829,7 @@ function renderStock(){
           <td>${isLow?'<span class="crit-critical">Kritik</span>':'<span class="b-completed">Normal</span>'}</td>
           <td>
             <button class="btn btn-sm btn-outline-success me-1" style="padding:2px 7px" title="Stok ekle" onclick="quickAddStock('${s.id}')"><i class="bi bi-plus"></i></button>
-            <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openStockModal(${JSON.stringify(s)})'><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openStockModal(${attrJson(s)})'><i class="bi bi-pencil"></i></button>
             <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delStock('${s.id}')"><i class="bi bi-trash"></i></button>
           </td></tr>`;
       }).join('')
@@ -7970,7 +7973,7 @@ function renderTaskSets(){
           </div>
         </div>
         <div class="d-flex gap-2">
-          <button class="btn btn-sm btn-outline-primary" style="padding:3px 10px" onclick='openTaskSetModal(${JSON.stringify(ts)})'><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-sm btn-outline-primary" style="padding:3px 10px" onclick='openTaskSetModal(${attrJson(ts)})'><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-outline-danger" style="padding:3px 10px" onclick="delTaskSet('${ts.id}')"><i class="bi bi-trash"></i></button>
         </div>
       </div>
@@ -9338,7 +9341,7 @@ function renderFixtures(){
       <td><span class="${FIX_STAT_CL[f.status]||'b-scheduled'}">${FIX_STAT_LBL[f.status]||f.status}</span></td>
       <td class="text-nowrap">
         <button class="btn btn-sm btn-outline-secondary me-1" style="padding:2px 7px" title="Bakıma Al" onclick="setFixtureStatus('${f.id}','maintenance')"><i class="bi bi-tools"></i></button>
-        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openFixtureModal(${JSON.stringify(f)})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openFixtureModal(${attrJson(f)})'><i class="bi bi-pencil"></i></button>
         <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delFixture('${f.id}')"><i class="bi bi-trash"></i></button>
       </td></tr>`;
   }).join('') || '<tr><td colspan="10" class="text-center text-muted py-4">Kayıt bulunamadı</td></tr>';
@@ -9719,7 +9722,7 @@ function renderWo(){
       <td><span class="${WO_STAT_CL[w.status]||'b-open'}">${WO_STAT_LBL[w.status]||w.status}</span></td>
       <td style="font-size:.78rem">${w.approver?(w.approver+(w.approvalDate?' ✔':'')):'<span style="color:var(--muted)">Bekliyor</span>'}</td>
       <td>
-        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openWoModal(${JSON.stringify(w)})'><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openWoModal(${attrJson(w)})'><i class="bi bi-pencil"></i></button>
         <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delWo('${w.id}')"><i class="bi bi-trash"></i></button>
       </td></tr>`;
   }).join('') : '<tr><td colspan="11" class="text-center text-muted py-3">Henüz iş emri yok</td></tr>';
@@ -9968,7 +9971,7 @@ function renderOee(){
           </div></td>
           <td style="font-size:.78rem;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.notes||'—'}</td>
           <td>
-            <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openOeeModal(${JSON.stringify(r)})'><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-primary me-1" style="padding:2px 7px" onclick='openOeeModal(${attrJson(r)})'><i class="bi bi-pencil"></i></button>
             <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="delOee('${r.id}')"><i class="bi bi-trash"></i></button>
           </td>
         </tr>`;
@@ -10270,7 +10273,7 @@ function renderCalendar(){
       ${allItems.slice(0,4).map(item=>{
         if(item._tag==='maint'){
           const p=item.p;
-          return `<div class="cal-item ${p.status}" title="🔧 Bakım: ${mName(p.machineId)} — ${TYPE_PL[p.type]||p.type} (${p.estDur||0}h)" onclick='openMaintModal(${JSON.stringify(p).replace(/'/g,"&apos;")})'>
+          return `<div class="cal-item ${p.status}" title="🔧 Bakım: ${mName(p.machineId)} — ${TYPE_PL[p.type]||p.type} (${p.estDur||0}h)" onclick='openMaintModal(${attrJson(p)})'>
             <span style="flex-shrink:0">${typeIcons[p.type]||'🔧'}</span> ${mName(p.machineId)}
           </div>`;
         } else if(item._tag==='failure'){
@@ -10278,7 +10281,7 @@ function renderCalendar(){
           const fcol = f.status==='closed'?'rgba(67,160,71,.18)':'rgba(229,57,53,.18)';
           const ftxt = f.status==='closed'?'#a5d6a7':'#ff8a80';
           const fbdr = f.status==='closed'?'#43a047':'#e53935';
-          return `<div class="cal-item" style="background:${fcol};color:${ftxt};border-left:2px solid ${fbdr}" title="⚠️ Arıza: ${mName(f.machineId)} — ${f.desc||''}" onclick='openFailureModal(${JSON.stringify(f).replace(/'/g,"&apos;")})'>
+          return `<div class="cal-item" style="background:${fcol};color:${ftxt};border-left:2px solid ${fbdr}" title="⚠️ Arıza: ${mName(f.machineId)} — ${f.desc||''}" onclick='openFailureModal(${attrJson(f)})'>
             ⚠️ ${mName(f.machineId)}
           </div>`;
         } else if(item._tag==='wo'){
@@ -10287,12 +10290,12 @@ function renderCalendar(){
           const wcol = isOverdue?'rgba(239,83,80,.18)':'rgba(171,71,188,.18)';
           const wtxt = isOverdue?'#ff8a80':'#ce93d8';
           const wbdr = isOverdue?'#ef5350':'#ab47bc';
-          return `<div class="cal-item" style="background:${wcol};color:${wtxt};border-left:2px solid ${wbdr}" title="📋 İş Emri: ${w.woNo||''} — ${mName(w.machineId)} — ${w.title||''}" onclick='openWoModal(${JSON.stringify(w).replace(/'/g,"&apos;")})'>
+          return `<div class="cal-item" style="background:${wcol};color:${wtxt};border-left:2px solid ${wbdr}" title="📋 İş Emri: ${w.woNo||''} — ${mName(w.machineId)} — ${w.title||''}" onclick='openWoModal(${attrJson(w)})'>
             📋 ${w.woNo||mName(w.machineId)}
           </div>`;
         } else if(item._tag==='fixMaint'){
           const f=item.x.fix;
-          return `<div class="cal-item" style="background:rgba(255,112,67,.18);color:#ffab91;border-left:2px solid #ff7043" title="🔩 Fikstür Bakım: ${f.no||f.name}" onclick='openFixtureModal(${JSON.stringify(f).replace(/'/g,"&apos;")})'>
+          return `<div class="cal-item" style="background:rgba(255,112,67,.18);color:#ffab91;border-left:2px solid #ff7043" title="🔩 Fikstür Bakım: ${f.no||f.name}" onclick='openFixtureModal(${attrJson(f)})'>
             🔩 ${f.no||f.name}
           </div>`;
         } else if(item._tag==='partChg'){
@@ -10300,7 +10303,7 @@ function renderCalendar(){
           const dd2=daysDiff(p.nextDate);
           const pcol=dd2<=0?'#ff8a80':dd2<=7?'#ffa726':'#ffcc80';
           const pbdr=dd2<=0?'#e53935':dd2<=7?'#fb8c00':'#f57f17';
-          return `<div class="cal-item" style="background:rgba(251,140,0,.15);color:${pcol};border-left:2px solid ${pbdr}" title="🔩 Parça Değişimi: ${p.partName} — ${mName(p.machineId)}" onclick='openPartModal(${JSON.stringify(p).replace(/'/g,"&apos;")})'>
+          return `<div class="cal-item" style="background:rgba(251,140,0,.15);color:${pcol};border-left:2px solid ${pbdr}" title="🔩 Parça Değişimi: ${p.partName} — ${mName(p.machineId)}" onclick='openPartModal(${attrJson(p)})'>
             🔩 ${p.partName}
           </div>`;
         } else if(item._tag==='partLow'){
@@ -10312,7 +10315,7 @@ function renderCalendar(){
         } else {
           const f=item.x.fix;
           const verCol = f.verResult==='pass'?'#a5d6a7':f.verResult==='fail'?'#ff8a80':'#ffcc80';
-          return `<div class="cal-item" style="background:rgba(171,71,188,.15);color:${verCol};border-left:2px solid #ab47bc" title="✅ Fikstür Doğrulama: ${f.no||f.name}" onclick='openFixtureModal(${JSON.stringify(f).replace(/'/g,"&apos;")})'>
+          return `<div class="cal-item" style="background:rgba(171,71,188,.15);color:${verCol};border-left:2px solid #ab47bc" title="✅ Fikstür Doğrulama: ${f.no||f.name}" onclick='openFixtureModal(${attrJson(f)})'>
             ✅ ${f.no||f.name}
           </div>`;
         }
