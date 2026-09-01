@@ -9175,16 +9175,16 @@ const ANKARA_MACHINES = [
   "comp": "",
   "set": "",
   "saat": {
-   "buyuk": 4000,
-   "ara": 2000,
-   "gunluk": 8,
-   "ay": 24,
+   "buyuk": 2000,
+   "ara": 500,
+   "gunluk": 5,
+   "ay": 12,
    "yapildi": "2026-04-20",
-   "sonraki": "2028-04-20",
+   "sonraki": "2027-04-20",
    "sure": 3.5,
    "maliyet": 5400,
-   "isim": "Büyük bakım — kompresör yağı, yağ ayırıcı, yağ filtresi, hava filtresi değişimi, kayış ve emniyet ventili kontrolü",
-   "temel": "PL15: \"SAATLİK BAKIM YAPILIR\" (sayı vermiyor). Vidalı kompresör için yaygın büyük bakım aralığı 4000 saat (ara servis 2000 sa). Ankara tek vardiya: kompresör vardiya boyunca çalışır, ~8 sa/gün × ~250 iş günü ≈ 2000 sa/yıl → 24 ayda bir. Pistonluysa aralık çok daha kısadır."
+   "isim": "Büyük bakım — valf takımı ve segman kontrolü, kompresör yağı, yağ ve hava filtresi değişimi, kayış gerginliği, emniyet ventili testi",
+   "temel": "PL15: \"SAATLİK BAKIM YAPILIR\" (sayı vermiyor). PİSTONLU kompresör: büyük bakım (valf/segman servisi) yaygın olarak 2000 saat, yağ değişimi 500 saat. Ankara tek vardiya ve pistonlu görev çevrimi nedeniyle makine vardiya boyunca sürekli çalışmaz (~%60, ~5 sa/gün ≈ 1200 sa/yıl) — 2000 saat ≈ 20 ay eder. Ancak yağ oksidasyonu ve valf kirlenmesi ZAMANA da bağlı olduğu için 12 ayda bir benimsendi; saat eşiği daha erken dolarsa öne çekin."
   }
  },
  {
@@ -9678,7 +9678,7 @@ function loadAnkaraPlan(){
     +'• FRT FORKLIFT ve KOMP1: PL15 "SAATLİK BAKIM YAPILIR" diyor, sayı vermiyor.\n'
     +'  Saat aralığı, Ankara tek vardiya kabulüyle TARİHE çevrildi:\n'
     +'    FRT   1000 sa ≈ 4 sa/gün → 12 ayda bir (son: 16.03.2026)\n'
-    +'    KOMP1 4000 sa ≈ 8 sa/gün → 24 ayda bir (son: 20.04.2026)\n'
+    +'    KOMP1 2000 sa ≈ 5 sa/gün → 12 ayda bir, PISTONLU (son: 20.04.2026)\n'
     +'  Hesabın dayanağı kaydın notunda yazılı; periyodu değiştirebilirsiniz.\n'
     +'• Tarihi geçmiş ve yapılmış olanlar KAPATILIR\n\n'
     +'Aynı kodlu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
