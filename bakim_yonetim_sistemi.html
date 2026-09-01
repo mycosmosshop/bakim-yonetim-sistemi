@@ -3077,17 +3077,38 @@ function toggleKpiKalip(cb){ _kpiExcludeKalip=!!(cb&&cb.checked);
   try{if(typeof renderMaint==='function')renderMaint();}catch(e){}
 }
 
+// Kurulum tarihi yoksa makinenin EN ESKI kaydi baslangic sayilir.
+// Once sabit 2020-01-01 varsayiliyordu: makine 2026'da kurulmus olsa
+// bile alti yillik calisma suresi uyduruluyor, MTBF ve
+// Kullanilabilirlik oldugundan yuksek cikiyordu.
+function _makineBaslangic(machine, mid){
+  if(machine && machine.installDate) return new Date(machine.installDate);
+  const t=[];
+  (db.failures||[]).forEach(f=>{ if(f.machineId===mid && f.startTime) t.push(new Date(f.startTime)); });
+  (db.maintenance||[]).forEach(p=>{ const d=p.comp||p.sched;
+    if(p.machineId===mid && d) t.push(new Date(d)); });
+  const en=t.filter(d=>!isNaN(d.getTime())).sort((a,b)=>a-b)[0];
+  return en || new Date('2020-01-01');
+}
+
 function machMetrics(mid){
   const machine = db.machines.find(m=>m.id===mid);
   const allF = db.failures.filter(f=>f.machineId===mid && _dfFilter(f));
   const closedF = allF.filter(f=>f.status==='closed');
   const totalDown = allF.reduce((s,f)=>s+downtimeH(f),0);
-  const installDate = machine ? new Date(machine.installDate||'2020-01-01') : new Date('2020-01-01');
+  const installDate = _makineBaslangic(machine, mid);
   const totalH = _windowHours(installDate);
   const downForCalc = Math.min(totalDown, totalH);   // duruş pencereyi aşamaz (avail<0 / mtbf=0 garabetini önler)
   const operH = Math.max(0,totalH-downForCalc);
-  const mtbf = closedF.length>0 ? operH/closedF.length : operH;
-  const mttr = closedF.length>0 ? totalDown/closedF.length : 0;
+  // Pay ile payda ayni topluluktan olmali. Once durus TUM arizalardan,
+  // sayi yalnizca KAPALI arizalardan geliyordu: bir ariza acik kalirsa
+  // MTTR siser, hepsi acik olursa payda 0 olup MTTR 0 gorunurdu.
+  // Ariza SAYISI icin hepsi sayilir (acik olan da olmustur); MTTR icin
+  // ise yalnizca kapananlar — suresi henuz belli olmayan onarim
+  // ortalamayi bozmasin.
+  const closedDown = closedF.reduce((s,f)=>s+downtimeH(f),0);
+  const mtbf = allF.length>0 ? operH/allF.length : operH;
+  const mttr = closedF.length>0 ? closedDown/closedF.length : 0;
   let avail = Math.max(0,Math.min(100,(totalH-downForCalc)/totalH*100));
   if(totalDown>0) avail = Math.min(99.9, Math.floor(avail*10)/10);   // arıza/duruş varsa %100'e yuvarlama (floor)
   const fCost = allF.reduce((s,f)=>s+(f.cost||0),0);
@@ -3141,7 +3162,7 @@ function calcFleetKPIs(forLoc){
   const _ml = _mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines;
   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
   const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
-  let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0;
+  let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0, cntMttf=0;
   _ml.forEach(m=>{
     const mx = machMetrics(m.id);
     sumAvail += parseFloat(mx.avail);
@@ -3151,9 +3172,12 @@ function calcFleetKPIs(forLoc){
       sumMttr += parseFloat(mx.mttr);
       // MTTF: install date → first failure
       const first = mFails.sort((a,b)=>new Date(a.startTime)-new Date(b.startTime))[0];
+      // MTTF yalnizca kurulum tarihi BILINEN makinelerden hesaplanir.
+      // Once bilinmeyenler paya 0 katmadan paydayi artiriyordu ve
+      // ortalamayi asagi cekiyordu (Ankara'da 9 makinenin 9'unda yok).
       if(first && m.installDate){
         const mttf = Math.max(0,(new Date(first.startTime)-new Date(m.installDate))/3600000);
-        sumMttf += mttf;
+        sumMttf += mttf; cntMttf++;
       }
       cntF++;
     }
@@ -3164,11 +3188,16 @@ function calcFleetKPIs(forLoc){
   const hasData = _ml.length > 0;
 
   // PMR — Planned Maintenance Ratio (by hours, fallback to count)
+  // YALNIZCA yapilmis bakim sayilir. Once durum bakilmiyordu: gelecege
+  // planlanmis bakimin tahmini suresi yapilmis gibi paydaya giriyor ve
+  // PMR'i oldugundan yuksek, plansiz orani oldugundan dusuk gosteriyordu
+  // (Ankara "Bu Yil": %45.2 yerine %34.8 olmali).
+  const _yapildi = p => p.status==='completed';
   const plannedH = _lm
-    .filter(p=>p.type==='preventive'||p.type==='predictive')
+    .filter(p=>(p.type==='preventive'||p.type==='predictive') && _yapildi(p))
     .reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
   const correctiveH = _lm
-    .filter(p=>p.type==='corrective'||p.type==='overhaul')
+    .filter(p=>(p.type==='corrective'||p.type==='overhaul') && _yapildi(p))
     .reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
   const failDownH = _lf.reduce((s,f)=>s+downtimeH(f),0);
   const totalMaintH = plannedH + correctiveH + failDownH;
@@ -3188,7 +3217,7 @@ function calcFleetKPIs(forLoc){
   return {
     mtbf:         cntF>0 ? +(sumMtbf/cntF).toFixed(0)   : null,
     mttr:         cntF>0 ? +(sumMttr/cntF).toFixed(1)   : null,
-    mttf:         cntF>0 ? +(sumMttf/cntF).toFixed(0)   : null,
+    mttf:         cntMttf>0 ? +(sumMttf/cntMttf).toFixed(0) : null,
     availability: hasData ? +(sumAvail/n).toFixed(1)     : null,
     pmr:          hasData && _lm.length>0 ? +pmrVal.toFixed(1)       : null,
     unplanned:    hasData && _lm.length>0 ? +unplannedVal.toFixed(1) : null,
