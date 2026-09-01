@@ -3317,8 +3317,25 @@ function _d8Arizadan(f){
     // olarak sistem eksigidir. Farkliysa formda degistirilir.
     d4: (r.w5||zincir) ? [{ type:'sco', title:(r.w5||'Kök neden'),
           description:(zincir?('5-Neden zinciri:\n'+zincir):'') }] : [],
-    d5: d5 ? [{ action:d5, responsible:r.owner||'', planDate:r.due||'' }] : []
+    d5: d5 ? [{ action:d5, responsible:r.owner||'', planDate:r.due||'' }] : [],
     // d6/d7 yok — uygulama tarihi ve yaygınlastirma karari kayitta yok
+    // Baslik: yalnizca CMMS'in bildikleri. Hatali PARCA adedi alanlari
+    // (defectQuantity/totalChecked/defectRate) DOLDURULMAZ — makine
+    // arizasinin tekrar sayisi o degildir.
+    head:{
+      title: mName(f.machineId)+' — '+(f.desc||'Arıza'),
+      subject: f.desc||'',
+      defectDescription: (f.desc||'')+(r.w1?(' — '+r.w1):''),
+      partName: m.name||'',
+      partNumber: m.code||'',
+      startDate: String(f.startTime||'').slice(0,10),
+      currentDate: new Date().toISOString().slice(0,10),
+      detectionPoint: [m.location,m.dept].filter(x=>!!x).join(' / '),
+      customer: m.location ? ('Sanifoam '+m.location+' — Üretim (iç)') : '',
+      additionalInfo: 'Kaynak: CMMS bakım sistemi · Arıza kaydı '+f.id
+        +(m.code?(' · Makine '+m.code):'')
+        +' · Aktarım '+new Date().toLocaleString('tr-TR')
+    }
   };
   return {
     baslik: mName(f.machineId)+' — '+(f.desc||'Arıza'),
@@ -3363,7 +3380,17 @@ function _d8Aksiyondan(a){
       d8result: 'Sorumlu: '+(a.assignee||'—')+' · Termin: '+(a.due?fmtD(a.due):'—'),
       d1: a.assignee ? [{name:a.assignee}] : [],
       d3: [], d4: [],   // kok neden analizi yok — uydurulmaz
-      d5: a.desc ? [{ action:a.desc, responsible:a.assignee||'', planDate:a.due||'' }] : []
+      d5: a.desc ? [{ action:a.desc, responsible:a.assignee||'', planDate:a.due||'' }] : [],
+      head:{
+        title: a.title||'',
+        subject: a.title||'',
+        defectDescription: a.desc||'',
+        currentDate: new Date().toISOString().slice(0,10),
+        detectionPoint: a.location||'',
+        customer: a.location ? ('Sanifoam '+a.location+' — Üretim (iç)') : '',
+        additionalInfo: 'Kaynak: CMMS bakım sistemi · Aksiyon kaydı '+a.id
+          +' · Aktarım '+new Date().toLocaleString('tr-TR')
+      }
     },
     alanlar:[
       _d8Alan('D1 — Ekip (d1TeamMembers)', a.assignee||'',
@@ -3425,7 +3452,9 @@ function d8Gonder(){
   if(!v || !v.veri){ toast('Aktarılacak kayıt yok.','warning'); return; }
   if(!confirm('8D RAPORUNA GÖNDER\n\n'+v.baslik+'\n\n'
     +'ERP’de yeni bir 8D formu açılıp alanlar dolacak:\n'
-    +'• D1, D2, D3, D5'+(v.kokVar?', D4':'')+' ve D8\n'
+    +'• Başlık (Head Data), D1, D2, D3, D5'+(v.kokVar?', D4':'')+' ve D8\n'
+    +'• Hatalı parça adedi alanları BOŞ — makine arızasının tekrar sayısı o değildir\n'
+    +'• Müşteri alanına iç muhatap önerisi yazılır, kontrol edin\n'
     +'• D6 ve D7 boş kalır — uygulama tarihleri ve yaygınlaştırma sizin\n'
     +(v.kokVar?'':'• Bu kaydın kök neden analizi YOK, D4 boş gelecek\n')
     +'\nDevam?')) return;
@@ -3435,9 +3464,10 @@ function d8Gonder(){
       zaman:new Date().toLocaleString('tr-TR')
     }));
   }catch(e){ toast('Aktarım yazılamadı: '+e.message,'danger'); return; }
-  const p=window.open('../supplier-system/8d-rapor.html','_blank');
-  if(!p){ toast('Pencere engellendi — ERP’de 8D Rapor sayfasını açın, veri hazır bekliyor.','warning'); return; }
-  toast('8D formu açıldı, alanlar dolduruldu');
+  // Ayni sekmede acilir — yeni sekme istenmiyor. CMMS verisi her
+  // degisiklikte localStorage'a yaziliyor, ayrilmak kayip yaratmaz.
+  toast('8D formu açılıyor…','info');
+  location.href='../supplier-system/8d-rapor.html';
 }
 
 function aktar8DAriza(id){
