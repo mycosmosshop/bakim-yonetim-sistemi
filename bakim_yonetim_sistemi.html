@@ -3009,7 +3009,19 @@ const mName = (id) => { const m=db.machines.find(x=>x.id===id); return m?m.name:
 const fmt = (n) => new Intl.NumberFormat('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0}).format(n||0);
 const fmtDt = (s) => s ? new Date(s).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
 const fmtD = (s) => s ? new Date(s).toLocaleDateString('tr-TR') : '—';
-const daysDiff = (s) => Math.round((new Date(s)-new Date())/86400000);
+// TAKVIM GUNU farki. Once 'new Date(s)-new Date()' idi: '2026-09-08'
+// UTC gece yarisi olarak okunuyor, simdi ise anlik saat. Turkiye UTC+3
+// oldugu icin 15:00'ten sonra fark .5'i asip yuvarlama BIR GUN
+// eksiltiyordu — bugunun bakimi '1 gun gecikmis', 7 gun sonraki '6 gun'
+// gorunuyordu. Iki tarafi da yerel gece yarisina indiriyoruz.
+const daysDiff = (s) => {
+  const h = new Date(s);
+  if (isNaN(h.getTime())) return Math.round((h - new Date())/86400000);  // eski davranis
+  const a = new Date(h.getFullYear(), h.getMonth(), h.getDate());
+  const n = new Date();
+  const b = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+  return Math.round((a - b)/86400000);
+};
 // Tek tirnakli onclick icine JSON basarken kesme isareti ozniteligi erken
 // kapatir ve dugme calismaz (or. "Çerkezköy'e devredildi" notu). Hep bunu kullan.
 const attrJson = (o) => JSON.stringify(o).replace(/'/g, '&apos;');
@@ -3479,6 +3491,36 @@ function _d8Goster(v){
 
 // ERP'nin 8D sayfasini acar ve veriyi devreder. Ayni origin oldugu icin
 // localStorage ortak; modullerin kendi devir deseni de bu.
+// 8D sayfasini ERP portalinin KENDI SEKMESINDE acar.
+// location.href ile gidilseydi CMMS sekmesinin icerigi degisir ama
+// portalin sekme etiketi "Bakım Yönetim Sistemi" kalirdi.
+// Portalda bunun API'si zaten var; portala bir sey EKLENMEDI.
+const D8_MODUL = 'rapor8d';   // ERP portalindaki 8D Raporlar modulu
+function _d8SayfayiAc(){
+  const url = '../supplier-system/8d-rapor.html';
+  // Portal disinda (dogrudan acilmis) → kendi sekmemizde
+  if(window.parent === window){ toast('8D formu açılıyor…','info'); location.href=url; return; }
+
+  let onay=false;
+  const dinle = e => {
+    if(e.origin !== location.origin) return;
+    if(e.data && e.data.tip==='erp-modul-ac-tamam' && e.data.modul===D8_MODUL) onay=true;
+  };
+  window.addEventListener('message', dinle);
+  try{
+    // Sekme zaten aciksa portal iframe'i yeniden yuklemez ve aktarim
+    // islenmez; benzersiz damga adresi degistirip tazelenmesini saglar.
+    window.parent.postMessage({ tip:'erp-modul-ac', modul:D8_MODUL,
+      sorgu:'cmms='+Date.now() }, location.origin);
+  }catch(e){}
+  toast('8D formu açılıyor…','info');
+  setTimeout(()=>{
+    window.removeEventListener('message', dinle);
+    // Portal eski surumdeyse onay gelmez — kendi sekmemizde aciyoruz.
+    if(!onay) location.href=url;
+  }, 800);
+}
+
 // Pencerede duzenlenmis hali toplar — gonderilen sey ekranda gorunendir.
 function _d8Topla(){
   const v=window._d8Veri; if(!v||!v.veri) return null;
@@ -3523,10 +3565,7 @@ function d8Gonder(){
       zaman:new Date().toLocaleString('tr-TR')
     }));
   }catch(e){ toast('Aktarım yazılamadı: '+e.message,'danger'); return; }
-  // Ayni sekmede acilir — yeni sekme istenmiyor. CMMS verisi her
-  // degisiklikte localStorage'a yaziliyor, ayrilmak kayip yaratmaz.
-  toast('8D formu açılıyor…','info');
-  location.href='../supplier-system/8d-rapor.html';
+  _d8SayfayiAc();
 }
 
 function aktar8DAriza(id){
