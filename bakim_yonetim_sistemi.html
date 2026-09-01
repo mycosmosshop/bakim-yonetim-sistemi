@@ -705,6 +705,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <!-- Çerkezköy yükleyicileri kodda duruyor: loadCerkezkoyPlan() · loadCerkezkoyAriza() · loadCerkezkoyGercekAriza() -->
       <button class="btn btn-outline-primary btn-sm" onclick="loadAnkaraPlan()" title="PL15 2026 yıllık bakım planı: 9 makine + planlı bakımlar"><i class="bi bi-calendar-check me-1"></i>Ankara Planı Yükle</button>
       <button class="btn btn-outline-danger btn-sm" onclick="loadAnkaraAriza()" title="2026 Bakım Kayıtları: Ocak–Haziran arızaları"><i class="bi bi-exclamation-triangle me-1"></i>Ankara Arızalarını Yükle</button>
+      <button class="btn btn-outline-warning btn-sm" onclick="loadAnkaraDof()" title="CNC Dikey Sable — tekrarlayan şerit testere kırılması için 5-Neden analizi"><i class="bi bi-diagram-3 me-1"></i>CNC 5-Neden İşle</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -8624,6 +8625,45 @@ function _ankSetTasks(setId, done, date){
 function _ankEstH(setId){
   const s=(db.taskSets||[]).find(x=>x.id===setId);
   return s ? Math.max(0.5, Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10) : 0;
+}
+
+// ══ CNC Dikey Sable — 5-Neden / DÖF ══
+// Dayanak: makinenin 12 aylik kaydi — serit testere kirilmasi 30 gunde bir
+// (2 sa, 900 TL), bileme tasi korelmesi 15 gun kaydirmali 30 gunde bir
+// (1 sa, 550 TL). Yilda ~36 saat durus, ~17.400 TL.
+const ANKARA_DOF_CNC = {
+  w1: 'Kesim sırasında şerit testere kırıldı ve makine durdu. Son 12 ayda bu arıza ayda bir tekrarladı; her seferinde ortalama 2 saat duruş ve 900 TL testere maliyeti oluştu.',
+  w2: 'Kesme kuvveti ve sürtünme ısısı, kesilen malzemenin gerektirdiği seviyenin üzerine çıktı; testere yorulma sonucu koptu.',
+  w3: 'Testere ağzı körelmiş durumdaydı. Makine üzerindeki bileme ünitesinin taşı aşındığı için testere düzgün bilenemiyor, kör ağızla kesime devam ediliyor.',
+  w4: 'Bileme taşı, belirgin şekilde iş görmez hâle gelince değiştiriliyor. Ömrünü dolduran taş için önceden tanımlanmış bir değişim aralığı yok; bu yüzden taş değişimi de ayda bir arıza kaydı olarak açılıyor (1 saat, 550 TL).',
+  w5: 'PL15 yıllık bakım planı bu makineye yılda tek bakım öngörüyor (17.07.2026). Ömrü kesim saatine bağlı olarak tükenen sarf malzemeleri — bileme taşı ve şerit testere — için ayrı bir değişim periyodu tanımlanmamış. Bakım, arıza sonrası müdahaleyle yürüyor.',
+  action: '1) Bileme taşına 3 haftalık zorunlu değişim periyodu tanımlanır; "Dikey CNC Kesim Makinası — Periyodik Bakım" setine bileme taşı durumu ve değişimi adımı eklenir. '
+        + '2) Vardiya başında şerit testere gerginliği gerginlik ölçerle kontrol edilir ve forma kaydedilir. '
+        + '3) Kırılan her testerenin kopma yüzeyi kaydedilir (yorulma mı, ani darbe mi); üç ay sonra sınıflandırılır. '
+        + '4) Bileme taşı asgari stok 2 adede çıkarılır (tedarik süresi 5 gün). '
+        + 'Doğrulama: Ekim–Aralık 2026 döneminde kırılma sayısı ve duruş saati izlenir. Mevcut eğilimle beklenen 3 kırılma / 6 saat; hedef 1 kırılma / 2 saat ve altı. Hedefe ulaşılmazsa 3. maddedeki kopma yüzeyi kayıtlarıyla neden yeniden değerlendirilir.',
+  owner: 'Hasan Köse',
+  due: '2026-09-30'
+};
+
+function loadAnkaraDof(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  // Makine tasindi: kayitlar Ankara kaydinda da, pasife alinan eski kayitta da olabilir
+  const ids = db.machines.filter(m=>String(m.code||'').trim()==='910.5.961'
+      || String(m.code||'').trim().toUpperCase()==='DİKEY CNC'
+      || String(m.name||'').indexOf('DİKEY CNC KESİM')>=0
+      || String(m.name||'').indexOf('CNC DIKEY SABLE')>=0).map(m=>m.id);
+  const hedef=(db.failures||[]).filter(f=>ids.indexOf(f.machineId)>=0
+      && String(f.desc||'').indexOf('Şerit testere kırılması')>=0);
+  if(!hedef.length){ toast('CNC şerit testere kırılması kaydı bulunamadı — önce arıza geçmişi yüklenmeli.','warning'); return; }
+  if(!confirm('CNC Dikey Sable — 5-Neden analizi '+hedef.length+' arıza kaydına işlenecek:\n\n'
+    +'• 5 neden, kök neden, düzeltici faaliyetler\n'
+    +'• Sorumlu: '+ANKARA_DOF_CNC.owner+' · Termin: 30.09.2026\n\n'
+    +'Kayıtların kendisi (tarih, süre, maliyet) DEĞİŞMEZ. Devam?')) return;
+  let n=0;
+  hedef.forEach(f=>{ f.rca=JSON.parse(JSON.stringify(ANKARA_DOF_CNC)); f.recurring=true; n++; });
+  save(); updateSelects(); nav('failures');
+  toast(n+' CNC arıza kaydına 5-Neden analizi işlendi');
 }
 
 // CNC Dikey Sable Cerkezkoy'den Ankara'ya tasindi. Eski kayit SILINMEZ —

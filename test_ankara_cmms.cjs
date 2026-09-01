@@ -9,7 +9,9 @@ const KOK = 'C:/Users/User/AppData/Local/Temp/claude/D--Yaz-l-m/651c3d70-fb75-45
 const src = fs.readFileSync(KOK + 'bakim_yonetim_sistemi.html', 'utf8');
 
 // Eklenen bolumu cikar ve gercek fonksiyonlari calistir
-const bas = src.indexOf('const ANKARA_TEKNISYEN');
+const bas = src.indexOf('const ANKARA_DOF_CNC') >= 0
+    ? Math.min(src.indexOf('const ANKARA_TEKNISYEN'), src.indexOf('const ANKARA_DOF_CNC'))
+    : src.indexOf('const ANKARA_TEKNISYEN');
 const son = src.indexOf('function loadCerkezkoyPlan');
 assert(bas > 0 && son > bas, 'Ankara bölümü bulunamadı');
 const kod = src.slice(bas, son);
@@ -31,7 +33,8 @@ function ortam(db, izin = true) {
         String, Object, Array, JSON, Math, Date, RegExp, console
     };
     const f = new Function('__k', 'with (__k) {\n' + kod +
-        '\nreturn { plan: loadAnkaraPlan, ariza: loadAnkaraAriza, MAK: ANKARA_MACHINES, ARZ: ANKARA_ARIZA, PB: ANKARA_PBAKIM };\n}');
+        '\nreturn { plan: loadAnkaraPlan, ariza: loadAnkaraAriza, dof: loadAnkaraDof,' +
+        ' MAK: ANKARA_MACHINES, ARZ: ANKARA_ARIZA, PB: ANKARA_PBAKIM, DOF: ANKARA_DOF_CNC };\n}');
     return [g, f(new Proxy(g, { has: () => true, get: (t, p) => (p in t ? t[p] : undefined) }))];
 }
 
@@ -357,6 +360,57 @@ function ortam(db, izin = true) {
     const rl = src.slice(src.indexOf("const vis = gLocFilter"), src.indexOf("const vis = gLocFilter") + 160);
     assert(!/passive/.test(rl), '21d: makine listesi de pasifleri gizliyor — kayıt görünmez olur');
     console.log('✓ 21 pasif makine KPI\'lara girmiyor ama makine listesinde duruyor');
+}
+
+// 22) 5-Neden yalnizca ILGILI kayitlara isleniyor
+{
+    const cnc = { id: 'mcnc', code: 'DİKEY CNC', name: 'DİKEY CNC KESİM MAKİNESİ', location: 'Çerkezköy', status: 'running' };
+    const bas = { id: 'mbsk', code: '910.5.003', name: 'BSL 204', location: 'Ankara', status: 'running' };
+    const kirilma = { id: 'czg_1', machineId: 'mcnc', desc: 'Şerit testere kırılması (CNC kesim)', cost: 900, rca: null };
+    const bileme  = { id: 'czg_2', machineId: 'mcnc', desc: 'Bileme taşı körelmesi — testere bilenemiyor', cost: 550, rca: null };
+    const baska   = { id: 'x1', machineId: 'mbsk', desc: 'BIÇAK DEGISIMI', cost: 100, rca: null };
+    const db = { machines: [cnc, bas], maintenance: [], failures: [kirilma, bileme, baska], taskSets: [] };
+    const [g, api] = ortam(db);
+    api.dof();
+    assert(kirilma.rca && kirilma.rca.w1, '22a: kırılma kaydına işlenmedi');
+    assert.strictEqual(bileme.rca, null, '22b: bileme taşı kaydına da işlenmiş');
+    assert.strictEqual(baska.rca, null, '22c: başka makinenin kaydına işlenmiş');
+    assert.strictEqual(kirilma.recurring, true, '22d: tekrarlayan işaretlenmedi');
+    // Kaydin kendisi degismemeli
+    assert.strictEqual(kirilma.cost, 900, '22e: maliyet değişmiş');
+    assert.strictEqual(kirilma.desc, 'Şerit testere kırılması (CNC kesim)', '22f: açıklama değişmiş');
+    console.log('✓ 22 5-Neden yalnızca CNC kırılma kayıtlarına işleniyor, kayıt içeriği değişmiyor');
+}
+
+// 23) Bes neden, kok neden, eylem, sorumlu ve termin DOLU
+{
+    const d = ortam({ machines: [], maintenance: [], failures: [], taskSets: [] })[1].DOF;
+    ['w1', 'w2', 'w3', 'w4', 'w5', 'action', 'owner', 'due'].forEach(k =>
+        assert(d[k] && String(d[k]).trim().length > 3, '23a: boş alan: ' + k));
+    assert.strictEqual(d.owner, 'Hasan Köse', '23b: sorumlu');
+    assert(/^2026-\d{2}-\d{2}$/.test(d.due), '23c: termin biçimi: ' + d.due);
+    // Kok neden sistemsel olmali (kisiyi degil sistemi isaret etsin)
+    assert(/PL15|periyot|planlan/i.test(d.w5), '23d: kök neden sistemsel değil');
+    // Dogrulama olculebilir olmali
+    assert(/hedef/i.test(d.action) && /\d/.test(d.action), '23e: doğrulama ölçülebilir değil');
+    console.log('✓ 23 beş neden, kök neden, eylem, sorumlu ve ölçülebilir doğrulama dolu');
+}
+
+// 24) Kayit yoksa uydurma yapilmiyor
+{
+    const db = { machines: [], maintenance: [], failures: [], taskSets: [] };
+    const [g, api] = ortam(db);
+    api.dof();
+    assert.strictEqual(db.failures.length, 0, '24a: kayıt uydurmuş');
+    assert(/bulunamadı/.test(g._mesaj || ''), '24b: kullanıcıya bildirilmedi: ' + g._mesaj);
+    console.log('✓ 24 ilgili arıza kaydı yoksa kayıt uydurmuyor, uyarıyor');
+}
+
+// 25) Dugme arayuzde
+{
+    assert(/onclick="loadAnkaraDof\(\)"/.test(src), '25a: düğme yok');
+    assert(/CNC 5-Neden İşle/.test(src), '25b: etiket');
+    console.log('✓ 25 "CNC 5-Neden İşle" düğmesi var');
 }
 
 console.log('\nTüm senaryolar geçti.');
