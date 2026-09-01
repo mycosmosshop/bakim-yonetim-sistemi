@@ -300,4 +300,19 @@ function ortam(db, izin = true) {
     console.log('✓ 17 bakım setleri zaten varsa tekrar eklenmiyor');
 }
 
+// 18) Arizalarda LOKASYON suzgeci
+{
+    const rf = src.slice(src.indexOf('function renderFailures'), src.indexOf('function renderFailures') + 4000);
+    assert(/id="fLocF"/.test(src), '18a: süzgeç kutusu yok');
+    assert(/Tüm Lokasyonlar/.test(src), '18b: varsayılan seçenek yok');
+    assert(/const lf=\(document\.getElementById\('fLocF'\)/.test(rf), '18c: değer okunmuyor');
+    assert(/!lf\|\|mLoc\(f\.machineId\)===lf/.test(rf), '18d: süzgeç uygulanmıyor');
+    // Secenekler makinelerden URETILMELI (sabit liste degil)
+    assert(/db\.machines\.map\(m=>\(m\.location\|\|''\)\.trim\(\)\)/.test(rf),
+        '18e: seçenekler sabit — yeni lokasyon eklenince gelmez');
+    assert(/el\.value=loklar\.includes\(secili\)\?secili:''/.test(rf),
+        '18f: yeniden çizimde kullanıcının seçimi kayboluyor');
+    console.log('✓ 18 arızalarda lokasyon süzgeci var, seçenekler makinelerden üretiliyor');
+}
+
 console.log('\nTüm senaryolar geçti.');

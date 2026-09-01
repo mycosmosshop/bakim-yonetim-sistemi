@@ -487,6 +487,9 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <option value="electrical">Elektrik</option><option value="hydraulic">Hidrolik</option>
         <option value="pneumatic">Pnömatik</option><option value="software">Yazılım</option><option value="other">Diğer</option>
       </select>
+      <select class="form-select form-select-sm" style="width:auto" id="fLocF" onchange="renderFailures()" title="Lokasyona göre süz">
+        <option value="">Tüm Lokasyonlar</option>
+      </select>
       <input type="date" class="form-control form-control-sm" style="width:145px" id="fDateFrom" onchange="renderFailures()" title="Başlangıç tarihi (başlangıç)">
       <span class="text-muted align-self-center" style="font-size:.8rem">—</span>
       <input type="date" class="form-control form-control-sm" style="width:145px" id="fDateTo" onchange="renderFailures()" title="Bitiş tarihi (başlangıç)">
@@ -3879,14 +3882,23 @@ function renderFailures(){
   const mf=document.getElementById('fMachF').value;
   const sf=document.getElementById('fStatF').value;
   const tf=document.getElementById('fTypeF').value;
+  const lf=(document.getElementById('fLocF')||{}).value||'';
   const df=document.getElementById('fDateFrom').value;
   const dt=document.getElementById('fDateTo').value;
+  // Lokasyon secenekleri makinelerden uretilir; kullanicinin secimi korunur
+  { const el=document.getElementById('fLocF');
+    if(el){ const secili=el.value;
+      const loklar=Array.from(new Set(db.machines.map(m=>(m.location||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'tr'));
+      el.innerHTML='<option value="">Tüm Lokasyonlar</option>'+loklar.map(l=>`<option value="${l}">${l}</option>`).join('');
+      el.value=loklar.includes(secili)?secili:'';
+    } }
   const list=db.failures.filter(f=>{
     const d=f.startTime?f.startTime.slice(0,10):'';
     const _l=locMids();
     return (!_l||_l.has(f.machineId))
       &&(!srch||mName(f.machineId).toLowerCase().includes(srch)||(f.desc||'').toLowerCase().includes(srch))
       &&(!mf||f.machineId===mf)&&(!sf||f.status===sf)&&(!tf||f.failureType===tf)
+      &&(!lf||mLoc(f.machineId)===lf)
       &&(!df||d>=df)&&(!dt||d<=dt);
   }).sort((a,b)=>new Date(b.startTime)-new Date(a.startTime));
 
