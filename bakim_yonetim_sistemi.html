@@ -2458,10 +2458,24 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <label style="font-size:.8rem;color:var(--muted);white-space:nowrap">Yıl:</label>
           <select id="kpiModalYear" class="form-select form-select-sm" style="max-width:100px" onchange="_kpiModalYear=this.value;_renderKpiRows()"></select>
           <label style="font-size:.8rem;color:var(--muted);white-space:nowrap">Lokasyon:</label>
-          <select id="kpiModalLoc" class="form-select form-select-sm" style="max-width:160px" onchange="_kpiModalLoc=this.value;_renderKpiRows()">
+          <select id="kpiModalLoc" class="form-select form-select-sm" style="max-width:160px" onchange="_kpiModalLoc=this.value;_vardiyaFormDoldur();_renderKpiRows()">
             <option value="">Global (Tümü)</option>
           </select>
           <span style="font-size:.75rem;color:var(--muted);margin-left:.25rem">— Her lokasyon için ayrı hedef tanımlayabilirsiniz.</span>
+        </div>
+        <!-- Vardiya (çalışma takvimi) — MTBF ve Kullanılabilirliğin penceresi -->
+        <div class="card-dark p-2 mb-3" style="border:1px solid var(--border)">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span style="font-size:.8rem;color:var(--text);white-space:nowrap"><i class="bi bi-clock-history me-1"></i>Çalışma takvimi:</span>
+            <label style="font-size:.75rem;color:var(--muted)">Başlangıç</label>
+            <input type="time" id="vardiyaBas" class="form-control form-control-sm" style="width:110px" onchange="_vardiyaFormKaydet()">
+            <label style="font-size:.75rem;color:var(--muted)">Saat/gün</label>
+            <input type="number" id="vardiyaSaat" class="form-control form-control-sm" style="width:85px" min="1" max="24" step="0.5" onchange="_vardiyaFormKaydet()">
+            <label style="font-size:.75rem;color:var(--muted)">Gün/hafta</label>
+            <input type="number" id="vardiyaGun" class="form-control form-control-sm" style="width:85px" min="1" max="7" step="1" onchange="_vardiyaFormKaydet()">
+            <button class="btn btn-sm btn-outline-secondary" onclick="_vardiyaSifirla()" title="Bu lokasyonun ayarını kaldır (global ayara / 7-24'e döner)">Sıfırla</button>
+          </div>
+          <div id="vardiyaBilgi" style="font-size:.75rem;color:var(--muted);margin-top:.4rem"></div>
         </div>
         <!-- Header row -->
         <div class="kpi-row kpi-row-hdr" style="border-bottom:2px solid var(--border)">
@@ -2890,6 +2904,7 @@ function load(){
   const ks = localStorage.getItem(STORAGE_KPI_KEY);
   if(ks){ try{ kpiConfig = JSON.parse(ks); _migrateKpiConfig(); }catch(e){ initKpiConfig(); } }
   else { initKpiConfig(); }
+  loadVardiya();
 }
 
 function _migrateKpiConfig(){
@@ -3052,6 +3067,80 @@ function downtimeH(f){
   return Math.max(0,(end - new Date(f.startTime))/3600000);
 }
 
+// ══════════════════════════════════════════
+//  VARDİYA (çalışma takvimi)
+// ══════════════════════════════════════════
+// MTBF ve Kullanılabilirlik "makine ne kadar süre ÇALIŞABİLİR durumdaydı"
+// sorusunu ölçer. Önce 7/24 takvim saati kullanılıyordu; Ankara tek
+// vardiya çalıştığı için MTBF ~3 kat yüksek çıkıyordu.
+//
+// Ayar YAPILMAZSA hiçbir şey değişmez (24 sa/gün, 7 gün/hafta → çarpan 1,
+// duruş duvar saati). Geçmiş rakamlar kendiliğinden kaymasın diye.
+const STORAGE_VARDIYA_KEY = 'cmms_pro_vardiya_v1';
+let vardiyaAyar = {};
+function loadVardiya(){
+  try{ vardiyaAyar = JSON.parse(localStorage.getItem(STORAGE_VARDIYA_KEY)||'{}') || {}; }
+  catch(e){ vardiyaAyar = {}; }
+}
+function saveVardiya(){
+  try{ localStorage.setItem(STORAGE_VARDIYA_KEY, JSON.stringify(vardiyaAyar)); }catch(e){}
+  try{ scheduleCloudSync(); }catch(e){}
+}
+// Lokasyonun vardiyası: önce kendi ayarı, yoksa global (''), o da yoksa 7/24
+function _vardiya(loc){
+  const v = (vardiyaAyar && (vardiyaAyar[loc||''] || vardiyaAyar[''])) || {};
+  const sg = Number(v.saatGun), gh = Number(v.gunHafta);
+  const saatGun  = (sg>0 && sg<=24) ? sg : 24;
+  const gunHafta = (gh>0 && gh<=7)  ? gh : 7;
+  return {
+    saatGun: saatGun,
+    gunHafta: gunHafta,
+    bas: /^\d{1,2}:\d{2}$/.test(v.bas||'') ? v.bas : '08:00',
+    // "ayarlı" = 7/24'ten farklı. Değilse tüm hesap eski hâlinde kalır.
+    ayarli: (saatGun < 24 || gunHafta < 7)
+  };
+}
+// UZUN pencere (ay/yıl) için orantılı ölçek.
+// ponytail: gün gün saymak yerine oran kullanılıyor; 3 günlük bir pencere
+// hafta sonuna denk gelirse sapar. KPI pencereleri ay/yıl olduğu için
+// önemsiz. Gün gün gerekirse _vardiyaKesisimH zaten var.
+function _vardiyaCarpan(loc){
+  const v = _vardiya(loc);
+  return (v.saatGun/24) * (v.gunHafta/7);
+}
+// KISA aralık (bir arıza) için TAM kesişim: gün gün vardiya penceresiyle
+// çakışan süre. Cuma 16:00'da duran, Pazartesi 08:00'de açılan makine
+// 64 saat değil ~8 vardiya saati kaybettirir; orantılı ölçek burada
+// (64 × 0,238 = 15 sa) yanıltır.
+function _vardiyaKesisimH(bas, bit, loc){
+  const v = _vardiya(loc);
+  if(!v.ayarli) return Math.max(0,(bit-bas)/3600000);   // ayar yok → duvar saati
+  const p = String(v.bas).split(':');
+  const bh = Number(p[0])||0, bm = Number(p[1])||0;
+  let toplam = 0, guvenlik = 0;
+  const g = new Date(bas.getFullYear(), bas.getMonth(), bas.getDate());
+  while(g <= bit && guvenlik++ < 4000){
+    const hg = g.getDay();                                    // 0 = Pazar
+    // Haftanın ilk gunHafta günü çalışılır: Pzt(1)…; 7 ise Pazar da dahil
+    const calisma = (v.gunHafta >= 7) || (hg >= 1 && hg <= v.gunHafta);
+    if(calisma){
+      const vb = new Date(g.getFullYear(), g.getMonth(), g.getDate(), bh, bm);
+      const vs = new Date(vb.getTime() + v.saatGun*3600000);
+      const kb = Math.max(bas.getTime(), vb.getTime());
+      const ks = Math.min(bit.getTime(), vs.getTime());
+      if(ks > kb) toplam += (ks-kb)/3600000;
+    }
+    g.setDate(g.getDate()+1);
+  }
+  return toplam;
+}
+// Arızanın VARDİYA İÇİ duruşu (KPI için). downtimeH duvar saati olarak
+// kalır: raporlardaki "Duruş (h)" sütunu onu gösterir.
+function _durusVardiyaH(f, loc){
+  const bit = f.endTime ? new Date(f.endTime) : new Date();
+  return _vardiyaKesisimH(new Date(f.startTime), bit, loc);
+}
+
 // ── Dashboard tarih aralığı (yalnızca dashboard render'ı sırasında aktif) ──
 let _dashRange = { from:null, to:null };
 let _dashRangeActive = false;
@@ -3069,13 +3158,16 @@ function _dmFilter(p){
   if(_dashRange.to && t > _dashRange.to) return false;
   return true;
 }
-function _windowHours(installDate){
+function _windowHours(installDate, machine){
   let start = new Date(installDate), end = new Date();
   if(_dashRangeActive){
     if(_dashRange.from && _dashRange.from > start) start = _dashRange.from;
     if(_dashRange.to && _dashRange.to < end) end = _dashRange.to;
   }
-  return Math.max(1,(end - start)/3600000);
+  const takvim = Math.max(1,(end - start)/3600000);
+  // Makinenin lokasyonunda vardiya tanımlıysa pencere ÇALIŞMA saatine
+  // çevrilir. Tanımlı değilse çarpan 1 → eski davranış.
+  return Math.max(1, takvim * _vardiyaCarpan(machine && machine.location));
 }
 function dashFails(){ return locFails().filter(_dfFilter); }
 function dashMaint(){ return locMaint().filter(_dmFilter); }
@@ -3109,10 +3201,16 @@ function machMetrics(mid){
   const machine = db.machines.find(m=>m.id===mid);
   const allF = db.failures.filter(f=>f.machineId===mid && _dfFilter(f));
   const closedF = allF.filter(f=>f.status==='closed');
-  const totalDown = allF.reduce((s,f)=>s+downtimeH(f),0);
+  const _loc = machine && machine.location;
+  // İKİ AYRI DURUŞ, bilerek:
+  //   totalDown  — duvar saati, "makine kaç saat durdu" (gösterim/rapor)
+  //   totalDownV — vardiya içi, KPI paydasıyla aynı birim (hesap)
+  // Vardiya ayarlı değilse ikisi de aynıdır.
+  const totalDown  = allF.reduce((s,f)=>s+downtimeH(f),0);
+  const totalDownV = allF.reduce((s,f)=>s+_durusVardiyaH(f,_loc),0);
   const installDate = _makineBaslangic(machine, mid);
-  const totalH = _windowHours(installDate);
-  const downForCalc = Math.min(totalDown, totalH);   // duruş pencereyi aşamaz (avail<0 / mtbf=0 garabetini önler)
+  const totalH = _windowHours(installDate, machine);
+  const downForCalc = Math.min(totalDownV, totalH);   // duruş pencereyi aşamaz (avail<0 / mtbf=0 garabetini önler)
   const operH = Math.max(0,totalH-downForCalc);
   // Pay ile payda ayni topluluktan olmali. Once durus TUM arizalardan,
   // sayi yalnizca KAPALI arizalardan geliyordu: bir ariza acik kalirsa
@@ -3120,7 +3218,7 @@ function machMetrics(mid){
   // Ariza SAYISI icin hepsi sayilir (acik olan da olmustur); MTTR icin
   // ise yalnizca kapananlar — suresi henuz belli olmayan onarim
   // ortalamayi bozmasin.
-  const closedDown = closedF.reduce((s,f)=>s+downtimeH(f),0);
+  const closedDown = closedF.reduce((s,f)=>s+_durusVardiyaH(f,_loc),0);
   const mtbf = allF.length>0 ? operH/allF.length : operH;
   const mttr = closedF.length>0 ? closedDown/closedF.length : 0;
   let avail = Math.max(0,Math.min(100,(totalH-downForCalc)/totalH*100));
@@ -8259,8 +8357,54 @@ function openKpiSettings(){
   });
   if(!_kpiModalLoc) locSel.value='';
 
+  _vardiyaFormDoldur();
   _renderKpiRows();
   new bootstrap.Modal(document.getElementById('modalKpi')).show();
+}
+
+// ── Vardiya formu (KPI Hedefleri modali icinde) ──
+function _vardiyaFormDoldur(){
+  const loc = _kpiModalLoc || '';
+  const kendi = vardiyaAyar[loc] || null;
+  const v = _vardiya(loc);
+  const el = id => document.getElementById(id);
+  if(!el('vardiyaBas')) return;
+  el('vardiyaBas').value  = v.bas;
+  el('vardiyaSaat').value = v.saatGun;
+  el('vardiyaGun').value  = v.gunHafta;
+  const kaynak = kendi ? 'bu lokasyonun kendi ayarı'
+               : (vardiyaAyar[''] && loc ? 'global ayardan devralındı' : 'varsayılan');
+  const haftaSa = +(v.saatGun * v.gunHafta).toFixed(1);
+  el('vardiyaBilgi').innerHTML = v.ayarli
+    ? `Haftada <strong>${haftaSa} saat</strong> — MTBF ve Kullanılabilirlik bu pencereyle hesaplanır (${kaynak}). `
+      + `Arıza duruşu da vardiya içine denk gelen kısmıyla sayılır; raporlardaki “Duruş (h)” duvar saati olarak kalır.`
+    : `<span style="color:#ffa726">Vardiya tanımlı değil (7/24 = haftada 168 saat).</span> `
+      + `MTBF ve Kullanılabilirlik takvim saatiyle hesaplanır; tek vardiya çalışan bir tesiste MTBF olduğundan ~3 kat yüksek çıkar.`;
+}
+
+function _vardiyaFormKaydet(){
+  const loc = _kpiModalLoc || '';
+  const sa = parseFloat(document.getElementById('vardiyaSaat').value);
+  const gn = parseFloat(document.getElementById('vardiyaGun').value);
+  const bs = document.getElementById('vardiyaBas').value || '08:00';
+  if(!(sa>0 && sa<=24) || !(gn>0 && gn<=7)){
+    try{ toast('Saat/gün 1–24, gün/hafta 1–7 aralığında olmalı','warning'); }catch(e){}
+    _vardiyaFormDoldur(); return;
+  }
+  vardiyaAyar[loc] = { bas:bs, saatGun:sa, gunHafta:gn };
+  saveVardiya();
+  _vardiyaFormDoldur(); _renderKpiRows();
+  try{ renderDashboard(); }catch(e){}
+  try{ if(typeof renderAnalytics==='function') renderAnalytics(); }catch(e){}
+}
+
+function _vardiyaSifirla(){
+  const loc = _kpiModalLoc || '';
+  delete vardiyaAyar[loc];
+  saveVardiya();
+  _vardiyaFormDoldur(); _renderKpiRows();
+  try{ renderDashboard(); }catch(e){}
+  try{ if(typeof renderAnalytics==='function') renderAnalytics(); }catch(e){}
 }
 
 function _renderKpiRows(){
@@ -12251,7 +12395,7 @@ async function cloudPush(){
   if(!sb || !currentUser) return;
   setSyncStatus('pending');
   try{
-    const payload = { db, kpiConfig };
+    const payload = { db, kpiConfig, vardiyaAyar };
     const { error } = await sb.from('shared_data').upsert(
       { id: 1, data: payload, updated_at: new Date().toISOString(), updated_by: currentUser.id },
       { onConflict: 'id' }
@@ -12324,6 +12468,12 @@ function applyRemoteData(d){
   if(document.querySelector('.modal.show')){ _pendingRemote = d; return; }
   db = d.db;
   if(d.kpiConfig) kpiConfig = d.kpiConfig;
+  // Vardiya da senkronda: yoksa iki bilgisayar aynı makine için farklı
+  // MTBF gösterir.
+  if(d.vardiyaAyar){
+    vardiyaAyar = d.vardiyaAyar;
+    try{ localStorage.setItem(STORAGE_VARDIYA_KEY, JSON.stringify(vardiyaAyar)); }catch(e){}
+  }
   ensureDbShape();
   _lastSnapshot = _snapshot(); // uzak değişiklik bizim değil → loglama
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
