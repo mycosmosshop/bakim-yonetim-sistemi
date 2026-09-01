@@ -699,8 +699,9 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <div class="d-flex gap-2">
       <button class="btn btn-outline-secondary btn-sm" onclick="loadDefaultTaskSets()"><i class="bi bi-download me-1"></i>Hazır Şablonları Yükle</button>
       <button class="btn btn-outline-info btn-sm" onclick="loadSanifoamTaskSets()"><i class="bi bi-buildings me-1"></i>Sanifoam Makine Setleri</button>
-      <!-- Geçici Çerkezköy veri-yükleme butonları kaldırıldı. Fonksiyonlar kodda duruyor; gerekirse buton tekrar eklenebilir:
-           loadCerkezkoyPlan() · loadCerkezkoyAriza() · loadCerkezkoyGercekAriza() -->
+      <!-- Çerkezköy yükleyicileri kodda duruyor: loadCerkezkoyPlan() · loadCerkezkoyAriza() · loadCerkezkoyGercekAriza() -->
+      <button class="btn btn-outline-primary btn-sm" onclick="loadAnkaraPlan()" title="PL15 2026 yıllık bakım planı: 9 makine + planlı bakımlar"><i class="bi bi-calendar-check me-1"></i>Ankara Planı Yükle</button>
+      <button class="btn btn-outline-danger btn-sm" onclick="loadAnkaraAriza()" title="2026 Bakım Kayıtları: Ocak–Haziran arızaları"><i class="bi bi-exclamation-triangle me-1"></i>Ankara Arızalarını Yükle</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -8257,6 +8258,388 @@ const CERKEZKOY_MOLD_PARTS = {
   'SANIFOAM2023052363':{parts:'Kalıp bıçağı değişti', cost:850, notes:_KAL_BICAK},
   'SANIFOAM2024031874':{parts:'Kalıp bıçağı + sünger yatak değişti', cost:1100, notes:_KAL_BICAK}
 };
+/* ══════════════════════════════════════════════════════════════════
+   ANKARA — makine listesi, 2026 yillik bakim plani ve gercek ariza/
+   bakim kayitlari.  Kaynak (salt okunur):
+     PL15 Yillik Bakim Plani_2026.xlsx  -> makineler + planli aylar
+     KPI/2026 Bakim Kayitlari.xlsx      -> 21 ariza/bakim kaydi
+   Cerkezkoy yukleyicileriyle ayni desen: kod bazli dedup, ayni kayit
+   iki kez eklenmez, LeanSys'e dokunulmaz.
+   ══════════════════════════════════════════════════════════════════ */
+const ANKARA_MACHINES = [
+ {
+  "code": "CMS",
+  "name": "TECHNOCUT SU JETI",
+  "dept": "KESİM",
+  "sk": "910.5.163",
+  "plan": "2026-04-15",
+  "comp": "2026-04-15"
+ },
+ {
+  "code": "FRT",
+  "name": "FRT FORKLIFT",
+  "dept": "DEPO",
+  "sk": "910.5.019",
+  "plan": "SAATLİK BAKIM YAPILIR",
+  "comp": ""
+ },
+ {
+  "code": "KOMP1",
+  "name": "KOMP 1 HAVA KOMPRESÖRÜ 1",
+  "dept": "ATELYE",
+  "sk": "910.5.812",
+  "plan": "SAATLİK BAKIM YAPILIR",
+  "comp": ""
+ },
+ {
+  "code": "VRGL",
+  "name": "VARGEL(ANK)",
+  "dept": "KESİM",
+  "sk": "910.5.703",
+  "plan": "2026-09-08",
+  "comp": ""
+ },
+ {
+  "code": "BLS",
+  "name": "BSL 204 YATAY KESİM",
+  "dept": "KESİM",
+  "sk": "910.5.003",
+  "plan": "2026-05-21",
+  "comp": "2026-05-21"
+ },
+ {
+  "code": "CNC",
+  "name": "CNC DIKEY SABLE",
+  "dept": "KESİM",
+  "sk": "910.5.961",
+  "plan": "2026-07-17",
+  "comp": "2026-07-17"
+ },
+ {
+  "code": "ÇPRS",
+  "name": "ÇÖP PRESİ",
+  "dept": "PRES",
+  "sk": "910.5.704",
+  "plan": "2026-11-11",
+  "comp": ""
+ },
+ {
+  "code": "LMN4",
+  "name": "TUNEL LAMINASYON MAKINESİ",
+  "dept": "LAMİNASYON",
+  "sk": "910.5.701",
+  "plan": "2026-06-22",
+  "comp": "2026-06-22"
+ },
+ {
+  "code": "ISM1",
+  "name": "ISM1 DIKEY MAK ANK",
+  "dept": "Üretim",
+  "sk": "910.5.706",
+  "plan": "2026-03-15",
+  "comp": ""
+ }
+];
+const ANKARA_ARIZA = [
+ {
+  "code": "CMS",
+  "desc": "SU KACAGI",
+  "start": "2026-01-02T09:10",
+  "end": "2026-01-02T12:10",
+  "cost": 200,
+  "sure": 3.0,
+  "kaynakTip": "TESİSAT ARIZA",
+  "type": "hydraulic"
+ },
+ {
+  "code": "VRGL",
+  "desc": "SIGORTA VE ROLE DEGISIMI",
+  "start": "2026-01-07T08:15",
+  "end": "2026-01-07T10:15",
+  "cost": 800,
+  "sure": 2.0,
+  "kaynakTip": "MEKANİK ARIZA",
+  "type": "mechanical"
+ },
+ {
+  "code": "CMS",
+  "desc": "REKOR HORTUMUNUN PATLAMASI",
+  "start": "2026-01-20T09:30",
+  "end": "2026-01-20T10:30",
+  "cost": 150,
+  "sure": 1.0,
+  "kaynakTip": "TESİSAT ARIZA",
+  "type": "hydraulic"
+ },
+ {
+  "code": "FRT",
+  "desc": "MEKANİK AKSAMDA TAKILMA",
+  "start": "2026-01-22T12:45",
+  "end": "2026-01-22T13:30",
+  "cost": 250,
+  "sure": 0.75,
+  "kaynakTip": "GENEL İŞ",
+  "type": "other"
+ },
+ {
+  "code": "CMS",
+  "desc": "SU KACAGI",
+  "start": "2026-02-04T10:00",
+  "end": "2026-02-04T12:00",
+  "cost": 200,
+  "sure": 2.0,
+  "kaynakTip": "TESİSAT ARIZA",
+  "type": "hydraulic"
+ },
+ {
+  "code": "BLS",
+  "desc": "BIÇAGIN KIRILMASI",
+  "start": "2026-02-09T13:15",
+  "end": "2026-02-09T14:30",
+  "cost": 100,
+  "sure": 1.25,
+  "kaynakTip": "GENEL İŞ",
+  "type": "other"
+ },
+ {
+  "code": "CMS",
+  "desc": "REKOR HORTUMUNUN PATLAMASI",
+  "start": "2026-02-19T10:20",
+  "end": "2026-02-19T11:20",
+  "cost": 200,
+  "sure": 1.0,
+  "kaynakTip": "TESİSAT ARIZA",
+  "type": "hydraulic"
+ },
+ {
+  "code": "ISM1",
+  "desc": "KASNAK TAMIRI",
+  "start": "2026-03-11T13:15",
+  "end": "2026-03-11T16:15",
+  "cost": 0,
+  "sure": 3.0,
+  "kaynakTip": "MEKANİK ARIZA",
+  "type": "mechanical"
+ },
+ {
+  "code": "CMS",
+  "desc": "ORIFIZ DEGISIMI",
+  "start": "2026-03-18T14:00",
+  "end": "2026-03-18T14:30",
+  "cost": 200,
+  "sure": 0.5,
+  "kaynakTip": "GENEL İŞ",
+  "type": "other"
+ },
+ {
+  "code": "BLS",
+  "desc": "PLAKALARDA ÖLÇÜ DALGALANMASI GÖRÜLMESİ",
+  "start": "2026-04-02T08:30",
+  "end": "2026-04-02T09:30",
+  "cost": 0,
+  "sure": 1.0,
+  "kaynakTip": "AYAR DEĞİŞİKLİĞİ",
+  "type": "other"
+ },
+ {
+  "code": "BLS",
+  "desc": "KIN DEGISIMI",
+  "start": "2026-04-14T14:00",
+  "end": "2026-04-14T15:00",
+  "cost": 90,
+  "sure": 1.0,
+  "kaynakTip": "MEKANİK ARIZA",
+  "type": "mechanical"
+ },
+ {
+  "code": "CMS",
+  "desc": "UST REKOR HORTUMUNUN DELINMESI",
+  "start": "2026-04-30T16:00",
+  "end": "2026-04-30T17:00",
+  "cost": 100,
+  "sure": 1.0,
+  "kaynakTip": "TESİSAT ARIZA",
+  "type": "hydraulic"
+ },
+ {
+  "code": "CMS",
+  "desc": "ORIFIZ DEGISIMI",
+  "start": "2026-05-08T17:10",
+  "end": "2026-05-08T17:50",
+  "cost": 200,
+  "sure": 0.67,
+  "kaynakTip": "GENEL İŞ",
+  "type": "other"
+ },
+ {
+  "code": "LMN4",
+  "desc": "TEFLON BANT DEGISIMI",
+  "start": "2026-05-19T08:30",
+  "end": "2026-05-19T10:45",
+  "cost": 175,
+  "sure": 2.25,
+  "kaynakTip": "GENEL İŞ",
+  "type": "other"
+ },
+ {
+  "code": "CMS",
+  "desc": "SU KACAGI",
+  "start": "2026-05-25T08:15",
+  "end": "2026-05-25T10:45",
+  "cost": 0,
+  "sure": 2.5,
+  "kaynakTip": "TESİSAT ARIZA",
+  "type": "hydraulic"
+ },
+ {
+  "code": "BLS",
+  "desc": "KASNAK RULMAN BOSLUGU",
+  "start": "2026-06-02T15:00",
+  "end": "2026-06-02T19:00",
+  "cost": 0,
+  "sure": 4.0,
+  "kaynakTip": "MEKANİK ARIZA",
+  "type": "mechanical"
+ },
+ {
+  "code": "CMS",
+  "desc": "REKOR HORTUMUNUN PATLAMASI",
+  "start": "2026-06-08T10:20",
+  "end": "2026-06-08T11:05",
+  "cost": 200,
+  "sure": 0.75,
+  "kaynakTip": "TESİSAT ARIZA",
+  "type": "hydraulic"
+ },
+ {
+  "code": "LMN4",
+  "desc": "YAY TAMIRI",
+  "start": "2026-06-18T10:00",
+  "end": "2026-06-18T10:25",
+  "cost": 0,
+  "sure": 0.42,
+  "kaynakTip": "MEKANİK ARIZA",
+  "type": "mechanical"
+ },
+ {
+  "code": "BLS",
+  "desc": "BIÇAK DEGISIMI",
+  "start": "2026-06-22T08:40",
+  "end": "2026-06-22T08:55",
+  "cost": 100,
+  "sure": 0.25,
+  "kaynakTip": "GENEL İŞ",
+  "type": "other"
+ }
+];
+const ANKARA_PBAKIM = [
+ {
+  "code": "CMS",
+  "desc": "TETIK CONTALARININ VE IGNENIN DEGISIMI",
+  "start": "2026-01-23T17:00",
+  "end": "2026-01-23T17:45",
+  "cost": 250,
+  "sure": 0.75,
+  "kaynakTip": "PERİYODİK BAKIM REVİZYON"
+ },
+ {
+  "code": "CMS",
+  "desc": "TETIK CONTALARININ VE IGNENIN DEGISIMI",
+  "start": "2026-06-29T09:00",
+  "end": "2026-06-29T10:45",
+  "cost": 250,
+  "sure": 1.75,
+  "kaynakTip": "PERİYODİK BAKIM REVİZYON"
+ }
+];
+
+function _ankMacId(){
+  const h={};
+  ANKARA_MACHINES.forEach(m=>{
+    const ex=db.machines.find(x=>String(x.code||'').trim().toUpperCase()===m.code.toUpperCase()
+              || String(x.notes||'').indexOf(m.sk)>=0);
+    if(ex) h[m.code]=ex.id;
+  });
+  return h;
+}
+
+function loadAnkaraPlan(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  if(!confirm('ANKARA 2026 Yıllık Bakım Planı yüklenecek:\n\n'
+    +'• 9 makine (PL15 + kayıtlardan gelen ISM1)\n'
+    +'• Her makineye yılda bir planlı bakım, PL15\'teki aylar korunur\n'
+    +'• Tarihi geçmiş ve yapılmış olanlar KAPATILIR\n\n'
+    +'Aynı kodlu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
+
+  db.machines=db.machines||[]; db.maintenance=db.maintenance||[];
+  let nM=0;
+  ANKARA_MACHINES.forEach(m=>{
+    let ex=db.machines.find(x=>String(x.code||'').trim().toUpperCase()===m.code.toUpperCase()
+            || String(x.notes||'').indexOf(m.sk)>=0);
+    if(!ex){ ex={id:'ank_'+m.code.replace(/[^A-Za-z0-9]/g,'')}; db.machines.push(ex); nM++; }
+    Object.assign(ex,{ name:m.name, code:m.code, dept:m.dept, location:'Ankara',
+      criticality:ex.criticality||'high', status:ex.status||'running',
+      notes:'Sanifoam Kodu: '+m.sk });
+  });
+
+  const macId=_ankMacId();
+  let nP=0, nK=0;
+  ANKARA_MACHINES.forEach(m=>{
+    // "SAATLİK BAKIM YAPILIR" bir tarih degil; plana kayit acilmaz
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(m.plan)) return;
+    const id='ank_p_'+m.code.replace(/[^A-Za-z0-9]/g,'')+'_2026';
+    let ex=db.maintenance.find(x=>x.id===id);
+    if(!ex){ ex={id:id}; db.maintenance.push(ex); nP++; }
+    if(m.comp) nK++;
+    Object.assign(ex,{ machineId:macId[m.code]||'', type:'preventive', basis:'date',
+      sched:m.plan, comp:m.comp||null, status:m.comp?'completed':'scheduled',
+      period:12, periodUnit:'month', desc:'PL15 yıllık planlı bakım — Ankara',
+      assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
+      tech:'', cost:0, estDur:0, actDur:0, checklist:[], external:false, wo:'', partsUsed:'' });
+  });
+
+  // Periyodik bakim revizyonlari (kayitlardan): tamamlanmis bakim olarak
+  ANKARA_PBAKIM.forEach((b,i)=>{
+    const mid=macId[b.code]; if(!mid) return;
+    const id='ank_pr_'+i;
+    let ex=db.maintenance.find(x=>x.id===id);
+    if(!ex){ ex={id:id}; db.maintenance.push(ex); nP++; }
+    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date',
+      sched:b.start.slice(0,10), comp:b.end.slice(0,10), status:'completed',
+      period:0, periodUnit:'month', desc:b.desc, assetType:'makine',
+      tech:'', cost:b.cost||0, estDur:b.sure||0, actDur:b.sure||0,
+      checklist:[], external:false, wo:'', partsUsed:'' });
+  });
+
+  save(); updateSelects(); nav('maintenance');
+  toast('Ankara: '+nM+' yeni makine, '+nP+' bakım kaydı ('+nK+' kapatıldı)');
+}
+
+function loadAnkaraAriza(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  if(!confirm('ANKARA 2026 arıza kayıtları yüklenecek:\n\n'
+    +'• '+ANKARA_ARIZA.length+' kayıt (Ocak–Haziran 2026)\n'
+    +'• Tarih, süre, tutar ve açıklamalar kaynak dosyadan\n\n'
+    +'Aynı kayıt iki kez eklenmez. Devam?')) return;
+
+  db.failures=db.failures||[];
+  const macId=_ankMacId();
+  let n=0, atlanan=0;
+  ANKARA_ARIZA.forEach((f,i)=>{
+    const mid=macId[f.code];
+    if(!mid){ atlanan++; return; }            // makinesi yoksa uydurma kayit acma
+    const id='ank_a_'+i;
+    let ex=db.failures.find(x=>x.id===id);
+    if(!ex){ ex={id:id}; db.failures.push(ex); n++; }
+    Object.assign(ex,{ machineId:mid, failureType:f.type,
+      startTime:f.start, endTime:f.end, desc:f.desc, rootCause:f.kaynakTip,
+      detect:'operator', recurring:false, qtyDefect:0, qtyScrap:0, lossType:'downtime',
+      tech:'', cost:f.cost||0, resolution:f.desc, status:'closed', wo:'', rca:null });
+  });
+  save(); updateSelects(); nav('failures');
+  toast('Ankara: '+n+' arıza yüklendi'+(atlanan?(' · '+atlanan+' kayıt makinesiz atlandı'):''));
+}
+
 function loadCerkezkoyPlan(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
   if(!confirm('Çerkezköy 2025-2026 Yıllık Bakım Planı yüklenecek:\n\n• 12 makine + 11 kalıp (fikstür)\n• 2025 (tamamlandı) + 2026 (planlandı) bakımları, uygun setlerle\n\nAynı kod/no\'lu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
