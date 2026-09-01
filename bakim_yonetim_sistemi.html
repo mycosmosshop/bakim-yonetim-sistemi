@@ -8697,13 +8697,16 @@ const ANKARA_MACHINES = [
   "comp": "",
   "set": "",
   "saat": {
-   "ara": 250,
    "buyuk": 1000,
+   "ara": 250,
+   "gunluk": 4,
+   "ay": 12,
    "yapildi": "2026-03-16",
-   "isim": "Büyük bakım — motor yağı ve filtreler, hidrolik yağ, fren ve direksiyon kontrolü, zincir/çatal aşınma ölçümü",
+   "sonraki": "2027-03-16",
    "sure": 4.0,
    "maliyet": 3200,
-   "temel": "Forklift için yaygın üretici aralığı: ara servis 250 sa, büyük bakım 1000 sa. PL15’te sayı yok — el kitabına göre düzeltin."
+   "isim": "Büyük bakım — motor yağı ve filtreler, hidrolik yağ, fren ve direksiyon kontrolü, zincir/çatal aşınma ölçümü",
+   "temel": "PL15: \"SAATLİK BAKIM YAPILIR\" (sayı vermiyor). Forklift için yaygın büyük bakım aralığı 1000 saat (ara servis 250 sa). Ankara tek vardiya: forklift vardiyanın ~yarısı çalışır, ~4 sa/gün × ~250 iş günü ≈ 1000 sa/yıl → 12 ayda bir. Gerçek kullanım farklıysa periyodu değiştirin."
   }
  },
  {
@@ -8716,13 +8719,16 @@ const ANKARA_MACHINES = [
   "comp": "",
   "set": "",
   "saat": {
-   "ara": 2000,
    "buyuk": 4000,
+   "ara": 2000,
+   "gunluk": 8,
+   "ay": 24,
    "yapildi": "2026-04-20",
-   "isim": "Büyük bakım — kompresör yağı, yağ ayırıcı, yağ filtresi, hava filtresi değişimi, kayış ve emniyet ventili kontrolü",
+   "sonraki": "2028-04-20",
    "sure": 3.5,
    "maliyet": 5400,
-   "temel": "Vidalı hava kompresörü için yaygın aralık: ara servis 2000 sa, büyük bakım 4000 sa. Pistonlu ise çok daha kısadır — PL15’te sayı yok, el kitabına göre düzeltin."
+   "isim": "Büyük bakım — kompresör yağı, yağ ayırıcı, yağ filtresi, hava filtresi değişimi, kayış ve emniyet ventili kontrolü",
+   "temel": "PL15: \"SAATLİK BAKIM YAPILIR\" (sayı vermiyor). Vidalı kompresör için yaygın büyük bakım aralığı 4000 saat (ara servis 2000 sa). Ankara tek vardiya: kompresör vardiya boyunca çalışır, ~8 sa/gün × ~250 iş günü ≈ 2000 sa/yıl → 24 ayda bir. Pistonluysa aralık çok daha kısadır."
   }
  },
  {
@@ -9135,11 +9141,11 @@ function loadAnkaraPlan(){
     +'• PL15\'teki 8 makine + arıza kayıtlarından gelen ISM1 DIKEY MAK ANK\n'
     +'• ISM1 Mart 2026 sonunda Çerkezköy\'e devredildi: Ankara\'da PASİF olur,\n'
     +'  planlı bakımı açılmaz (PL15\'te zaten satırı yok), 11.03.2026 arızası kalır.\n'
-    +'• FRT FORKLIFT ve KOMP1: PL15\'te "SAATLİK BAKIM YAPILIR" yazıyor, sayı yok.\n'
-    +'  Makine türü için ÖNERİLEN aralık yazılır (forklift 1000 sa, kompresör\n'
-    +'  4000 sa) ve Mart/Nisan 2026 büyük bakımı tamamlanmış olarak eklenir.\n'
-    +'  Bu değerler PL15\'ten GELMEZ — el kitabına göre düzeltilebilir.\n'
-    +'  Elle girdiğiniz aralık varsa korunur.\n'
+    +'• FRT FORKLIFT ve KOMP1: PL15 "SAATLİK BAKIM YAPILIR" diyor, sayı vermiyor.\n'
+    +'  Saat aralığı, Ankara tek vardiya kabulüyle TARİHE çevrildi:\n'
+    +'    FRT   1000 sa ≈ 4 sa/gün → 12 ayda bir (son: 16.03.2026)\n'
+    +'    KOMP1 4000 sa ≈ 8 sa/gün → 24 ayda bir (son: 20.04.2026)\n'
+    +'  Hesabın dayanağı kaydın notunda yazılı; periyodu değiştirebilirsiniz.\n'
     +'• Tarihi geçmiş ve yapılmış olanlar KAPATILIR\n\n'
     +'Aynı kodlu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
 
@@ -9166,7 +9172,7 @@ function loadAnkaraPlan(){
   ANKARA_MACHINES.forEach(m=>{
     const k=m.code.replace(/[^A-Za-z0-9]/g,'');
     if(/^\d{4}-\d{2}-\d{2}$/.test(m.plan)) gecerli.add('ank_p_'+k+'_2026');
-    else if(m.saatlik){ gecerli.add('ank_ph_'+k); if(m.saat) gecerli.add('ank_pb_'+k); }
+    else if(m.saatlik && m.saat) gecerli.add('ank_pb_'+k);   // ank_ph_* artik uretilmiyor
   });
   // PL15'te hicbir bakim satiri olmayan makine (ISM1: Mart sonunda devredildi)
   const kayitsiz=new Set(ANKARA_MACHINES
@@ -9206,37 +9212,27 @@ function loadAnkaraPlan(){
   // PL15'te "SAATLİK BAKIM YAPILIR" yazan makineler: planda VARLAR, sadece
   // tarihli degiller. Saat araligi planda yazmadigi icin 0 birakilir —
   // uydurulmaz; nextHours=0 iken _autoMaintStatus 'gecikmis' yazmaz.
-  ANKARA_MACHINES.filter(m=>m.saatlik).forEach(m=>{
+  // PL15'te "SAATLİK BAKIM YAPILIR" yazan makineler. Saat sayaci elle bile
+  // girilmediginden saat bazli sayim ise yaramiyordu ("1000 sa kaldi"
+  // aslinda 1000-0 idi). Ankara tek vardiya calistigi icin saat araligi
+  // TARIHE cevrildi; hesabin dayanagi kaydin notunda duruyor.
+  // Diger makineler gibi makine BASINA TEK kayit.
+  ANKARA_MACHINES.filter(m=>m.saatlik && m.saat).forEach(m=>{
     const mid=macId[m.code]; if(!mid) return;
-    const id='ank_ph_'+m.code.replace(/[^A-Za-z0-9]/g,'');
+    const sa=m.saat;
+    const id='ank_pb_'+m.code.replace(/[^A-Za-z0-9]/g,'');
     let ex=db.maintenance.find(x=>x.id===id);
     if(!ex){ ex={id:id}; db.maintenance.push(ex); nP++; }
-    const sa=m.saat||null;
-    // Elle girilen aralik korunur; yoksa makine turu icin onerilen deger.
-    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'hour',
-      sched:null, comp:null, status:'scheduled',
-      intervalHours:ex.intervalHours||(sa?sa.buyuk:0),
-      nextHours:ex.nextHours||(sa?sa.buyuk:0),
-      period:0, periodUnit:'month',
-      desc:sa ? ('Büyük bakım — '+sa.buyuk+' saatte bir (ara servis '+sa.ara+' sa)')
-              : 'PL15: SAATLİK BAKIM YAPILIR — saat aralığı planda belirtilmemiş',
-      notes:sa?sa.temel:'',
+    nK++;
+    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date',
+      sched:sa.yapildi, comp:sa.yapildi, status:'completed',
+      period:sa.ay, periodUnit:'month',
+      desc:sa.isim+' — '+sa.buyuk+' sa / '+sa.ay+' ayda bir (sonraki: '
+        +sa.sonraki.slice(8,10)+'.'+sa.sonraki.slice(5,7)+'.'+sa.sonraki.slice(0,4)+')',
+      notes:sa.temel,
       assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
-      tech:ANKARA_TEKNISYEN, cost:0, estDur:sa?sa.sure:0, actDur:0, checklist:[],
-      external:false, wo:'', partsUsed:'' });
-
-    // Mart/Nisan 2026'da yapilmis buyuk bakim
-    if(sa){
-      const bid='ank_pb_'+m.code.replace(/[^A-Za-z0-9]/g,'');
-      let bx=db.maintenance.find(x=>x.id===bid);
-      if(!bx){ bx={id:bid}; db.maintenance.push(bx); nP++; }
-      Object.assign(bx,{ machineId:mid, type:'preventive', basis:'date',
-        sched:sa.yapildi, comp:sa.yapildi, status:'completed',
-        period:0, periodUnit:'month', desc:sa.isim, notes:sa.temel,
-        assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
-        tech:ANKARA_TEKNISYEN, cost:sa.maliyet, estDur:sa.sure, actDur:sa.sure,
-        checklist:[], external:false, wo:'', partsUsed:'' });
-    }
+      tech:ANKARA_TEKNISYEN, cost:sa.maliyet, estDur:sa.sure, actDur:sa.sure,
+      checklist:[], external:false, wo:'', partsUsed:'' });
   });
 
   // Kayitlardan gelen yapilmis isler (ANKARA_PBAKIM) buraya YAZILMAZ.
