@@ -1766,6 +1766,13 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <button class="btn btn-success w-100 mb-3" onclick="d8Gonder()">
           <i class="bi bi-box-arrow-up-right me-1"></i>ERP 8D Raporuna Gönder — alanlar otomatik dolar
         </button>
+        <div class="d-flex justify-content-between align-items-center mb-3" style="gap:.5rem">
+          <span style="font-size:.75rem;color:var(--muted)" id="d8DuzNot"></span>
+          <button class="btn btn-sm btn-outline-light" onclick="d8YenidenUret()"
+            title="Elle yaptığınız düzeltmeleri unut, kayıttan yeniden üret">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Yeniden üret
+          </button>
+        </div>
         <div style="font-size:.75rem;color:var(--muted);text-align:center;margin-bottom:.75rem">
           Açılmazsa aşağıdaki alanları elle kopyalayabilirsiniz.
         </div>
@@ -3303,6 +3310,27 @@ function _d8Gecmis(f){
 // key: duzenlenen metnin gidecegi yer. Pencere ile gonderilen veri
 // arasindaki tek bag bu — ayrilirlarsa ekranda gorunen ile gonderilen
 // sessizce farklilasir.
+// Elle duzeltilen alanlar kayit basina hatirlanir; yoksa her aktarimda
+// makine kaydindan yeniden uretilip duzeltmeyi eziyordu.
+const D8_DUZ_KEY = 'cmms_8d_duzenleme';
+function _d8Duzenlemeler(){
+  try{ return JSON.parse(localStorage.getItem(D8_DUZ_KEY)||'{}'); }catch(e){ return {}; }
+}
+function _d8DuzenlemeYaz(kimlik, d){
+  if(!kimlik) return;
+  const h=_d8Duzenlemeler();
+  if(d && Object.keys(d).length) h[kimlik]=d; else delete h[kimlik];
+  try{ localStorage.setItem(D8_DUZ_KEY, JSON.stringify(h)); }catch(e){}
+}
+// Uretilen alanlarin uzerine hatirlanan duzenlemeleri koy
+function _d8Uygula(v){
+  const h=_d8Duzenlemeler()[v.kimlik];
+  if(!h) return v;
+  v.alanlar.forEach(a=>{ if(a.key && h[a.key]!==undefined) a.metin=h[a.key]; });
+  v.duzenliVar=true;
+  return v;
+}
+
 function _d8Alan(key, etiket, metin, bosMesaj){
   return { key:key, etiket:etiket, metin:String(metin||'').trim(), bos:bosMesaj||'' };
 }
@@ -3367,7 +3395,11 @@ function _d8Arizadan(f){
       partNumber: m.code||'',
       startDate: String(f.startTime||'').slice(0,10),
       currentDate: new Date().toISOString().slice(0,10),
-      detectionPoint: [m.location,m.dept].filter(x=>!!x).join(' / '),
+      // Yalnizca LOKASYON. Once lokasyon+bolum ('Ankara / KESİM') gidiyordu;
+      // ERP'de Tespit Yeri kontrollu bir liste ve bolum zaten D2 Hata
+      // yeri alaninda var. Ayrica her aktarimda yeniden uretildigi icin
+      // elle duzeltilen deger geri geliyordu.
+      detectionPoint: m.location||'',
       customer: m.location ? ('Sanifoam '+m.location+' — Üretim (iç)') : '',
       additionalInfo: 'Kaynak: CMMS bakım sistemi · Arıza kaydı '+f.id
         +(m.code?(' · Makine '+m.code):'')
@@ -3375,6 +3407,7 @@ function _d8Arizadan(f){
     }
   };
   return {
+    kimlik: 'ariza:'+f.id,
     baslik: mName(f.machineId)+' — '+(f.desc||'Arıza'),
     kokVar: !!(r.w1||r.w5),
     veri: veri,
@@ -3427,6 +3460,7 @@ function _d8Aksiyondan(a){
       }
   };
   return {
+    kimlik: 'aksiyon:'+a.id,
     baslik: a.title||'Aksiyon',
     kokVar: false,
     veri: veri,
@@ -3452,6 +3486,16 @@ function _d8Aksiyondan(a){
   };
 }
 
+function d8YenidenUret(){
+  const v=window._d8Veri; if(!v) return;
+  if(!confirm('Bu kayıt için elle yaptığınız düzeltmeler unutulacak ve\n'
+    +'alanlar kayıttan yeniden üretilecek. Devam?')) return;
+  _d8DuzenlemeYaz(v.kimlik, null);
+  if(String(v.kimlik||'').indexOf('ariza:')===0) aktar8DAriza(v.kimlik.slice(6));
+  else if(String(v.kimlik||'').indexOf('aksiyon:')===0) aktar8DAksiyon(v.kimlik.slice(8));
+  toast('Alanlar kayıttan yeniden üretildi','info');
+}
+
 function _d8Kopyala(i, btn){
   const el=document.getElementById('d8f_'+i);
   const t=el?String(el.value||'').trim():'';
@@ -3474,6 +3518,9 @@ function _d8Goster(v){
   // Alanlar DUZENLENEBILIR: gonderilen sey kutularin icidir. Bos alanin
   // aciklamasi placeholder'dir — metne donusmez, forma gitmez.
   const NL=String.fromCharCode(10);
+  const dn=document.getElementById('d8DuzNot');
+  if(dn) dn.textContent = v.duzenliVar
+    ? 'Bu kayıt için daha önce yaptığınız düzeltmeler uygulandı.' : '';
   document.getElementById('d8Alanlar').innerHTML =
     `<div style="font-weight:700;font-size:.9rem;margin-bottom:.6rem">${v.baslik}</div>`
     + v.alanlar.map((a,i)=>`<div class="d8-sat">
@@ -3550,6 +3597,16 @@ function d8Gonder(){
   const v=window._d8Veri;
   if(!v || !v.veri){ toast('Aktarılacak kayıt yok.','warning'); return; }
   const veri=_d8Topla();
+  // Uretilen degerden FARKLI olanlari hatirla: ayni kayit tekrar
+  // aktarilirsa sizin yazdiginiz gelsin, uretilen degil.
+  const fark={};
+  v.alanlar.forEach((a,i)=>{
+    if(!a.key) return;
+    const el=document.getElementById('d8f_'+i);
+    const t=el?String(el.value||'').trim():'';
+    if(t!==a.metin) fark[a.key]=t;
+  });
+  _d8DuzenlemeYaz(v.kimlik, Object.assign({}, _d8Duzenlemeler()[v.kimlik]||{}, fark));
   if(!confirm('8D RAPORUNA GÖNDER\n\n'+v.baslik+'\n\n'
     +'Penceredeki hâliyle gönderilecek — düzenlemeleriniz dahil.\n\n'
     +'ERP’de yeni bir 8D formu açılıp alanlar dolacak:\n'
@@ -3571,12 +3628,12 @@ function d8Gonder(){
 function aktar8DAriza(id){
   const f=(db.failures||[]).find(x=>x.id===id);
   if(!f){ toast('Arıza kaydı bulunamadı.','warning'); return; }
-  _d8Goster(_d8Arizadan(f));
+  _d8Goster(_d8Uygula(_d8Arizadan(f)));
 }
 function aktar8DAksiyon(id){
   const a=(db.manualActions||[]).find(x=>x.id===id);
   if(!a){ toast('Aksiyon bulunamadı.','warning'); return; }
-  _d8Goster(_d8Aksiyondan(a));
+  _d8Goster(_d8Uygula(_d8Aksiyondan(a)));
 }
 
 // ══ Otomatik WhatsApp bakim hatirlatmasi ══
