@@ -8895,6 +8895,8 @@ function loadAnkaraPlan(){
     const id=String(p.id||'');
     // (a) yukleyiciye ait ama artik uretilmeyen kimlik ( or. kod duzeltmesi)
     if((id.indexOf('ank_p_')===0||id.indexOf('ank_ph_')===0) && !gecerli.has(id)) return false;
+    // Kayittan gelen isler artik planli bakimda tutulmuyor (arizaya tasindi)
+    if(id.indexOf('ank_pr_')===0) return false;
     // (b) hic bakim satiri olmayan makineye yazilmis PL15 kaydi (turemis olanlar dahil)
     if(kayitsiz.has(p.machineId) && String(p.desc||'').indexOf('PL15')===0) return false;
     return true;
@@ -8936,23 +8938,9 @@ function loadAnkaraPlan(){
       external:false, wo:'', partsUsed:'' });
   });
 
-  // Periyodik bakim revizyonlari (kayitlardan): tamamlanmis bakim olarak
-  ANKARA_PBAKIM.forEach((b,i)=>{
-    const mid=macId[b.code]; if(!mid) return;
-    const bSet=(ANKARA_MACHINES.find(x=>x.code===b.code)||{}).set||'';
-    const id='ank_pr_'+i;
-    let ex=db.maintenance.find(x=>x.id===id);
-    if(!ex){ ex={id:id}; db.maintenance.push(ex); nP++; }
-    // Kaynakta "PERİYODİK BAKIM REVİZYON" — yillik plan degil, yapilan is.
-    // preventive yazilirsa PL15 plani tekrarlanmis gibi gorunuyor.
-    Object.assign(ex,{ machineId:mid, type:'overhaul', basis:'date',
-      sched:b.start.slice(0,10), comp:b.end.slice(0,10), status:'completed',
-      period:0, periodUnit:'month', desc:b.desc, assetType:'makine',
-      taskSetId:bSet, tech:ANKARA_TEKNISYEN, cost:b.cost||0,
-      estDur:b.sure||0, actDur:b.sure||0,
-      checklist:_ankSetTasks(bSet, true, b.end.slice(0,10)),
-      external:false, wo:'', partsUsed:'' });
-  });
+  // Kayitlardan gelen yapilmis isler (ANKARA_PBAKIM) buraya YAZILMAZ.
+  // Planli Bakim listesinde yalnizca PL15'in yillik plani durur.
+  // O kayitlar ariza listesine gider — bkz. loadAnkaraAriza().
 
   const nD=_ankDevir()+ANKARA_MACHINES.filter(m=>m.devir).length;
   save(); updateSelects(); nav('maintenance');
@@ -8964,7 +8952,7 @@ function loadAnkaraPlan(){
 function loadAnkaraAriza(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
   if(!confirm('ANKARA 2026 arıza kayıtları yüklenecek:\n\n'
-    +'• '+ANKARA_ARIZA.length+' kayıt (Ocak–Haziran 2026)\n'
+    +'• '+ANKARA_ARIZA.length+' arıza + '+ANKARA_PBAKIM.length+' periyodik bakım revizyonu\n'
     +'• Tarih, süre, tutar ve açıklamalar kaynak dosyadan\n\n'
     +'Aynı kayıt iki kez eklenmez. Devam?')) return;
 
@@ -8982,8 +8970,24 @@ function loadAnkaraAriza(){
       detect:'operator', recurring:false, qtyDefect:0, qtyScrap:0, lossType:'downtime',
       tech:ANKARA_TEKNISYEN, cost:f.cost||0, resolution:f.desc, status:'closed', wo:'', rca:null });
   });
+  // Kayitlardaki "PERİYODİK BAKIM REVİZYON" satirlari: yapilmis isler.
+  // Planli bakim degiller (PL15'te karsiliklari yok), kapali kayit olarak durur.
+  let nR=0;
+  ANKARA_PBAKIM.forEach((b,i)=>{
+    const mid=macId[b.code]; if(!mid) return;
+    const id='ank_prv_'+i;
+    let ex=db.failures.find(x=>x.id===id);
+    if(!ex){ ex={id:id}; db.failures.push(ex); nR++; }
+    Object.assign(ex,{ machineId:mid, failureType:'mechanical',
+      startTime:b.start, endTime:b.end, desc:b.desc, rootCause:b.kaynakTip,
+      detect:'operator', recurring:false, qtyDefect:0, qtyScrap:0, lossType:'downtime',
+      tech:ANKARA_TEKNISYEN, cost:b.cost||0, resolution:b.desc, status:'closed', wo:'', rca:null });
+  });
+
   save(); updateSelects(); nav('failures');
-  toast('Ankara: '+n+' arıza yüklendi'+(atlanan?(' · '+atlanan+' kayıt makinesiz atlandı'):''));
+  toast('Ankara: '+n+' arıza yüklendi'
+    +(nR?(' · '+nR+' periyodik bakım revizyonu'):'')
+    +(atlanan?(' · '+atlanan+' kayıt makinesiz atlandı'):''));
 }
 
 function loadCerkezkoyPlan(){
