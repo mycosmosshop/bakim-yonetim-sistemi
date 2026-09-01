@@ -9706,9 +9706,12 @@ function loadAnkaraPlan(){
   ANKARA_MACHINES.forEach(m=>{
     const k=m.code.replace(/[^A-Za-z0-9]/g,'');
     if(/^\d{4}-\d{2}-\d{2}$/.test(m.plan)) gecerli.add('ank_p_'+k+'_2026');
-    else if(m.saatlik && m.saat) gecerli.add('ank_pb_'+k);   // ank_ph_* artik uretilmiyor
+    else if(m.saatlik && m.saat){ gecerli.add('ank_pb_'+k); gecerli.add('ank_pn_'+k); }
   });
   // PL15'te hicbir bakim satiri olmayan makine (ISM1: Mart sonunda devredildi)
+  // Saatlik makinelerin makine kimlikleri (eski spawn temizligi icin)
+  const saatliMak=new Set(ANKARA_MACHINES.filter(m=>m.saatlik && m.saat)
+    .map(m=>macId[m.code]).filter(x=>!!x));
   const kayitsiz=new Set(ANKARA_MACHINES
     .filter(m=>!/^\d{4}-\d{2}-\d{2}$/.test(m.plan) && !m.saatlik)
     .map(m=>macId[m.code]).filter(x=>!!x));
@@ -9720,6 +9723,11 @@ function loadAnkaraPlan(){
        && !gecerli.has(id)) return false;
     // Kayittan gelen isler artik planli bakimda tutulmuyor (arizaya tasindi)
     if(id.indexOf('ank_pr_')===0) return false;
+    // Uygulamanin kendi urettigi eski "sonraki donem" kopyalari: periyot
+    // degisince tarihleri yanlis kaliyor (KOMP1 24 ay iken 2028 uretilmisti).
+    // Bizim bicimimizde ama yukleyiciye ait olmayan kayitlar temizlenir.
+    if(saatliMak.has(p.machineId) && String(p.desc||'').indexOf('Büyük bakım —')===0
+       && id.indexOf('ank_pb_')!==0 && id.indexOf('ank_pn_')!==0) return false;
     // (b) hic bakim satiri olmayan makineye yazilmis PL15 kaydi (turemis olanlar dahil)
     if(kayitsiz.has(p.machineId) && String(p.desc||'').indexOf('PL15')===0) return false;
     return true;
@@ -9766,6 +9774,22 @@ function loadAnkaraPlan(){
       notes:sa.temel,
       assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
       tech:ANKARA_TEKNISYEN, cost:sa.maliyet, estDur:sa.sure, actDur:sa.sure,
+      checklist:[], external:false, wo:'', partsUsed:'' });
+    // Uygulama bir kopya daha uretmesin: sonraki donemi biz yaziyoruz.
+    ex._spawnedNext=true;
+
+    // SONRAKI bakim — kimligi sabit oldugu icin periyot degisince tarih
+    // de duzeliyor (spawn edilmis kayit oyle degildi).
+    const nid='ank_pn_'+m.code.replace(/[^A-Za-z0-9]/g,'');
+    let nx=db.maintenance.find(x=>x.id===nid);
+    if(!nx){ nx={id:nid}; db.maintenance.push(nx); nP++; }
+    Object.assign(nx,{ machineId:mid, type:'preventive', basis:'date',
+      sched:sa.sonraki, comp:null, status:'scheduled',
+      period:sa.ay, periodUnit:'month',
+      desc:sa.isim+' — '+sa.buyuk+' sa / '+sa.ay+' ayda bir',
+      notes:sa.temel,
+      assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
+      tech:ANKARA_TEKNISYEN, cost:0, estDur:sa.sure, actDur:0,
       checklist:[], external:false, wo:'', partsUsed:'' });
   });
 
