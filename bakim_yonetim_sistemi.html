@@ -120,6 +120,10 @@ select option{background:#0d1117}
 .d8-bas{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.3rem}
 .d8-etiket{font-size:.72rem;font-weight:700;color:#66bb6a;letter-spacing:.03em}
 .d8-metin{font-size:.82rem;white-space:pre-wrap;line-height:1.45}
+.d8-giris{width:100%;background:#12161c;color:var(--fg,#e6edf3);border:1px solid var(--border);
+  border-radius:5px;padding:.35rem .5rem;font-size:.82rem;line-height:1.45;resize:vertical;font-family:inherit}
+.d8-giris:focus{outline:none;border-color:#66bb6a}
+.d8-giris::placeholder{color:#fb8c00;font-style:italic}
 .d8-bos{color:#fb8c00;font-style:italic}
 .wa-adim{display:flex;gap:.7rem;align-items:flex-start;padding:.6rem 0;border-bottom:1px solid var(--border)}
 .wa-adim:last-of-type{border-bottom:none}
@@ -3284,8 +3288,29 @@ function _d8Gecmis(f){
   return { adet:ayni.length, saat:Math.round(saat*10)/10, tutar:tutar };
 }
 
-function _d8Alan(etiket, metin, bosMesaj){
-  return { etiket:etiket, metin:String(metin||'').trim(), bos:bosMesaj||'' };
+// key: duzenlenen metnin gidecegi yer. Pencere ile gonderilen veri
+// arasindaki tek bag bu — ayrilirlarsa ekranda gorunen ile gonderilen
+// sessizce farklilasir.
+function _d8Alan(key, etiket, metin, bosMesaj){
+  return { key:key, etiket:etiket, metin:String(metin||'').trim(), bos:bosMesaj||'' };
+}
+
+// Baslik (Head Data) — gonderilen her sey pencerede gorunur olmali.
+function _d8BaslikAlanlari(h){
+  h=h||{};
+  return [
+    _d8Alan('head.title',            'Başlık (f8d_title)', h.title),
+    _d8Alan('head.subject',          'Konu (f8d_subject)', h.subject),
+    _d8Alan('head.defectDescription','Hata tanımı (f8d_defectDescription)', h.defectDescription),
+    _d8Alan('head.partName',         'Parça/Makine adı (f8d_partName)', h.partName),
+    _d8Alan('head.partNumber',       'Parça/Makine no (f8d_partNumber)', h.partNumber),
+    _d8Alan('head.startDate',        'Başlangıç tarihi (f8d_startDate)', h.startDate),
+    _d8Alan('head.currentDate',      'Rapor tarihi (f8d_currentDate)', h.currentDate),
+    _d8Alan('head.detectionPoint',   'Tespit noktası (f8d_detectionPoint)', h.detectionPoint),
+    _d8Alan('head.customer',         'Müşteri / iç muhatap (f8d_customer)', h.customer,
+            'İç 8D’de iç muhatabı yazın; boş bırakmayın.'),
+    _d8Alan('head.additionalInfo',   'Ek bilgi (f8d_additionalInfo)', h.additionalInfo)
+  ];
 }
 
 // Ariza kaydindan (5-Neden varsa D1-D8 dolar)
@@ -3341,40 +3366,37 @@ function _d8Arizadan(f){
     baslik: mName(f.machineId)+' — '+(f.desc||'Arıza'),
     kokVar: !!(r.w1||r.w5),
     veri: veri,
-    alanlar:[
-      _d8Alan('D1 — Ekip (d1TeamMembers)',
+    alanlar:_d8BaslikAlanlari(veri.head).concat([
+      _d8Alan('d1','D1 — Ekip (d1TeamMembers)',
         [r.owner, f.tech].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(', '),
         'Ekibi tamamlayın: kalite, bakım ve üretim temsilcisi.'),
-      _d8Alan('D2 — Problem (f8d_d2_problem)',
+      _d8Alan('d2problem','D2 — Problem (f8d_d2_problem)',
         m.name+(m.code?(' ('+m.code+')'):'')+' — '+(f.desc||'')+(r.w1?('\n'+r.w1):'')),
-      _d8Alan('D2 — Semptom (f8d_d2_symptom)', r.w1||f.desc||''),
-      _d8Alan('D2 — Hata yeri (f8d_d2_errorLocation)',
+      _d8Alan('d2symptom','D2 — Semptom (f8d_d2_symptom)', r.w1||f.desc||''),
+      _d8Alan('d2errorLocation','D2 — Hata yeri (f8d_d2_errorLocation)',
         [m.location, m.dept].filter(Boolean).join(' / ')),
-      _d8Alan('D2 — Hata tipi (f8d_d2_errorType)',
+      _d8Alan('d2errorType','D2 — Hata tipi (f8d_d2_errorType)',
         TYPE_LBL[f.failureType]||f.failureType||''),
-      _d8Alan('D2 — Risk değerlendirmesi (f8d_d2_riskAssessment)', risk),
-      _d8Alan('D3 — Acil önlem (d3ContainmentActions)', f.resolution||'',
+      _d8Alan('d2riskAssessment','D2 — Risk değerlendirmesi (f8d_d2_riskAssessment)', risk),
+      _d8Alan('d3','D3 — Acil önlem (d3ContainmentActions)', f.resolution||'',
         'Arıza anında yapılan geçici önlemi yazın (D5 kalıcı çözümdür).'),
-      _d8Alan('D4 — Kök neden (d4RootCauses)',
+      _d8Alan('d4','D4 — Kök neden (d4RootCauses)',
         (r.w5?('Kök neden: '+r.w5+'\n\n'):'')+(zincir?('5-Neden zinciri:\n'+zincir):'')),
-      _d8Alan('D5 — Düzeltici faaliyet (d5CorrectiveActions)', d5),
-      _d8Alan('D6 — Uygulama (d6Implementations)', '',
+      _d8Alan('d5','D5 — Düzeltici faaliyet (d5CorrectiveActions)', d5),
+      _d8Alan('d6','D6 — Uygulama (d6Implementations)', '',
         'D5’teki her maddenin uygulama tarihi ve sorumlusu yazılır.'),
-      _d8Alan('D7 — Önleyici faaliyet (d7Preventions)', '',
+      _d8Alan('d7','D7 — Önleyici faaliyet (d7Preventions)', '',
         'Aynı kök nedenin başka makine/süreçte tekrarını önleyecek yaygınlaştırma.'),
-      _d8Alan('D8 — Kapanış / sonuç (f8d_d8_result)',
+      _d8Alan('d8result','D8 — Kapanış / sonuç (f8d_d8_result)',
         d8+((r.owner||r.due)?('\n\nSorumlu: '+(r.owner||'—')
           +' · Termin: '+(r.due?fmtD(r.due):'—')):''))
-    ]
+    ])
   };
 }
 
 // Manuel aksiyondan — kok neden analizi yok, D3/D4 uydurulmaz
 function _d8Aksiyondan(a){
-  return {
-    baslik: a.title||'Aksiyon',
-    kokVar: false,
-    veri: {
+  const veri = {
       d2problem: (a.title||'')+(a.desc?('\n\n'+a.desc):''),
       d2errorLocation: a.location||'',
       d8result: 'Sorumlu: '+(a.assignee||'—')+' · Termin: '+(a.due?fmtD(a.due):'—'),
@@ -3391,31 +3413,36 @@ function _d8Aksiyondan(a){
         additionalInfo: 'Kaynak: CMMS bakım sistemi · Aksiyon kaydı '+a.id
           +' · Aktarım '+new Date().toLocaleString('tr-TR')
       }
-    },
-    alanlar:[
-      _d8Alan('D1 — Ekip (d1TeamMembers)', a.assignee||'',
+  };
+  return {
+    baslik: a.title||'Aksiyon',
+    kokVar: false,
+    veri: veri,
+    alanlar:_d8BaslikAlanlari(veri.head).concat([
+      _d8Alan('d1','D1 — Ekip (d1TeamMembers)', a.assignee||'',
         'Ekibi tamamlayın: kalite, bakım ve üretim temsilcisi.'),
-      _d8Alan('D2 — Problem (f8d_d2_problem)', (a.title||'')+(a.desc?('\n\n'+a.desc):'')),
-      _d8Alan('D2 — Semptom (f8d_d2_symptom)', '', 'Problemin sahada nasıl göründüğünü yazın.'),
-      _d8Alan('D2 — Hata yeri (f8d_d2_errorLocation)', a.location||''),
-      _d8Alan('D2 — Hata tipi (f8d_d2_errorType)', '', 'Mekanik / elektrik / hidrolik / süreç…'),
-      _d8Alan('D2 — Risk değerlendirmesi (f8d_d2_riskAssessment)', '',
+      _d8Alan('d2problem','D2 — Problem (f8d_d2_problem)', (a.title||'')+(a.desc?('\n\n'+a.desc):'')),
+      _d8Alan('d2symptom','D2 — Semptom (f8d_d2_symptom)', '', 'Problemin sahada nasıl göründüğünü yazın.'),
+      _d8Alan('d2errorLocation','D2 — Hata yeri (f8d_d2_errorLocation)', a.location||''),
+      _d8Alan('d2errorType','D2 — Hata tipi (f8d_d2_errorType)', '', 'Mekanik / elektrik / hidrolik / süreç…'),
+      _d8Alan('d2riskAssessment','D2 — Risk değerlendirmesi (f8d_d2_riskAssessment)', '',
         'Tekrar sayısı, duruş saati ve maliyeti yazın.'),
-      _d8Alan('D3 — Acil önlem (d3ContainmentActions)', '', 'Geçici önlem.'),
-      _d8Alan('D4 — Kök neden (d4RootCauses)', '',
+      _d8Alan('d3','D3 — Acil önlem (d3ContainmentActions)', '', 'Geçici önlem.'),
+      _d8Alan('d4','D4 — Kök neden (d4RootCauses)', '',
         'Bu kaydın 5-Neden analizi YOK. Kök nedeni analiz edip yazın — 8D’nin taşıyıcı maddesi budur.'),
-      _d8Alan('D5 — Düzeltici faaliyet (d5CorrectiveActions)', a.desc||''),
-      _d8Alan('D6 — Uygulama (d6Implementations)', '', 'Uygulama tarihi ve sorumlusu.'),
-      _d8Alan('D7 — Önleyici faaliyet (d7Preventions)', '', 'Yaygınlaştırma.'),
-      _d8Alan('D8 — Kapanış / sonuç (f8d_d8_result)',
+      _d8Alan('d5','D5 — Düzeltici faaliyet (d5CorrectiveActions)', a.desc||''),
+      _d8Alan('d6','D6 — Uygulama (d6Implementations)', '', 'Uygulama tarihi ve sorumlusu.'),
+      _d8Alan('d7','D7 — Önleyici faaliyet (d7Preventions)', '', 'Yaygınlaştırma.'),
+      _d8Alan('d8result','D8 — Kapanış / sonuç (f8d_d8_result)',
         'Sorumlu: '+(a.assignee||'—')+' · Termin: '+(a.due?fmtD(a.due):'—'),
         'Doğrulama ölçütünü ekleyin: neyi, hangi dönemde, hangi hedefe göre izleyeceksiniz.')
-    ]
+    ])
   };
 }
 
 function _d8Kopyala(i, btn){
-  const t=(window._d8Veri&&window._d8Veri.alanlar[i]) ? window._d8Veri.alanlar[i].metin : '';
+  const el=document.getElementById('d8f_'+i);
+  const t=el?String(el.value||'').trim():'';
   if(!t){ toast('Bu alan boş — elle doldurulacak.','warning'); return; }
   const bitir=()=>{ const e=btn.innerHTML; btn.innerHTML='<i class="bi bi-check2"></i>';
                     setTimeout(()=>btn.innerHTML=e,1200); };
@@ -3432,25 +3459,57 @@ function _d8Goster(v){
       <i class="bi bi-exclamation-triangle me-1"></i>Bu kaydın 5-Neden analizi yok.
       D3 ve D4 boş bırakıldı — uydurulmadı. 8D’nin taşıyıcı maddesi kök nedendir;
       önce arıza kaydına 5-Neden girmeniz daha sağlam olur.</div>`;
+  // Alanlar DUZENLENEBILIR: gonderilen sey kutularin icidir. Bos alanin
+  // aciklamasi placeholder'dir — metne donusmez, forma gitmez.
+  const NL=String.fromCharCode(10);
   document.getElementById('d8Alanlar').innerHTML =
     `<div style="font-weight:700;font-size:.9rem;margin-bottom:.6rem">${v.baslik}</div>`
     + v.alanlar.map((a,i)=>`<div class="d8-sat">
         <div class="d8-bas">
           <span class="d8-etiket">${a.etiket}</span>
           <button class="btn btn-sm btn-outline-light" style="padding:1px 8px;font-size:.72rem"
-            onclick="_d8Kopyala(${i},this)"><i class="bi bi-clipboard"></i></button>
+            title="Kopyala" onclick="_d8Kopyala(${i},this)"><i class="bi bi-clipboard"></i></button>
         </div>
-        <div class="d8-metin${a.metin?'':' d8-bos'}">${a.metin || ('— '+(a.bos||'doldurulacak')+' —')}</div>
+        <textarea id="d8f_${i}" class="d8-giris"
+          rows="${a.metin.length>140?4:(a.metin.indexOf(NL)>=0?3:1)}"
+          placeholder="${String(a.bos||'doldurulacak').replace(/"/g,'&quot;')}">${a.metin}</textarea>
       </div>`).join('');
   new bootstrap.Modal(document.getElementById('modal8D')).show();
 }
 
 // ERP'nin 8D sayfasini acar ve veriyi devreder. Ayni origin oldugu icin
 // localStorage ortak; modullerin kendi devir deseni de bu.
+// Pencerede duzenlenmis hali toplar — gonderilen sey ekranda gorunendir.
+function _d8Topla(){
+  const v=window._d8Veri; if(!v||!v.veri) return null;
+  const ham=v.veri, out=JSON.parse(JSON.stringify(ham));
+  out.head=out.head||{};
+  const oku=i=>{ const el=document.getElementById('d8f_'+i); return el?String(el.value||'').trim():''; };
+  // Satir tipli alanlarda yalnizca metin degisir; sorumlu/tarih gibi
+  // duzenlenmeyen alt alanlar kayittan aynen korunur.
+  const satir=(eski,yap,t)=> t ? [Object.assign({}, (eski&&eski[0])||{}, yap(t))] : [];
+  v.alanlar.forEach((a,i)=>{
+    if(!a.key) return;
+    const t=oku(i);
+    if(a.key.indexOf('head.')===0){ out.head[a.key.slice(5)]=t; return; }
+    if(a.key==='d1'){ out.d1=t.split(/[,\n]/).map(x=>x.trim()).filter(x=>!!x).map(n=>({name:n})); return; }
+    if(a.key==='d3'){ out.d3=satir(ham.d3, x=>({description:x}), t); return; }
+    if(a.key==='d4'){ out.d4=satir(ham.d4, x=>({ type:'sco',
+        title:((ham.d4&&ham.d4[0]&&ham.d4[0].title)||x.split(String.fromCharCode(10))[0]),
+        description:x }), t); return; }
+    if(a.key==='d5'){ out.d5=satir(ham.d5, x=>({action:x}), t); return; }
+    if(a.key==='d6'||a.key==='d7') return;   // ERP tarafi bunlari almiyor
+    out[a.key]=t;
+  });
+  return out;
+}
+
 function d8Gonder(){
   const v=window._d8Veri;
   if(!v || !v.veri){ toast('Aktarılacak kayıt yok.','warning'); return; }
+  const veri=_d8Topla();
   if(!confirm('8D RAPORUNA GÖNDER\n\n'+v.baslik+'\n\n'
+    +'Penceredeki hâliyle gönderilecek — düzenlemeleriniz dahil.\n\n'
     +'ERP’de yeni bir 8D formu açılıp alanlar dolacak:\n'
     +'• Başlık (Head Data), D1, D2, D3, D5'+(v.kokVar?', D4':'')+' ve D8\n'
     +'• Hatalı parça adedi alanları BOŞ — makine arızasının tekrar sayısı o değildir\n'
@@ -3460,7 +3519,7 @@ function d8Gonder(){
     +'\nDevam?')) return;
   try{
     localStorage.setItem('_cmms_8d', JSON.stringify({
-      kaynak:'cmms', baslik:v.baslik, kokVar:v.kokVar, alanlar:v.veri,
+      kaynak:'cmms', baslik:v.baslik, kokVar:v.kokVar, alanlar:veri,
       zaman:new Date().toLocaleString('tr-TR')
     }));
   }catch(e){ toast('Aktarım yazılamadı: '+e.message,'danger'); return; }
@@ -5862,7 +5921,7 @@ function renderRcaList(){
               <span class="text-muted ms-2" style="font-size:.78rem">${fmtD(f.startTime?.split('T')[0])}</span>
             </div>
             <div class="d-flex gap-1">
-              <button class="btn btn-sm btn-outline-success" style="padding:2px 8px;font-size:.75rem" title="8D raporuna aktar" onclick="aktar8DAriza('${f.id}')"><i class="bi bi-clipboard2-check"></i> 8D</button>
+              <button class="btn btn-sm btn-outline-success" style="padding:2px 8px;font-size:.75rem" title="8D raporuna aktar" onclick="aktar8DAriza('${f.id}')">8D</button>
               <button class="btn btn-sm btn-outline-primary" style="padding:2px 8px;font-size:.75rem" onclick='openFailureModal(${attrJson(f)})'><i class="bi bi-pencil"></i> Düzenle</button>
             </div>
           </div>
@@ -7659,7 +7718,7 @@ function renderReports(){
           <td style="font-size:.78rem">${a.assignee||'—'}</td>
           <td style="font-size:.78rem;color:${overdue?'#ef5350':'inherit'}">${overdue?'<i class="bi bi-exclamation-triangle me-1"></i>':''}${dueStr}</td>
           <td>
-            <button class="btn btn-sm btn-outline-success me-1" style="padding:2px 7px" onclick="aktar8DAksiyon('${a.id}')" title="8D raporuna aktar"><i class="bi bi-clipboard2-check"></i></button>
+            <button class="btn btn-sm btn-outline-success me-1" style="padding:2px 7px;font-size:.72rem;font-weight:700" onclick="aktar8DAksiyon('${a.id}')" title="8D raporuna aktar">8D</button>
             <button class="btn btn-sm btn-outline-secondary me-1" style="padding:2px 7px" onclick="openManualActionModal('${a.id}')" title="Düzenle"><i class="bi bi-pencil"></i></button>
             <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="deleteManualAction('${a.id}')" title="Sil"><i class="bi bi-trash"></i></button>
           </td>
