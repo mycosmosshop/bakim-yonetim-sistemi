@@ -115,6 +115,12 @@ select option{background:#0d1117}
 
 /* ── Upcoming list ── */
 
+
+.d8-sat{border:1px solid var(--border);border-radius:6px;padding:.55rem .7rem;margin-bottom:.5rem}
+.d8-bas{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.3rem}
+.d8-etiket{font-size:.72rem;font-weight:700;color:#66bb6a;letter-spacing:.03em}
+.d8-metin{font-size:.82rem;white-space:pre-wrap;line-height:1.45}
+.d8-bos{color:#fb8c00;font-style:italic}
 .wa-adim{display:flex;gap:.7rem;align-items:flex-start;padding:.6rem 0;border-bottom:1px solid var(--border)}
 .wa-adim:last-of-type{border-bottom:none}
 .wa-no{flex:0 0 26px;height:26px;border-radius:50%;background:#25d36622;color:#25d366;
@@ -1743,6 +1749,25 @@ body.tech-mode #mobileMenuBtn{display:none !important}
 
 <!-- Maintenance Modal -->
 
+
+<div class="modal fade" id="modal8D" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-clipboard2-check me-2" style="color:#66bb6a"></i>8D Raporuna Aktar</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="d8Uyari"></div>
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">
+          ERP → Tedarikçi Sistemi → <b>8D Rapor</b> ekranını açın; aşağıdaki alanları
+          karşılığına yapıştırın. Her satırın kendi kopyala düğmesi var.
+        </div>
+        <div id="d8Alanlar"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="modalWaKurulum" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
@@ -3236,6 +3261,142 @@ function getLast12Months(){
 }
 
 // ── Saha / Personel ekranı ──
+// ══ CMMS aksiyonunu ERP 8D formatina cevir ══
+// ERP formu alan alan ayri oldugu icin tek blok degil, alan basina kopyala.
+// Kok neden analizi olmayan kayitta D3/D4 UYDURULMAZ, doldurulacak yazar.
+
+// Ayni makinede ayni arizanin gecmisi — D2 risk degerlendirmesi metinden
+// tahmin edilmez, kayitlardan hesaplanir.
+function _d8Gecmis(f){
+  const ayni=(db.failures||[]).filter(x=>x.machineId===f.machineId
+    && String(x.desc||'').trim()===String(f.desc||'').trim());
+  const saat=ayni.reduce((t,x)=>{
+    const b=new Date(x.startTime), s=new Date(x.endTime);
+    return t + (isNaN(b)||isNaN(s) ? 0 : (s-b)/3600000);
+  },0);
+  const tutar=ayni.reduce((t,x)=>t+(+x.cost||0),0);
+  return { adet:ayni.length, saat:Math.round(saat*10)/10, tutar:tutar };
+}
+
+function _d8Alan(etiket, metin, bosMesaj){
+  return { etiket:etiket, metin:String(metin||'').trim(), bos:bosMesaj||'' };
+}
+
+// Ariza kaydindan (5-Neden varsa D1-D8 dolar)
+function _d8Arizadan(f){
+  const r=f.rca||{}, m=(db.machines||[]).find(x=>x.id===f.machineId)||{};
+  const g=_d8Gecmis(f);
+  const zincir=[r.w1,r.w2,r.w3,r.w4,r.w5].filter(Boolean)
+    .map((w,i)=>(i+1)+'. '+w).join('\n');
+  // Eylem metninde "Doğrulama:" varsa orasi D8'e aittir — tahmin degil, isaret.
+  const ey=String(r.action||''); const dz=ey.indexOf('Doğrulama:');
+  const d5 = dz>0 ? ey.slice(0,dz).trim() : ey;
+  const d8 = dz>0 ? ey.slice(dz).trim() : '';
+  const risk = g.adet>1
+    ? (g.adet+' kez tekrarladı; toplam '+g.saat+' saat duruş'
+       +(g.tutar?(' ve '+g.tutar.toLocaleString('tr-TR')+' TL maliyet'):'')+'.')
+    : ('Kayıtlarda '+g.adet+' kez görüldü; '+g.saat+' saat duruş'
+       +(g.tutar?(' ve '+g.tutar.toLocaleString('tr-TR')+' TL maliyet'):'')+'.');
+  return {
+    baslik: mName(f.machineId)+' — '+(f.desc||'Arıza'),
+    kokVar: !!(r.w1||r.w5),
+    alanlar:[
+      _d8Alan('D1 — Ekip (d1TeamMembers)',
+        [r.owner, f.tech].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(', '),
+        'Ekibi tamamlayın: kalite, bakım ve üretim temsilcisi.'),
+      _d8Alan('D2 — Problem (f8d_d2_problem)',
+        m.name+(m.code?(' ('+m.code+')'):'')+' — '+(f.desc||'')+(r.w1?('\n'+r.w1):'')),
+      _d8Alan('D2 — Semptom (f8d_d2_symptom)', r.w1||f.desc||''),
+      _d8Alan('D2 — Hata yeri (f8d_d2_errorLocation)',
+        [m.location, m.dept].filter(Boolean).join(' / ')),
+      _d8Alan('D2 — Hata tipi (f8d_d2_errorType)',
+        TYPE_LBL[f.failureType]||f.failureType||''),
+      _d8Alan('D2 — Risk değerlendirmesi (f8d_d2_riskAssessment)', risk),
+      _d8Alan('D3 — Acil önlem (d3ContainmentActions)', f.resolution||'',
+        'Arıza anında yapılan geçici önlemi yazın (D5 kalıcı çözümdür).'),
+      _d8Alan('D4 — Kök neden (d4RootCauses)',
+        (r.w5?('Kök neden: '+r.w5+'\n\n'):'')+(zincir?('5-Neden zinciri:\n'+zincir):'')),
+      _d8Alan('D5 — Düzeltici faaliyet (d5CorrectiveActions)', d5),
+      _d8Alan('D6 — Uygulama (d6Implementations)', '',
+        'D5’teki her maddenin uygulama tarihi ve sorumlusu yazılır.'),
+      _d8Alan('D7 — Önleyici faaliyet (d7Preventions)', '',
+        'Aynı kök nedenin başka makine/süreçte tekrarını önleyecek yaygınlaştırma.'),
+      _d8Alan('D8 — Kapanış / sonuç (f8d_d8_result)',
+        d8+((r.owner||r.due)?('\n\nSorumlu: '+(r.owner||'—')
+          +' · Termin: '+(r.due?fmtD(r.due):'—')):''))
+    ]
+  };
+}
+
+// Manuel aksiyondan — kok neden analizi yok, D3/D4 uydurulmaz
+function _d8Aksiyondan(a){
+  return {
+    baslik: a.title||'Aksiyon',
+    kokVar: false,
+    alanlar:[
+      _d8Alan('D1 — Ekip (d1TeamMembers)', a.assignee||'',
+        'Ekibi tamamlayın: kalite, bakım ve üretim temsilcisi.'),
+      _d8Alan('D2 — Problem (f8d_d2_problem)', (a.title||'')+(a.desc?('\n\n'+a.desc):'')),
+      _d8Alan('D2 — Semptom (f8d_d2_symptom)', '', 'Problemin sahada nasıl göründüğünü yazın.'),
+      _d8Alan('D2 — Hata yeri (f8d_d2_errorLocation)', a.location||''),
+      _d8Alan('D2 — Hata tipi (f8d_d2_errorType)', '', 'Mekanik / elektrik / hidrolik / süreç…'),
+      _d8Alan('D2 — Risk değerlendirmesi (f8d_d2_riskAssessment)', '',
+        'Tekrar sayısı, duruş saati ve maliyeti yazın.'),
+      _d8Alan('D3 — Acil önlem (d3ContainmentActions)', '', 'Geçici önlem.'),
+      _d8Alan('D4 — Kök neden (d4RootCauses)', '',
+        'Bu kaydın 5-Neden analizi YOK. Kök nedeni analiz edip yazın — 8D’nin taşıyıcı maddesi budur.'),
+      _d8Alan('D5 — Düzeltici faaliyet (d5CorrectiveActions)', a.desc||''),
+      _d8Alan('D6 — Uygulama (d6Implementations)', '', 'Uygulama tarihi ve sorumlusu.'),
+      _d8Alan('D7 — Önleyici faaliyet (d7Preventions)', '', 'Yaygınlaştırma.'),
+      _d8Alan('D8 — Kapanış / sonuç (f8d_d8_result)',
+        'Sorumlu: '+(a.assignee||'—')+' · Termin: '+(a.due?fmtD(a.due):'—'),
+        'Doğrulama ölçütünü ekleyin: neyi, hangi dönemde, hangi hedefe göre izleyeceksiniz.')
+    ]
+  };
+}
+
+function _d8Kopyala(i, btn){
+  const t=(window._d8Veri&&window._d8Veri.alanlar[i]) ? window._d8Veri.alanlar[i].metin : '';
+  if(!t){ toast('Bu alan boş — elle doldurulacak.','warning'); return; }
+  const bitir=()=>{ const e=btn.innerHTML; btn.innerHTML='<i class="bi bi-check2"></i>';
+                    setTimeout(()=>btn.innerHTML=e,1200); };
+  if(navigator.clipboard && window.isSecureContext)
+    navigator.clipboard.writeText(t).then(bitir, ()=>waKopyalaEski(t,bitir));
+  else waKopyalaEski(t, bitir);
+}
+
+function _d8Goster(v){
+  window._d8Veri=v;
+  document.getElementById('d8Uyari').innerHTML = v.kokVar ? '' :
+    `<div style="background:rgba(251,140,0,.1);border:1px solid #fb8c0055;color:#fb8c00;
+      padding:.55rem .8rem;border-radius:8px;font-size:.82rem;margin-bottom:.75rem">
+      <i class="bi bi-exclamation-triangle me-1"></i>Bu kaydın 5-Neden analizi yok.
+      D3 ve D4 boş bırakıldı — uydurulmadı. 8D’nin taşıyıcı maddesi kök nedendir;
+      önce arıza kaydına 5-Neden girmeniz daha sağlam olur.</div>`;
+  document.getElementById('d8Alanlar').innerHTML =
+    `<div style="font-weight:700;font-size:.9rem;margin-bottom:.6rem">${v.baslik}</div>`
+    + v.alanlar.map((a,i)=>`<div class="d8-sat">
+        <div class="d8-bas">
+          <span class="d8-etiket">${a.etiket}</span>
+          <button class="btn btn-sm btn-outline-light" style="padding:1px 8px;font-size:.72rem"
+            onclick="_d8Kopyala(${i},this)"><i class="bi bi-clipboard"></i></button>
+        </div>
+        <div class="d8-metin${a.metin?'':' d8-bos'}">${a.metin || ('— '+(a.bos||'doldurulacak')+' —')}</div>
+      </div>`).join('');
+  new bootstrap.Modal(document.getElementById('modal8D')).show();
+}
+
+function aktar8DAriza(id){
+  const f=(db.failures||[]).find(x=>x.id===id);
+  if(!f){ toast('Arıza kaydı bulunamadı.','warning'); return; }
+  _d8Goster(_d8Arizadan(f));
+}
+function aktar8DAksiyon(id){
+  const a=(db.manualActions||[]).find(x=>x.id===id);
+  if(!a){ toast('Aksiyon bulunamadı.','warning'); return; }
+  _d8Goster(_d8Aksiyondan(a));
+}
+
 // ══ Otomatik WhatsApp bakim hatirlatmasi ══
 // Uygulama kapaliyken de calissin diye: yaklasan bakim listesi Apps
 // Script'e itilir, oradaki saatlik tetikleyici gunde bir kez gonderir.
@@ -5616,7 +5777,10 @@ function renderRcaList(){
               <span style="font-weight:700;font-size:.88rem">${mName(f.machineId)}</span>
               <span class="text-muted ms-2" style="font-size:.78rem">${fmtD(f.startTime?.split('T')[0])}</span>
             </div>
-            <button class="btn btn-sm btn-outline-primary" style="padding:2px 8px;font-size:.75rem" onclick='openFailureModal(${attrJson(f)})'><i class="bi bi-pencil"></i> Düzenle</button>
+            <div class="d-flex gap-1">
+              <button class="btn btn-sm btn-outline-success" style="padding:2px 8px;font-size:.75rem" title="8D raporuna aktar" onclick="aktar8DAriza('${f.id}')"><i class="bi bi-clipboard2-check"></i> 8D</button>
+              <button class="btn btn-sm btn-outline-primary" style="padding:2px 8px;font-size:.75rem" onclick='openFailureModal(${attrJson(f)})'><i class="bi bi-pencil"></i> Düzenle</button>
+            </div>
           </div>
           <div style="font-size:.82rem;color:var(--muted);margin-bottom:.5rem">${f.desc||'Arıza'}</div>
           <div style="font-size:.82rem">
@@ -7335,6 +7499,7 @@ function renderReports(){
         <th>Kök neden ve düzeltici faaliyet</th>
         <th style="width:100px">Sorumlu</th>
         <th style="width:90px">Termin</th>
+        <th style="width:60px">8D</th>
       </tr></thead><tbody>`;
       _rcaF.forEach((f,i)=>{
         const r=f.rca;
@@ -7353,6 +7518,8 @@ function renderReports(){
           <td style="font-size:.78rem">${r.owner||'—'}</td>
           <td style="font-size:.78rem;color:${gecikti?'#ef5350':'inherit'}">
             ${gecikti?'<i class="bi bi-exclamation-triangle me-1"></i>':''}${r.due?fmtD(r.due):'—'}</td>
+          <td><button class="btn btn-sm btn-outline-success" style="padding:1px 7px;font-size:.72rem"
+            title="8D raporuna aktar" onclick="aktar8DAriza('${f.id}')">8D</button></td>
         </tr>`;
       });
       html+=`</tbody></table></div>`;
@@ -7408,6 +7575,7 @@ function renderReports(){
           <td style="font-size:.78rem">${a.assignee||'—'}</td>
           <td style="font-size:.78rem;color:${overdue?'#ef5350':'inherit'}">${overdue?'<i class="bi bi-exclamation-triangle me-1"></i>':''}${dueStr}</td>
           <td>
+            <button class="btn btn-sm btn-outline-success me-1" style="padding:2px 7px" onclick="aktar8DAksiyon('${a.id}')" title="8D raporuna aktar"><i class="bi bi-clipboard2-check"></i></button>
             <button class="btn btn-sm btn-outline-secondary me-1" style="padding:2px 7px" onclick="openManualActionModal('${a.id}')" title="Düzenle"><i class="bi bi-pencil"></i></button>
             <button class="btn btn-sm btn-outline-danger" style="padding:2px 7px" onclick="deleteManualAction('${a.id}')" title="Sil"><i class="bi bi-trash"></i></button>
           </td>
