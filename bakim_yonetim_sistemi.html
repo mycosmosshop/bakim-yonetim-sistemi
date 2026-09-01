@@ -3176,7 +3176,12 @@ function calcFleetKPIs(forLoc){
   const unplannedVal = totalMaintH>0 ? (correctiveH+failDownH)/totalMaintH*100 : 100-pmrVal;
 
   // PMC — Preventive Maintenance Compliance
-  const schedPlan = _lm.filter(p=>p.type==='preventive'||p.type==='predictive');
+  // Payda YALNIZCA vadesi GELMIS bakimlar. Once tum onleyiciler
+  // sayiliyordu: gelecek yila plan yazmak bugunku uyumu dusuruyordu
+  // (Ankara'da 2027 kayitlari eklenince %83 -> %60). Vadesi gelmemis bir
+  // bakim ne yapilmis ne gecikmis sayilir; olcunun disindadir.
+  const schedPlan = _lm.filter(p=>(p.type==='preventive'||p.type==='predictive')
+    && (p.status==='completed' || (p.sched && daysDiff(p.sched)<=0)));
   const compPlan  = schedPlan.filter(p=>p.status==='completed').length;
   const pmcVal    = schedPlan.length>0 ? compPlan/schedPlan.length*100 : null;
 
