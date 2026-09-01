@@ -4194,6 +4194,10 @@ function _autoMaintStatus(){
 function _maintWhen(p){
   if(p.basis==='hour'){
     const m=db.machines.find(x=>x.id===p.machineId); const cur=m?(m.runHours||0):0;
+    // Aralik/esik hic girilmemisse "0 sa gecti" diye kirmizi yazmak sahte
+    // alarm olur (PL15 saat araligini vermiyor, elle girilmesi bekleniyor).
+    if(!(p.nextHours>0) && !(p.intervalHours>0))
+      return `⏱️ —<div style="font-size:.68rem;font-weight:400;color:var(--muted)">aralık girilmedi</div>`;
     const rem=(p.nextHours||0)-cur;
     return `⏱️ ${p.nextHours||0} sa<div style="font-size:.68rem;font-weight:400;color:${rem<=0?'#ff5252':'var(--muted)'}">${rem<=0?Math.abs(rem)+' sa geçti':rem+' sa kaldı'}</div>`;
   }
@@ -8939,7 +8943,9 @@ function loadAnkaraPlan(){
     const id='ank_pr_'+i;
     let ex=db.maintenance.find(x=>x.id===id);
     if(!ex){ ex={id:id}; db.maintenance.push(ex); nP++; }
-    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date',
+    // Kaynakta "PERİYODİK BAKIM REVİZYON" — yillik plan degil, yapilan is.
+    // preventive yazilirsa PL15 plani tekrarlanmis gibi gorunuyor.
+    Object.assign(ex,{ machineId:mid, type:'overhaul', basis:'date',
       sched:b.start.slice(0,10), comp:b.end.slice(0,10), status:'completed',
       period:0, periodUnit:'month', desc:b.desc, assetType:'makine',
       taskSetId:bSet, tech:ANKARA_TEKNISYEN, cost:b.cost||0,
