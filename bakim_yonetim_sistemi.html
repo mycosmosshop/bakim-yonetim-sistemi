@@ -4405,8 +4405,12 @@ function _maintWhen(p){
     // alarm olur (PL15 saat araligini vermiyor, elle girilmesi bekleniyor).
     if(!(p.nextHours>0) && !(p.intervalHours>0))
       return `⏱️ —<div style="font-size:.68rem;font-weight:400;color:var(--muted)">aralık girilmedi</div>`;
+    // Makinenin saat sayaci girilmemisse geri sayim sahte olur: "1000 sa
+    // kaldi" aslinda 1000-0 demektir. Sayaci isteyelim, kesinlik taslamayalim.
+    if(!(cur>0))
+      return `⏱️ ${p.nextHours||0} sa<div style="font-size:.68rem;font-weight:400;color:#fb8c00">makine saati girilmedi</div>`;
     const rem=(p.nextHours||0)-cur;
-    return `⏱️ ${p.nextHours||0} sa<div style="font-size:.68rem;font-weight:400;color:${rem<=0?'#ff5252':'var(--muted)'}">${rem<=0?Math.abs(rem)+' sa geçti':rem+' sa kaldı'}</div>`;
+    return `⏱️ ${p.nextHours||0} sa<div style="font-size:.68rem;font-weight:400;color:${rem<=0?'#ff5252':'var(--muted)'}">${rem<=0?Math.abs(rem)+' sa geçti':rem+' sa kaldı'} <span style="color:var(--muted)">(sayaç ${cur})</span></div>`;
   }
   return fmtD(p.sched);
 }
