@@ -494,7 +494,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <div class="table-responsive">
       <table class="table table-dark table-striped table-hover align-middle mb-0">
         <thead><tr>
-          <th>Makine</th><th>Tip</th><th>Başlangıç</th><th>Bitiş</th>
+          <th>Makine</th><th>Lokasyon</th><th>Tip</th><th>Başlangıç</th><th>Bitiş</th>
           <th>Duruş (saat)</th><th>Açıklama</th><th>Kök Neden</th>
           <th>Teknisyen</th><th>Maliyet</th><th>Durum</th><th></th>
         </tr></thead>
@@ -3065,6 +3065,8 @@ function _updateLocBadges(){
     }
   });
 }
+// Makinenin lokasyonu — ariza listesindeki Lokasyon sutunu icin
+function mLoc(id){ const m=db.machines.find(x=>x.id===id); return (m&&m.location)||'—'; }
 function locMids(){ if(!gLocFilter) return null; return new Set(db.machines.filter(m=>m.location===gLocFilter).map(m=>m.id)); }
 function locMachines(){ return gLocFilter ? db.machines.filter(m=>m.location===gLocFilter) : db.machines; }
 function locFails(){ const l=locMids(); return l ? db.failures.filter(f=>l.has(f.machineId)) : db.failures; }
@@ -3904,6 +3906,7 @@ function renderFailures(){
     const lossBadge=f.lossType?`<div style="font-size:.68rem;color:#ffa726;margin-top:1px">${LOSS_LBL[f.lossType]||f.lossType}</div>`:'';
     return `<tr>
       <td style="font-weight:600;font-size:.85rem">${mName(f.machineId)}</td>
+      <td style="font-size:.8rem;color:var(--muted)">${mLoc(f.machineId)}</td>
       <td><span class="${TYPE_BADGE[f.failureType]||'b-other'}">${TYPE_LBL[f.failureType]||f.failureType}</span>${recurBadge}${detectBadge}${lossBadge}</td>
       <td style="font-size:.78rem">${fmtDt(f.startTime)}</td>
       <td style="font-size:.78rem">${fmtDt(f.endTime)}</td>
@@ -7104,7 +7107,18 @@ function updateSelects(){
   const visFix = (db.fixtures||[]).slice().sort((a,b)=>String(a.no||'').localeCompare(String(b.no||''),'tr'));
   const flbl=f=>`${f.no||''}${f.name?(' — '+f.name):''}`;
   const pFOpts = fOpts + (visFix.length?`<optgroup label="🧩 Kalıplar / Fikstürler">`+visFix.map(f=>`<option value="fix:${f.id}">🧩 ${flbl(f)}</option>`).join('')+`</optgroup>`:'');
-  ['mFailMach','mPtMach','mTsMach'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=opts; });
+  // Kayit modallari: lokasyon suzgeci LISTE icindir, veri girisini
+  // engellememeli. Tum makineler lokasyona gore gruplu gosterilir; secili
+  // lokasyon en uste alinir. (Suzgec aciksa modal bos kaliyordu.)
+  const tumu = db.machines.slice().sort((a,b)=>(a.code||a.name||'').localeCompare(b.code||b.name||'','tr'));
+  const loklar = Array.from(new Set(tumu.map(m=>(m.location||'').trim()||'Lokasyonsuz')));
+  if(gLocFilter){ const i=loklar.indexOf(gLocFilter); if(i>0){ loklar.splice(i,1); loklar.unshift(gLocFilter); } }
+  const mOpts = `<option value="">— Seçiniz —</option>` + loklar.map(l=>{
+    const grup = tumu.filter(m=>(((m.location||'').trim()||'Lokasyonsuz')===l));
+    if(!grup.length) return '';
+    return `<optgroup label="${l}">`+grup.map(m=>`<option value="${m.id}">${lbl(m)}</option>`).join('')+`</optgroup>`;
+  }).join('');
+  ['mFailMach','mPtMach','mTsMach'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=mOpts; });
   ['fMachF','tsMachF'].forEach(id=>{ const el=document.getElementById(id); if(el)el.innerHTML=fOpts; });
   { const el=document.getElementById('pMachF'); if(el)el.innerHTML=pFOpts; }
   const dlm=document.getElementById('dlMaintMach'); if(dlm) dlm.innerHTML=visibleMachines.map(m=>`<option value="${lbl(m).replace(/"/g,'&quot;')}">`).join('');
@@ -8266,6 +8280,7 @@ const CERKEZKOY_MOLD_PARTS = {
    Cerkezkoy yukleyicileriyle ayni desen: kod bazli dedup, ayni kayit
    iki kez eklenmez, LeanSys'e dokunulmaz.
    ══════════════════════════════════════════════════════════════════ */
+const ANKARA_TEKNISYEN = 'Hasan Köse';
 const ANKARA_MACHINES = [
  {
   "code": "CMS",
@@ -8605,7 +8620,7 @@ function loadAnkaraPlan(){
       sched:m.plan, comp:m.comp||null, status:m.comp?'completed':'scheduled',
       period:12, periodUnit:'month', desc:'PL15 yıllık planlı bakım — Ankara',
       assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
-      tech:'', cost:0, estDur:0, actDur:0, checklist:[], external:false, wo:'', partsUsed:'' });
+      tech:ANKARA_TEKNISYEN, cost:0, estDur:0, actDur:0, checklist:[], external:false, wo:'', partsUsed:'' });
   });
 
   // Periyodik bakim revizyonlari (kayitlardan): tamamlanmis bakim olarak
@@ -8617,7 +8632,7 @@ function loadAnkaraPlan(){
     Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date',
       sched:b.start.slice(0,10), comp:b.end.slice(0,10), status:'completed',
       period:0, periodUnit:'month', desc:b.desc, assetType:'makine',
-      tech:'', cost:b.cost||0, estDur:b.sure||0, actDur:b.sure||0,
+      tech:ANKARA_TEKNISYEN, cost:b.cost||0, estDur:b.sure||0, actDur:b.sure||0,
       checklist:[], external:false, wo:'', partsUsed:'' });
   });
 
@@ -8644,7 +8659,7 @@ function loadAnkaraAriza(){
     Object.assign(ex,{ machineId:mid, failureType:f.type,
       startTime:f.start, endTime:f.end, desc:f.desc, rootCause:f.kaynakTip,
       detect:'operator', recurring:false, qtyDefect:0, qtyScrap:0, lossType:'downtime',
-      tech:'', cost:f.cost||0, resolution:f.desc, status:'closed', wo:'', rca:null });
+      tech:ANKARA_TEKNISYEN, cost:f.cost||0, resolution:f.desc, status:'closed', wo:'', rca:null });
   });
   save(); updateSelects(); nav('failures');
   toast('Ankara: '+n+' arıza yüklendi'+(atlanan?(' · '+atlanan+' kayıt makinesiz atlandı'):''));

@@ -9,7 +9,7 @@ const KOK = 'C:/Users/User/AppData/Local/Temp/claude/D--Yaz-l-m/651c3d70-fb75-45
 const src = fs.readFileSync(KOK + 'bakim_yonetim_sistemi.html', 'utf8');
 
 // Eklenen bolumu cikar ve gercek fonksiyonlari calistir
-const bas = src.indexOf('const ANKARA_MACHINES');
+const bas = src.indexOf('const ANKARA_TEKNISYEN');
 const son = src.indexOf('function loadCerkezkoyPlan');
 assert(bas > 0 && son > bas, 'Ankara bölümü bulunamadı');
 const kod = src.slice(bas, son);
@@ -186,6 +186,41 @@ function ortam(db, izin = true) {
     assert(/Ankara Planı Yükle/.test(src), '10c: plan düğmesi etiketi');
     assert(/Ankara Arızalarını Yükle/.test(src), '10d: arıza düğmesi etiketi');
     console.log('✓ 10 "Ankara Planı Yükle" ve "Ankara Arızalarını Yükle" düğmeleri var');
+}
+
+// 11) Ankara kayitlarinda teknisyen: Hasan Kose
+{
+    const db = { machines: [], maintenance: [], failures: [] };
+    const [, api] = ortam(db);
+    api.plan(); api.ariza();
+    const bak = db.maintenance.filter(x => x.id.startsWith('ank_'));
+    const arz = db.failures.filter(x => x.id.startsWith('ank_a_'));
+    assert(bak.length && arz.length, '11a: kayıt yok');
+    assert(bak.every(x => x.tech === 'Hasan Köse'), '11b: bakımlarda teknisyen yok');
+    assert(arz.every(x => x.tech === 'Hasan Köse'), '11c: arızalarda teknisyen yok');
+    console.log('✓ 11 Ankara bakım ve arızalarında teknisyen: Hasan Köse');
+}
+
+// 12) Ariza listesinde LOKASYON sutunu var
+{
+    assert(src.indexOf('<th>Makine</th><th>Lokasyon</th>') > 0, '12a: başlıkta Lokasyon yok');
+    assert(/mLoc\(f\.machineId\)/.test(src), '12b: satırda lokasyon basılmıyor');
+    assert(/function mLoc\(id\)/.test(src), '12c: mLoc yardımcısı yok');
+    console.log('✓ 12 arıza listesinde Lokasyon sütunu var');
+}
+
+// 13) Kayit modalinda makine listesi lokasyon suzgecine takilmiyor
+{
+    const u = src.slice(src.indexOf('function updateSelects()'), src.indexOf('function importMachineExcel'));
+    assert(/const tumu = db\.machines\.slice\(\)/.test(u),
+        '13a: modal listesi hâlâ süzgeçli — süzgeç açıkken boş kalır');
+    assert(/optgroup label=/.test(u), '13b: lokasyona göre gruplama yok');
+    assert(u.indexOf("['mFailMach','mPtMach','mTsMach'].forEach") > 0 && /innerHTML=mOpts/.test(u),
+        '13c: arıza modalı yeni listeyi kullanmıyor');
+    // Liste suzgeci (fMachF) ESKI davranista kalmali
+    assert(u.indexOf("['fMachF','tsMachF']") > 0 && /innerHTML=fOpts/.test(u),
+        '13d: liste süzgeci bozulmuş');
+    console.log('✓ 13 modalde tüm makineler lokasyona göre gruplu; liste süzgeci değişmedi');
 }
 
 console.log('\nTüm senaryolar geçti.');
