@@ -432,7 +432,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <div class="d-flex gap-2 mb-3 flex-wrap">
       <input type="text" class="form-control form-control-sm" style="width:200px" placeholder="Makine ara…" id="mSearch" oninput="renderMachines()">
       <select class="form-select form-select-sm" style="width:auto" id="mStatusF" onchange="renderMachines()">
-        <option value="">Tüm Durumlar</option><option value="running">Çalışıyor</option>
+        <option value="">Tüm Durumlar</option><option value="running">Çalışıyor</option><option value="passive">Pasif</option>
         <option value="maintenance">Bakımda</option><option value="failed">Arızalı</option><option value="idle">Boşta</option>
       </select>
       <select class="form-select form-select-sm" style="width:auto" id="mCritF" onchange="renderMachines()">
@@ -1607,6 +1607,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
             <label class="form-label">Durum</label>
             <select class="form-select" id="mMachStatus">
               <option value="running">Çalışıyor</option><option value="maintenance">Bakımda</option>
+              <option value="passive">Pasif — devir dışı</option>
               <option value="failed">Arızalı</option><option value="idle">Boşta</option>
             </select>
           </div>
@@ -3033,8 +3034,8 @@ const TYPE_BADGE = {mechanical:'b-mech',electrical:'b-elec',hydraulic:'b-hydr',p
 const TYPE_LBL = {mechanical:'Mekanik',electrical:'Elektrik',hydraulic:'Hidrolik',pneumatic:'Pnömatik',software:'Yazılım',other:'Diğer'};
 const DETECT_LBL = {operator:'👷 Operatör',sensor:'📡 Sensör',periodic:'🔍 Periyodik',customer:'👥 Müşteri',predictive:'📊 Öngörülü',other:'Diğer'};
 const LOSS_LBL = {breakdown:'1⃣ Arıza',setup:'2⃣ Hazırlık',idling:'3⃣ Kısa Duruş',speed:'4⃣ Hız Kaybı',defect:'5⃣ Fire/Hata',startup:'6⃣ Başlangıç'};
-const STATUS_M = {running:'b-running',maintenance:'b-maintenance',failed:'b-failed',idle:'b-idle'};
-const STATUS_ML = {running:'Çalışıyor',maintenance:'Bakımda',failed:'Arızalı',idle:'Boşta'};
+const STATUS_M = {running:'b-running',maintenance:'b-maintenance',failed:'b-failed',idle:'b-idle',passive:'b-cancelled'};
+const STATUS_ML = {running:'Çalışıyor',maintenance:'Bakımda',failed:'Arızalı',idle:'Boşta',passive:'Pasif — devir dışı'};
 const STAT_F = {'open':'b-open','in-progress':'b-inprogress','closed':'b-closed'};
 const STAT_FL = {'open':'Açık','in-progress':'Devam Ediyor','closed':'Kapalı'};
 const STAT_P = {scheduled:'b-scheduled','in-progress':'b-inprogress',completed:'b-completed',overdue:'b-overdue',cancelled:'b-cancelled'};
@@ -3071,7 +3072,10 @@ function _updateLocBadges(){
 // Makinenin lokasyonu — ariza listesindeki Lokasyon sutunu icin
 function mLoc(id){ const m=db.machines.find(x=>x.id===id); return (m&&m.location)||'—'; }
 function locMids(){ if(!gLocFilter) return null; return new Set(db.machines.filter(m=>m.location===gLocFilter).map(m=>m.id)); }
-function locMachines(){ return gLocFilter ? db.machines.filter(m=>m.location===gLocFilter) : db.machines; }
+// Pasif makineler aktif sayilmaz: gosterge paneli, KPI, analitik ve raporlar
+// bu fonksiyondan gecer. Makine LISTESI ayri kaynak kullanir, kayit gorunur kalir.
+function locMachines(){ const t=db.machines.filter(m=>m.status!=='passive');
+  return gLocFilter ? t.filter(m=>m.location===gLocFilter) : t; }
 function locFails(){ const l=locMids(); return l ? db.failures.filter(f=>l.has(f.machineId)) : db.failures; }
 function locMaint(){ const l=locMids(); return l ? db.maintenance.filter(p=>l.has(p.machineId)) : db.maintenance; }
 function locFix(){ return gLocFilter ? (db.fixtures||[]).filter(f=>f.location===gLocFilter) : (db.fixtures||[]); }
@@ -8622,6 +8626,18 @@ function _ankEstH(setId){
   return s ? Math.max(0.5, Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10) : 0;
 }
 
+// CNC Dikey Sable Cerkezkoy'den Ankara'ya tasindi. Eski kayit SILINMEZ —
+// ariza gecmisi ona bagli; pasife alinir ve aktif sayimlardan cikar.
+function _ankDevir(){
+  const eski=db.machines.find(x=>String(x.code||'').trim().toUpperCase()==='DİKEY CNC'
+        || String(x.name||'').indexOf('DİKEY CNC KESİM')>=0);
+  if(!eski || String(eski.location||'').trim()==='Ankara') return 0;
+  eski.status='passive';
+  const not='Ankara\'ya devredildi — kayıt geçmiş için tutuluyor';
+  if(String(eski.notes||'').indexOf(not)<0) eski.notes=(eski.notes?eski.notes+' · ':'')+not;
+  return 1;
+}
+
 function loadAnkaraPlan(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
   if(!confirm('ANKARA 2026 Yıllık Bakım Planı yüklenecek:\n\n'
@@ -8680,8 +8696,10 @@ function loadAnkaraPlan(){
       external:false, wo:'', partsUsed:'' });
   });
 
+  const nD=_ankDevir();
   save(); updateSelects(); nav('maintenance');
-  toast('Ankara: '+nM+' yeni makine, '+nP+' bakım kaydı ('+nK+' kapatıldı)');
+  toast('Ankara: '+nM+' yeni makine, '+nP+' bakım kaydı ('+nK+' kapatıldı)'
+    +(nD?' · Çerkezköy CNC pasife alındı':''));
 }
 
 function loadAnkaraAriza(){

@@ -315,4 +315,48 @@ function ortam(db, izin = true) {
     console.log('✓ 18 arızalarda lokasyon süzgeci var, seçenekler makinelerden üretiliyor');
 }
 
+// 19) CNC devri: Cerkezkoy kaydi SILINMIYOR, pasife aliniyor
+{
+    const cnc = { id: 'czm_DİKEYCNC', code: 'DİKEY CNC', name: 'DİKEY CNC KESİM MAKİNESİ',
+                  location: 'Çerkezköy', dept: 'Kesim', status: 'running', criticality: 'critical' };
+    const db = { machines: [cnc], maintenance: [], failures: [], taskSets: [] };
+    const [, api] = ortam(db);
+    api.plan();
+    const sonra = db.machines.find(x => x.id === 'czm_DİKEYCNC');
+    assert(sonra, '19a: Çerkezköy CNC kaydı silinmiş');
+    assert.strictEqual(sonra.status, 'passive', '19b: pasife alınmadı: ' + sonra.status);
+    assert.strictEqual(sonra.location, 'Çerkezköy', '19c: konumu değişmiş');
+    assert(/devredildi/.test(sonra.notes || ''), '19d: devir notu yok');
+    // Ankara CNC ayri ve AKTIF
+    const ank = db.machines.find(x => x.code === '910.5.961');
+    assert(ank, '19e: Ankara CNC yok');
+    assert.strictEqual(ank.status, 'running', '19f: Ankara CNC aktif değil');
+    console.log('✓ 19 Çerkezköy CNC pasife alınıyor (silinmiyor), Ankara CNC aktif');
+}
+
+// 20) Ariza gecmisi pasif makinede DURUYOR
+{
+    const cnc = { id: 'czm_DİKEYCNC', code: 'DİKEY CNC', name: 'DİKEY CNC KESİM MAKİNESİ',
+                  location: 'Çerkezköy', status: 'running' };
+    const gecmis = { id: 'czg_4', machineId: 'czm_DİKEYCNC', desc: 'Şerit testere kırılması', cost: 900 };
+    const db = { machines: [cnc], maintenance: [], failures: [gecmis], taskSets: [] };
+    const [, api] = ortam(db);
+    api.plan(); api.ariza();
+    assert.deepStrictEqual(db.failures.find(x => x.id === 'czg_4'), gecmis,
+        '20: geçmiş arıza kaydı değişmiş/silinmiş');
+    console.log('✓ 20 pasif makinenin arıza geçmişi olduğu gibi kalıyor');
+}
+
+// 21) Pasif makine aktif sayimlara girmiyor, listede gorunuyor
+{
+    const lm = src.slice(src.indexOf('function locMachines()'), src.indexOf('function locMachines()') + 260);
+    assert(/status!=='passive'/.test(lm), '21a: pasifler KPI\'lardan dışlanmıyor');
+    assert(/passive:'Pasif/.test(src), '21b: Pasif etiketi yok');
+    assert(/<option value="passive">/.test(src), '21c: durum seçeneği yok');
+    // Makine listesi ayri kaynak: kayit gorunur kalmali
+    const rl = src.slice(src.indexOf("const vis = gLocFilter"), src.indexOf("const vis = gLocFilter") + 160);
+    assert(!/passive/.test(rl), '21d: makine listesi de pasifleri gizliyor — kayıt görünmez olur');
+    console.log('✓ 21 pasif makine KPI\'lara girmiyor ama makine listesinde duruyor');
+}
+
 console.log('\nTüm senaryolar geçti.');
