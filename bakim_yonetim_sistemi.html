@@ -8556,7 +8556,10 @@ const ANKARA_PBAKIM = [
 // Baska lokasyondaki (orn. Cerkezkoy) makineye ASLA dokunulmaz:
 // once Sanifoam kodu ile kesin eslesme, o yoksa yalnizca Ankara icinde kod.
 function _ankBul(m){
-  return db.machines.find(x=>String(x.notes||'').indexOf('Sanifoam Kodu: '+m.sk)>=0)
+  // Sanifoam kodu benzersiz: kod alaninda da notlarda da aranir (eski
+  // yuklemelerde kisa kisaltma yazilmisti, cift kayit olmasin).
+  return db.machines.find(x=>String(x.code||'').trim()===m.sk)
+      || db.machines.find(x=>String(x.notes||'').indexOf(m.sk)>=0)
       || db.machines.find(x=>String(x.location||'').trim()==='Ankara'
            && String(x.code||'').trim().toUpperCase()===m.code.toUpperCase());
 }
@@ -8583,9 +8586,10 @@ function loadAnkaraPlan(){
   ANKARA_MACHINES.forEach(m=>{
     let ex=_ankBul(m);
     if(!ex){ ex={id:'ank_'+m.code.replace(/[^A-Za-z0-9]/g,'')}; db.machines.push(ex); nM++; }
-    Object.assign(ex,{ name:m.name, code:m.code, dept:m.dept, location:'Ankara',
+    // Makine Kodu = Sanifoam kodu (tabloda gorunen sutun); kisa kisaltma notta
+    Object.assign(ex,{ name:m.name, code:m.sk, dept:m.dept, location:'Ankara',
       criticality:ex.criticality||'high', status:ex.status||'running',
-      notes:'Sanifoam Kodu: '+m.sk });
+      notes:'Makina Kodu: '+m.code });
   });
 
   const macId=_ankMacId();

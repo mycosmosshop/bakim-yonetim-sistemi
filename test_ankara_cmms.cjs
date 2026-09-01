@@ -33,7 +33,13 @@ function ortam(db, izin = true) {
     api.plan();
     assert.strictEqual(db.machines.length, 9, '1a: makine ' + db.machines.length);
     assert(db.machines.every(m => m.location === 'Ankara'), '1b: konum Ankara değil');
-    assert(db.machines.every(m => /Sanifoam Kodu: 910\./.test(m.notes)), '1c: Sanifoam kodu yazılmamış');
+    // Sanifoam kodu MAKINE KODU sutununda gorunmeli, notlara gomulu degil
+    assert(db.machines.every(m => /^910\.5\.\d+$/.test(m.code)),
+        '1c: makine kodu Sanifoam kodu değil: ' + db.machines.map(m => m.code).join(', '));
+    assert(db.machines.every(m => /Makina Kodu: /.test(m.notes)), '1d: kısa kod notlarda yok');
+    const cnc = db.machines.find(m => m.name === 'CNC DIKEY SABLE');
+    assert.strictEqual(cnc.code, '910.5.961', '1e: CNC kodu: ' + cnc.code);
+    assert.strictEqual(cnc.notes, 'Makina Kodu: CNC', '1f: not: ' + cnc.notes);
     assert(g._kaydedildi, '1d: kaydedilmedi');
     console.log('✓ 1  9 makine Ankara konumuyla ve Sanifoam koduyla yazılıyor');
 }
@@ -98,7 +104,7 @@ function ortam(db, izin = true) {
     // Ankara yukleyicisi onu ezip konumunu degistirmemeli.
     const cz = { id: 'czm_CNC', code: 'CNC', name: 'Çerkezköy Dikey CNC',
                  location: 'Çerkezköy', dept: 'Kesim', criticality: 'critical',
-                 status: 'running', notes: 'Sanifoam Kodu: 910.5.999' };
+                 status: 'running', notes: 'Cerkezkoy makinesi' };
     const db = { machines: [cz], maintenance: [], failures: [] };
     const [, api] = ortam(db);
     api.plan();
@@ -106,7 +112,7 @@ function ortam(db, izin = true) {
     assert.deepStrictEqual(sonra, cz, '5b1: Çerkezköy makinesi değiştirildi: ' + JSON.stringify(sonra));
     assert.strictEqual(sonra.location, 'Çerkezköy', '5b2: konumu Ankara yapılmış');
     // Ankara'nin kendi CNC'si AYRI bir kayit olarak acilmali
-    const ankCnc = db.machines.filter(x => x.code === 'CNC' && x.location === 'Ankara');
+    const ankCnc = db.machines.filter(x => x.code === '910.5.961' && x.location === 'Ankara');
     assert.strictEqual(ankCnc.length, 1, '5b3: Ankara CNC açılmadı: ' + ankCnc.length);
     assert.strictEqual(db.machines.length, 10, '5b4: makine sayısı ' + db.machines.length + ' (1 + 9)');
     console.log('✓ 5b aynı kodlu Çerkezköy makinesi ezilmiyor, Ankara ayrı kayıt açıyor');
@@ -114,15 +120,16 @@ function ortam(db, izin = true) {
 
 // 5c) Sanifoam kodu AYNI ise ayni makine sayilir (cift kayit acilmaz)
 {
-    const mevcut = { id: 'eski1', code: 'ESKI-KOD', name: 'Eski ad',
+    // Eski yukleme: kod kisa kisaltmaydi, Sanifoam kodu nottaydi
+    const mevcut = { id: 'eski1', code: 'CMS', name: 'Eski ad',
                      location: 'Ankara', notes: 'Sanifoam Kodu: 910.5.163' };
     const db = { machines: [mevcut], maintenance: [], failures: [] };
     const [, api] = ortam(db);
     api.plan();
     assert.strictEqual(db.machines.length, 9, '5c1: çift kayıt: ' + db.machines.length);
     const g = db.machines.find(x => x.id === 'eski1');
-    assert.strictEqual(g.code, 'CMS', '5c2: kod güncellenmedi: ' + g.code);
-    console.log('✓ 5c aynı Sanifoam kodlu Ankara makinesi güncelleniyor, ikinci kayıt açılmıyor');
+    assert.strictEqual(g.code, '910.5.163', '5c2: kod Sanifoam koduna çevrilmedi: ' + g.code);
+    console.log('✓ 5c eski (kısa kodlu) yükleme güncelleniyor, ikinci kayıt açılmıyor');
 }
 
 // 6) Arizalar: 19 kayit, hepsi bir makineye bagli ve KAPALI
