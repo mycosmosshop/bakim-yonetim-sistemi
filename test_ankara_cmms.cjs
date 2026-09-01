@@ -92,6 +92,39 @@ function ortam(db, izin = true) {
     console.log('✓ 5  mevcut Çerkezköy kayıtlarına dokunulmuyor');
 }
 
+// 5b) AYNI KODLU Cerkezkoy makinesi olsa bile EZILMIYOR
+{
+    // Bugun cakisan kod yok; ama ileride Cerkezkoy'e 'CNC' eklenirse
+    // Ankara yukleyicisi onu ezip konumunu degistirmemeli.
+    const cz = { id: 'czm_CNC', code: 'CNC', name: 'Çerkezköy Dikey CNC',
+                 location: 'Çerkezköy', dept: 'Kesim', criticality: 'critical',
+                 status: 'running', notes: 'Sanifoam Kodu: 910.5.999' };
+    const db = { machines: [cz], maintenance: [], failures: [] };
+    const [, api] = ortam(db);
+    api.plan();
+    const sonra = db.machines.find(x => x.id === 'czm_CNC');
+    assert.deepStrictEqual(sonra, cz, '5b1: Çerkezköy makinesi değiştirildi: ' + JSON.stringify(sonra));
+    assert.strictEqual(sonra.location, 'Çerkezköy', '5b2: konumu Ankara yapılmış');
+    // Ankara'nin kendi CNC'si AYRI bir kayit olarak acilmali
+    const ankCnc = db.machines.filter(x => x.code === 'CNC' && x.location === 'Ankara');
+    assert.strictEqual(ankCnc.length, 1, '5b3: Ankara CNC açılmadı: ' + ankCnc.length);
+    assert.strictEqual(db.machines.length, 10, '5b4: makine sayısı ' + db.machines.length + ' (1 + 9)');
+    console.log('✓ 5b aynı kodlu Çerkezköy makinesi ezilmiyor, Ankara ayrı kayıt açıyor');
+}
+
+// 5c) Sanifoam kodu AYNI ise ayni makine sayilir (cift kayit acilmaz)
+{
+    const mevcut = { id: 'eski1', code: 'ESKI-KOD', name: 'Eski ad',
+                     location: 'Ankara', notes: 'Sanifoam Kodu: 910.5.163' };
+    const db = { machines: [mevcut], maintenance: [], failures: [] };
+    const [, api] = ortam(db);
+    api.plan();
+    assert.strictEqual(db.machines.length, 9, '5c1: çift kayıt: ' + db.machines.length);
+    const g = db.machines.find(x => x.id === 'eski1');
+    assert.strictEqual(g.code, 'CMS', '5c2: kod güncellenmedi: ' + g.code);
+    console.log('✓ 5c aynı Sanifoam kodlu Ankara makinesi güncelleniyor, ikinci kayıt açılmıyor');
+}
+
 // 6) Arizalar: 19 kayit, hepsi bir makineye bagli ve KAPALI
 {
     const db = { machines: [], maintenance: [], failures: [] };

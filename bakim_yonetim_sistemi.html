@@ -8553,11 +8553,18 @@ const ANKARA_PBAKIM = [
  }
 ];
 
+// Baska lokasyondaki (orn. Cerkezkoy) makineye ASLA dokunulmaz:
+// once Sanifoam kodu ile kesin eslesme, o yoksa yalnizca Ankara icinde kod.
+function _ankBul(m){
+  return db.machines.find(x=>String(x.notes||'').indexOf('Sanifoam Kodu: '+m.sk)>=0)
+      || db.machines.find(x=>String(x.location||'').trim()==='Ankara'
+           && String(x.code||'').trim().toUpperCase()===m.code.toUpperCase());
+}
+
 function _ankMacId(){
   const h={};
   ANKARA_MACHINES.forEach(m=>{
-    const ex=db.machines.find(x=>String(x.code||'').trim().toUpperCase()===m.code.toUpperCase()
-              || String(x.notes||'').indexOf(m.sk)>=0);
+    const ex=_ankBul(m);
     if(ex) h[m.code]=ex.id;
   });
   return h;
@@ -8574,8 +8581,7 @@ function loadAnkaraPlan(){
   db.machines=db.machines||[]; db.maintenance=db.maintenance||[];
   let nM=0;
   ANKARA_MACHINES.forEach(m=>{
-    let ex=db.machines.find(x=>String(x.code||'').trim().toUpperCase()===m.code.toUpperCase()
-            || String(x.notes||'').indexOf(m.sk)>=0);
+    let ex=_ankBul(m);
     if(!ex){ ex={id:'ank_'+m.code.replace(/[^A-Za-z0-9]/g,'')}; db.machines.push(ex); nM++; }
     Object.assign(ex,{ name:m.name, code:m.code, dept:m.dept, location:'Ankara',
       criticality:ex.criticality||'high', status:ex.status||'running',
