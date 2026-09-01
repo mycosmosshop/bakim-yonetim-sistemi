@@ -2739,8 +2739,8 @@ const KPI_DEFS = {
   mttr:        { label:'MTTR',               unit:'saat', icon:'bi-tools',                color:'#ff9800', higherBetter:false, defaultTarget:4,    desc:'Ortalama tamir / müdahale süresi' },
   mttf:        { label:'MTTF',               unit:'saat', icon:'bi-hourglass-split',       color:'#42a5f5', higherBetter:true,  defaultTarget:500,  desc:'Ortalama ilk arızaya kadar geçen süre (tamir edilemeyen ekipman)' },
   availability:{ label:'Kullanılabilirlik',  unit:'%',    icon:'bi-activity',              color:'#26c6da', higherBetter:true,  defaultTarget:95,   desc:'Makinenin çalışabilir olduğu sürenin toplam süreye oranı' },
-  pmr:         { label:'PMR',                unit:'%',    icon:'bi-calendar-check',        color:'#ab47bc', higherBetter:true,  defaultTarget:70,   desc:'Planlı Bakım Oranı — Planlı bakım saati / toplam bakım saati' },
-  unplanned:   { label:'Plansız Bakım %',    unit:'%',    icon:'bi-exclamation-octagon',   color:'#ef5350', higherBetter:false, defaultTarget:30,   desc:'Arıza bazlı (plansız) bakımların toplam bakıma oranı' },
+  pmr:         { label:'PMR',                unit:'%',    icon:'bi-calendar-check',        color:'#ab47bc', higherBetter:true,  defaultTarget:70,   desc:'Planlı Bakım Oranı — Planlı işçilik / toplam bakım eforu (planlı + düzeltici işçilik + arıza onarımı). Yalnızca yapılmış işler.' },
+  unplanned:   { label:'Plansız Bakım %',    unit:'%',    icon:'bi-exclamation-octagon',   color:'#ef5350', higherBetter:false, defaultTarget:30,   desc:'Bakım eforunun plansız kısmı — düzeltici işçilik + arıza onarımı' },
   pmc:         { label:'PMC',                unit:'%',    icon:'bi-patch-check',           color:'#66bb6a', higherBetter:true,  defaultTarget:90,   desc:'Planlı Bakım Uyumu — Tamamlanan / planlanan bakım sayısı' },
 };
 
@@ -3335,7 +3335,21 @@ function calcFleetKPIs(forLoc){
   const correctiveH = _lm
     .filter(p=>(p.type==='corrective'||p.type==='overhaul') && _yapildi(p))
     .reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
-  const failDownH = _lf.reduce((s,f)=>s+downtimeH(f),0);
+  // Ariza ONARIM isciligi. Bu sistemde ariza kaydinda ayri bir isclik
+  // alani yok (saveFailure: startTime/endTime var, isclik yok), onarim
+  // suresi start->end'den okunur. Ankara verisinde kayitlarin "sure"
+  // alani ile bu fark birebir ayni (40.1 sa), yani deger uretim kaybi
+  // degil ONARIM EMEGIdir ve paydaya girmesi dogrudur.
+  //
+  // YALNIZCA KAPANMIS ariza sayilir: acik arizada downtimeH "simdi -
+  // baslangic" dondurur ve her saniye buyur; acik tek bir ariza plansiz
+  // orani surekli sisiriyordu. Bakim tarafindaki _yapildi kuralinin
+  // ariza tarafindaki karsiligi.
+  const failDownH = _lf.filter(f=>f.status==='closed').reduce((s,f)=>s+downtimeH(f),0);
+  // Payda bastan sona BAKIM EFORU: planli isclik + duzeltici isclik +
+  // ariza onarim isciligi. Ariza saatlerini paydadan cikarmak olcuyu
+  // korlestirir — Ankara'da duzeltici bakim kaydi yok, butun onarim
+  // emegi ariza kaydinda; cikarilinca PMR %100 gorunuyordu.
   const totalMaintH = plannedH + correctiveH + failDownH;
   const pmrVal       = totalMaintH>0 ? plannedH/totalMaintH*100 : (_lm.filter(p=>p.type==='preventive'||p.type==='predictive').length/(_lm.length||1)*100);
   const unplannedVal = totalMaintH>0 ? (correctiveH+failDownH)/totalMaintH*100 : 100-pmrVal;
@@ -11533,8 +11547,10 @@ function openKpiDetail(key){
     const _kYapildi = p => p.status==='completed';
     const plannedH = allMaint.filter(p=>(p.type==='preventive'||p.type==='predictive')&&_kYapildi(p)).reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
     const correctH = allMaint.filter(p=>(p.type==='corrective'||p.type==='overhaul')&&_kYapildi(p)).reduce((s,p)=>s+(p.actDur||p.estDur||0),0);
-    const failDH   = mFails.reduce((s,f)=>s+downtimeH(f),0);
-    const totalMH  = plannedH+correctH+failDH;
+    const failDH   = mFails.reduce((s,f)=>s+downtimeH(f),0);          // gosterim: tum arizalar
+    // PMR paydasi: yalnizca KAPANMIS onarim (filo hesabiyla ayni kural)
+    const failFixH = closedF.reduce((s,f)=>s+downtimeH(f),0);
+    const totalMH  = plannedH+correctH+failFixH;
 
     // MTTF — ortak hesap
     const mttf = _mttfSaat(m, mFails);
@@ -11545,7 +11561,7 @@ function openKpiDetail(key){
       mttf:         mttf,
       availability: +mx.avail,
       pmr:          totalMH>0 ? +(plannedH/totalMH*100).toFixed(1) : null,
-      unplanned:    totalMH>0 ? +((correctH+failDH)/totalMH*100).toFixed(1) : null,
+      unplanned:    totalMH>0 ? +((correctH+failFixH)/totalMH*100).toFixed(1) : null,
       pmc:          schedPl.length>0 ? +(compPl/schedPl.length*100).toFixed(1) : null,
     };
     const val = vals[key];
@@ -11584,8 +11600,10 @@ function openKpiDetail(key){
       case 'mttr':         return `${c.sumMttr} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
       case 'mttf':         return `${c.sumMttf} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
       case 'availability': return `${c.sumAvail} ÷ ${c.machineCount} makine = <b>${fleetVal}%</b>`;
-      case 'pmr':          return `Planlı ${c.plannedH}h ÷ Toplam ${c.totalMaintH}h × 100 = <b>${fleetVal}%</b>`;
-      case 'unplanned':    return `(Düzeltici ${c.correctiveH}h + Duruş ${c.failDownH}h) ÷ ${c.totalMaintH}h × 100 = <b>${fleetVal}%</b>`;
+      case 'pmr':          return `Planlı ${c.plannedH}h ÷ Toplam bakım eforu ${c.totalMaintH}h × 100 = <b>${fleetVal}%</b>`
+                                  + `<div style="font-size:.75rem;color:var(--muted);margin-top:.35rem">Payda = planlı işçilik ${c.plannedH}h + düzeltici işçilik ${c.correctiveH}h + arıza onarımı ${c.failDownH}h. Yalnızca <b>yapılmış</b> işler sayılır; açık arıza ve bekleyen bakım paydaya girmez.</div>`;
+      case 'unplanned':    return `(Düzeltici ${c.correctiveH}h + Arıza onarımı ${c.failDownH}h) ÷ ${c.totalMaintH}h × 100 = <b>${fleetVal}%</b>`
+                                  + `<div style="font-size:.75rem;color:var(--muted);margin-top:.35rem">Arıza onarım süresi, kaydın başlangıç–bitiş farkıdır (arıza kaydında ayrı işçilik alanı yoktur). Kapanmamış arızalar sayılmaz.</div>`;
       case 'pmc':          return `Tamamlanan ${c.compPlan} ÷ Planlanan ${c.schedPlanCount} × 100 = <b>${fleetVal===null?'—':fleetVal+'%'}</b>`;
       default:             return '';
     }
