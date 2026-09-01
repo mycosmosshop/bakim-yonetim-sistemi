@@ -11633,7 +11633,7 @@ function openKpiDetail(key){
   const formulas = {
     mtbf:         'MTBF = Σ(makine MTBF) ÷ arızalı makine sayısı  ·  (makine MTBF = çalışma süresi ÷ arıza sayısı)',
     mttr:         'MTTR = Σ(makine MTTR) ÷ arızalı makine sayısı  ·  (makine MTTR = toplam duruş ÷ kapalı arıza)',
-    mttf:         'MTTF = Σ(kurulum → ilk arıza saat farkı) ÷ arızalı makine sayısı',
+    mttf:         'MTTF = Σ(kurulum → ilk arıza saat farkı) ÷ ÖLÇÜLEBİLEN makine sayısı  ·  (kayıt tutulmadan önce kurulan makine ölçülemez)',
     availability: 'Kullanılabilirlik = Σ(makine kullanılabilirlik %) ÷ makine sayısı  ·  (makine = (süre − duruş) ÷ süre × 100)',
     pmr:          'PMR = Planlı Bakım Saati ÷ (Planlı + Düzeltici + Duruş) Saati × 100',
     unplanned:    'Plansız % = (Düzeltici + Duruş) Saati ÷ Toplam Bakım Saati × 100',
@@ -11651,7 +11651,11 @@ function openKpiDetail(key){
     switch(key){
       case 'mtbf':         return `${c.sumMtbf} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
       case 'mttr':         return `${c.sumMttr} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
-      case 'mttf':         return `${c.sumMttf} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
+      case 'mttf':         return `${c.sumMttf} ${def.unit} ÷ ${c.mttfSayi} makine = <b>${fleetVal}${_u}</b>`
+                                  + (c.mttfSayi === 1
+                                      ? `<div style="font-size:.75rem;color:#ffa726;margin-top:.35rem">Yalnızca <b>1 makine</b> ölçülebiliyor — bu bir filo ortalaması değil, tek makinenin değeri.</div>`
+                                      : '')
+                                  + (_mttfSebep(c) ? `<div style="font-size:.75rem;color:var(--muted);margin-top:.35rem">${_mttfSebep(c)}</div>` : '');
       case 'availability': return `${c.sumAvail} ÷ ${c.machineCount} makine = <b>${fleetVal}%</b>`;
       case 'pmr':          return `Planlı ${c.plannedH}h ÷ Toplam bakım eforu ${c.totalMaintH}h × 100 = <b>${fleetVal}%</b>`
                                   + `<div style="font-size:.75rem;color:var(--muted);margin-top:.35rem">Payda = planlı işçilik ${c.plannedH}h + düzeltici işçilik ${c.correctiveH}h + arıza onarımı ${c.failDownH}h. Yalnızca <b>yapılmış</b> işler sayılır; açık arıza ve bekleyen bakım paydaya girmez.</div>`;
