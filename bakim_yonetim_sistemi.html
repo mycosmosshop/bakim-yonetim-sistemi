@@ -2469,8 +2469,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
             <span style="font-size:.8rem;color:var(--text);white-space:nowrap"><i class="bi bi-clock-history me-1"></i>Çalışma takvimi:</span>
             <label style="font-size:.75rem;color:var(--muted)">Başlangıç</label>
             <input type="time" id="vardiyaBas" class="form-control form-control-sm" style="width:110px" onchange="_vardiyaFormKaydet()">
-            <label style="font-size:.75rem;color:var(--muted)">Saat/gün</label>
-            <input type="number" id="vardiyaSaat" class="form-control form-control-sm" style="width:85px" min="1" max="24" step="0.5" onchange="_vardiyaFormKaydet()">
+            <label style="font-size:.75rem;color:var(--muted)">Bitiş</label>
+            <input type="time" id="vardiyaBitis" class="form-control form-control-sm" style="width:110px" onchange="_vardiyaFormKaydet()">
             <label style="font-size:.75rem;color:var(--muted)">Gün/hafta</label>
             <input type="number" id="vardiyaGun" class="form-control form-control-sm" style="width:85px" min="1" max="7" step="1" onchange="_vardiyaFormKaydet()">
             <button class="btn btn-sm btn-outline-secondary" onclick="_vardiyaSifirla()" title="Bu lokasyonun ayarını kaldır (global ayara / 7-24'e döner)">Sıfırla</button>
@@ -8377,20 +8377,42 @@ function openKpiSettings(){
 }
 
 // ── Vardiya formu (KPI Hedefleri modali icinde) ──
+// Kullanici vardiyayi "08:00–18:00" diye dusunur, "10 saat" diye degil.
+// Depoda saatGun tutulmaya devam ediyor; form onu bitis saatine cevirir.
+function _vdDk(hhmm){
+  const p = String(hhmm||'').split(':');
+  return (Number(p[0])||0)*60 + (Number(p[1])||0);
+}
+function _vdSaat(dk){
+  const s = Math.floor(dk/60), d = Math.round(dk%60);
+  return String(s).padStart(2,'0') + ':' + String(d).padStart(2,'0');
+}
+// Baslangic + sure -> bitis (24 saati asarsa ayni saate doner)
+function _vdBitis(bas, saatGun){
+  return _vdSaat((_vdDk(bas) + Math.round(saatGun*60)) % 1440);
+}
+// Bitis - baslangic -> sure. Bitis kucukse GECE vardiyasi: ertesi gune sarkar.
+function _vdSure(bas, bitis){
+  let d = _vdDk(bitis) - _vdDk(bas);
+  if(d <= 0) d += 1440;
+  return +(d/60).toFixed(2);
+}
+
 function _vardiyaFormDoldur(){
   const loc = _kpiModalLoc || '';
   const kendi = vardiyaAyar[loc] || null;
   const v = _vardiya(loc);
   const el = id => document.getElementById(id);
   if(!el('vardiyaBas')) return;
-  el('vardiyaBas').value  = v.bas;
-  el('vardiyaSaat').value = v.saatGun;
-  el('vardiyaGun').value  = v.gunHafta;
+  el('vardiyaBas').value   = v.bas;
+  el('vardiyaBitis').value = _vdBitis(v.bas, v.saatGun);
+  el('vardiyaGun').value   = v.gunHafta;
   const kaynak = kendi ? 'bu lokasyonun kendi ayarı'
                : (vardiyaAyar[''] && loc ? 'global ayardan devralındı' : 'varsayılan');
   const haftaSa = +(v.saatGun * v.gunHafta).toFixed(1);
+  const aralik = `${v.bas}–${_vdBitis(v.bas, v.saatGun)} (${+v.saatGun.toFixed(2)} saat) × ${v.gunHafta} gün`;
   el('vardiyaBilgi').innerHTML = v.ayarli
-    ? `Haftada <strong>${haftaSa} saat</strong> — MTBF ve Kullanılabilirlik bu pencereyle hesaplanır (${kaynak}). `
+    ? `${aralik} = haftada <strong>${haftaSa} saat</strong> — MTBF ve Kullanılabilirlik bu pencereyle hesaplanır (${kaynak}). `
       + `Arıza duruşu da vardiya içine denk gelen kısmıyla sayılır; raporlardaki “Duruş (h)” duvar saati olarak kalır.`
     : `<span style="color:#ffa726">Vardiya tanımlı değil (7/24 = haftada 168 saat).</span> `
       + `MTBF ve Kullanılabilirlik takvim saatiyle hesaplanır; tek vardiya çalışan bir tesiste MTBF olduğundan ~3 kat yüksek çıkar.`;
@@ -8398,11 +8420,12 @@ function _vardiyaFormDoldur(){
 
 function _vardiyaFormKaydet(){
   const loc = _kpiModalLoc || '';
-  const sa = parseFloat(document.getElementById('vardiyaSaat').value);
-  const gn = parseFloat(document.getElementById('vardiyaGun').value);
   const bs = document.getElementById('vardiyaBas').value || '08:00';
+  const bt = document.getElementById('vardiyaBitis').value || '18:00';
+  const sa = _vdSure(bs, bt);
+  const gn = parseFloat(document.getElementById('vardiyaGun').value);
   if(!(sa>0 && sa<=24) || !(gn>0 && gn<=7)){
-    try{ toast('Saat/gün 1–24, gün/hafta 1–7 aralığında olmalı','warning'); }catch(e){}
+    try{ toast('Bitiş saati ve gün/hafta (1–7) geçerli olmalı','warning'); }catch(e){}
     _vardiyaFormDoldur(); return;
   }
   vardiyaAyar[loc] = { bas:bs, saatGun:sa, gunHafta:gn };
