@@ -3297,6 +3297,22 @@ function _mttfSaat(m, fails){
   return d<0 ? null : +d.toFixed(0);
 }
 
+// MTTF neden olculemedi? Hem panoda hem KPI penceresinde ayni metin.
+// ONCE bu hesap _renderKpiRows icinde yereldi ve panodaki gosterim
+// satiri ona erisemiyordu: ReferenceError, PANO KOMPLE BOSALIYORDU.
+function _mttfSebep(fleet){
+  const d = (fleet && fleet.mttfDisi) || {};
+  if(!fleet || fleet.mttf !== null) return '';
+  const p = [];
+  if(d.tarihYok) p.push(d.tarihYok + ' makinede kurulum tarihi yok');
+  if(d.sansurlu) p.push(d.sansurlu + ' makine arıza kaydı tutulmadan önce kurulmuş');
+  if(d.arizasiz) p.push(d.arizasiz + ' makinenin bu dönemde arızası yok');
+  if(!p.length) return '';
+  return 'Ölçülemiyor: ' + p.join(' · ')
+    + '. MTTF kurulumdan İLK arızaya kadar geçen süredir; kayıt tutmadan önce '
+    + 'kurulan makinede o süre bilinmez, uydurma sayı üretilmez.';
+}
+
 function calcFleetKPIs(forLoc){
   const loc = forLoc !== undefined ? forLoc : gLocFilter;
   const _mids = loc ? new Set(db.machines.filter(m=>m.location===loc).map(m=>m.id)) : null;
@@ -4375,6 +4391,7 @@ function renderDashboard(){
   ];
 
   // ── KPI cards — only enabled ones ──
+  const _dashMttfNot = _mttfSebep(fleet);
   const kpiValues = {
     mtbf:         fleet.mtbf !== null ? fleet.mtbf : null,
     mttr:         fleet.mttr !== null ? fleet.mttr : null,
@@ -4401,7 +4418,7 @@ function renderDashboard(){
           <span class="kpi-dir">${def.higherBetter?'\u2191 y\u00fcksek':'\u2193 d\u00fc\u015f\u00fck'}</span>
           <div class="kpi-target-bar"><div class="kpi-target-fill" style="width:${noData?0:ev.pct}%;background:${ev.color}"></div></div>
           <span style="font-size:.7rem;color:#555">${noData?'Veri yok':ev.pct>=100?'\u2713 Tamam':ev.pct.toFixed(0)+'%'}</span>
-          ${k==='mttf' && _mttfNot ? `<div style="font-size:.68rem;color:#ffa726;margin-top:3px;max-width:230px;line-height:1.35">${_mttfNot}</div>` : ''}
+          ${k==='mttf' && _dashMttfNot ? `<div style="font-size:.68rem;color:#ffa726;margin-top:3px;max-width:230px;line-height:1.35">${_dashMttfNot}</div>` : ''}
         </div>
         <div class="kpi-sub" style="margin-top:.2rem">Hedef: ${ev.target??getKpi(k).target} ${def.unit}</div>
       </div></div>`;
@@ -8465,18 +8482,7 @@ function _renderKpiRows(){
     mtbf:fleet.mtbf, mttr:fleet.mttr, mttf:fleet.mttf,
     availability:fleet.availability, pmr:fleet.pmr, unplanned:fleet.unplanned, pmc:fleet.pmc
   };
-  // MTTF olculemiyorsa SEBEBINI yaz. "Veri yok" tek basina kullaniciyi
-  // eksik veri aramaya gonderiyor; asil sebep genelde sansur kurali.
-  const _md = fleet.mttfDisi || {};
-  const _mdParca = [];
-  if(_md.tarihYok)  _mdParca.push(_md.tarihYok + ' makinede kurulum tarihi yok');
-  if(_md.sansurlu)  _mdParca.push(_md.sansurlu + ' makine arıza kaydı tutulmadan önce kurulmuş');
-  if(_md.arizasiz)  _mdParca.push(_md.arizasiz + ' makinenin bu dönemde arızası yok');
-  const _mttfNot = (fleet.mttf===null && _mdParca.length)
-    ? 'Ölçülemiyor: ' + _mdParca.join(' · ')
-      + '. MTTF kurulumdan İLK arızaya kadar geçen süredir; kayıt tutmadan önce '
-      + 'kurulan makinede o süre bilinmez, uydurma sayı üretilmez.'
-    : '';
+  const _mttfNot = _mttfSebep(fleet);
   // Ensure config slot exists
   const storeKey = _kpiModalYear ? (_kpiModalYear+'_'+_kpiModalLoc) : _kpiModalLoc;
   if(!kpiConfig[storeKey]){
