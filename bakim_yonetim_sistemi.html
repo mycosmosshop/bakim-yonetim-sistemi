@@ -8445,11 +8445,13 @@ const ANKARA_MACHINES = [
  {
   "code": "ISM1",
   "name": "ISM1 DIKEY MAK ANK",
-  "dept": "Üretim",
+  "dept": "",
   "sk": "910.5.706",
-  "plan": "2026-03-15",
+  "plan": "PL15'TE PLAN SATIRI YOK",
   "comp": "",
-  "set": "sfm_cnc_kesim"
+  "set": "",
+  "devir": true,
+  "kaynak": "Mart 2026 sonunda Çerkezköy'e devredildi — kayıt geçmiş için tutuluyor"
  }
 ];
 const ANKARA_ARIZA = [
@@ -8752,8 +8754,10 @@ function _ankDevir(){
 function loadAnkaraPlan(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
   if(!confirm('ANKARA 2026 Yıllık Bakım Planı yüklenecek:\n\n'
-    +'• 9 makine (PL15 + kayıtlardan gelen ISM1)\n'
-    +'• Her makineye yılda bir planlı bakım, PL15\'teki aylar korunur\n'
+    +'• PL15\'teki 8 makine + arıza kayıtlarından gelen ISM1 DIKEY MAK ANK\n'
+    +'• ISM1 Mart 2026 sonunda Çerkezköy\'e devredildi: Ankara\'da PASİF olur,\n'
+    +'  planlı bakımı açılmaz (PL15\'te zaten satırı yok), 11.03.2026 arızası kalır.\n'
+    +'• FRT ve KOMP1 saatlik bakım — onlara da plan kaydı açılmaz.\n'
     +'• Tarihi geçmiş ve yapılmış olanlar KAPATILIR\n\n'
     +'Aynı kodlu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
 
@@ -8768,11 +8772,24 @@ function loadAnkaraPlan(){
     if(!ex){ ex={id:'ank_'+m.code.replace(/[^A-Za-z0-9]/g,'')}; db.machines.push(ex); nM++; }
     // Makine Kodu = Sanifoam kodu (tabloda gorunen sutun); kisa kisaltma notta
     Object.assign(ex,{ name:m.name, code:m.sk, dept:m.dept, location:'Ankara',
-      criticality:ex.criticality||'high', status:ex.status||'running',
-      notes:'Makina Kodu: '+m.code });
+      criticality:ex.criticality||'high',
+      // Devredilen makine Ankara'da aktif sayilmaz; kaydi ve arizasi durur.
+      status:m.devir?'passive':(ex.status||'running'),
+      notes:'Makina Kodu: '+m.code+(m.kaynak?' · '+m.kaynak:'') });
   });
 
   const macId=_ankMacId();
+  // PL15'te plan satiri olmayan makineye ait "PL15 planli bakim" kaydi
+  // kaynaksizdir (once hatali yazilmisti) — temizlenir.
+  const planSiz=new Set(ANKARA_MACHINES.filter(m=>!/^\d{4}-\d{2}-\d{2}$/.test(m.plan))
+    .map(m=>macId[m.code]).filter(Boolean));
+  let nS=0;
+  if(planSiz.size){
+    const once=db.maintenance.length;
+    db.maintenance=db.maintenance.filter(p=>!(planSiz.has(p.machineId)
+      && String(p.desc||'').indexOf('PL15 yıllık planlı bakım')===0));
+    nS=once-db.maintenance.length;
+  }
   let nP=0, nK=0;
   ANKARA_MACHINES.forEach(m=>{
     // "SAATLİK BAKIM YAPILIR" bir tarih degil; plana kayit acilmaz
@@ -8807,10 +8824,11 @@ function loadAnkaraPlan(){
       external:false, wo:'', partsUsed:'' });
   });
 
-  const nD=_ankDevir();
+  const nD=_ankDevir()+ANKARA_MACHINES.filter(m=>m.devir).length;
   save(); updateSelects(); nav('maintenance');
   toast('Ankara: '+nM+' yeni makine, '+nP+' bakım kaydı ('+nK+' kapatıldı)'
-    +(nD?' · Çerkezköy CNC pasife alındı':''));
+    +(nD?' · '+nD+' makine pasife alındı (devir)':'')
+    +(nS?' · '+nS+' kaynaksız plan kaydı silindi':''));
 }
 
 function loadAnkaraAriza(){
