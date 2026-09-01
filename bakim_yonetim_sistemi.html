@@ -3033,6 +3033,20 @@ const daysDiff = (s) => {
 // kapatir ve dugme calismaz (or. "Çerkezköy'e devredildi" notu). Hep bunu kullan.
 const attrJson = (o) => JSON.stringify(o).replace(/'/g, '&apos;');
 
+// PMC kapsami: yalnizca VADESI GELMIS onleyici bakimlar. Gelecege
+// planlanmis bir bakim ne yapilmis ne gecikmis sayilir. Bu hesap uc
+// yerde kopyalanmisti (pano, analitik grafigi, analitik matrisi) ve
+// kopyalar birbirinden ayrilabiliyordu — tek yerde tutuluyor.
+function _pmcKapsam(liste){
+  return (liste||[]).filter(p=>(p.type==='preventive'||p.type==='predictive')
+    && (p.status==='completed' || (p.sched && daysDiff(p.sched)<=0)));
+}
+function _pmcOran(liste){
+  const s=_pmcKapsam(liste);
+  if(!s.length) return null;
+  return +(s.filter(p=>p.status==='completed').length/s.length*100).toFixed(1);
+}
+
 function downtimeH(f){
   const end = f.endTime ? new Date(f.endTime) : new Date();
   return Math.max(0,(end - new Date(f.startTime))/3600000);
@@ -3209,8 +3223,7 @@ function calcFleetKPIs(forLoc){
   // sayiliyordu: gelecek yila plan yazmak bugunku uyumu dusuruyordu
   // (Ankara'da 2027 kayitlari eklenince %83 -> %60). Vadesi gelmemis bir
   // bakim ne yapilmis ne gecikmis sayilir; olcunun disindadir.
-  const schedPlan = _lm.filter(p=>(p.type==='preventive'||p.type==='predictive')
-    && (p.status==='completed' || (p.sched && daysDiff(p.sched)<=0)));
+  const schedPlan = _pmcKapsam(_lm);
   const compPlan  = schedPlan.filter(p=>p.status==='completed').length;
   const pmcVal    = schedPlan.length>0 ? compPlan/schedPlan.length*100 : null;
 
@@ -4101,8 +4114,9 @@ function renderAnalyticsCharts(){
 
   // PMC by machine
   function machinePmcPct(mid){
-    const sc=_aP.filter(p=>(p.machineId===mid)&&(p.type==='preventive'||p.type==='predictive'));
-    return sc.length>0?+(sc.filter(p=>p.status==='completed').length/sc.length*100).toFixed(1):0;
+    // Vadesi gelmemis bakim orani dusurmemeli (ortak kural)
+    const o=_pmcOran(_aP.filter(p=>p.machineId===mid));
+    return o===null?0:o;
   }
   const pmcTarget = getKpi('pmc').target;
   const pmcVals = _aM.map(m=>machinePmcPct(m.id));
@@ -5877,9 +5891,7 @@ function renderAnalytics(){
   }
   // Per-machine PMC
   function machinePmc(mid){
-    const sc=_maintKpi(locMaint()).filter(p=>(p.machineId===mid)&&(p.type==='preventive'||p.type==='predictive'));
-    if(!sc.length) return null;
-    return +(sc.filter(p=>p.status==='completed').length/sc.length*100).toFixed(1);
+    return _pmcOran(_maintKpi(locMaint()).filter(p=>p.machineId===mid));
   }
 
   // Matris, Dashboard ile AYNI tarih aralığını kullansın (tutarlılık). Trend grafiği etkilenmez.
@@ -7440,8 +7452,8 @@ function renderReports(){
       const av=planH2>0?Math.min(100,+((planH2-dH)/planH2*100).toFixed(1)):null;
       const mttrV=mFails.length>0?+(dH/mFails.length).toFixed(1):null;
       const mtbfV=mFails.length>0?+((planH2-dH)/mFails.length).toFixed(1):null;
-      const pmcArr2=mMaints.filter(p=>p.type==='preventive'||p.type==='predictive');
-      const pmcV=pmcArr2.length>0?+(pmcArr2.filter(p=>p.status==='completed').length/pmcArr2.length*100).toFixed(1):null;
+      // Raporlar makine tablosu da ortak PMC hesabini kullanir
+      const pmcV=_pmcOran(mMaints);
       const cost2=mFails.reduce((s,f)=>s+(f.cost||0),0)+mMaints.reduce((s,p)=>s+(p.cost||0),0);
       const avCol=av!==null?(av>=95?'#69f0ae':av>=85?'#ffa726':'#ff8a80'):'var(--muted)';
       html+=`<tr>
@@ -9580,8 +9592,8 @@ function _ankEstH(setId){
 const ANKARA_AKSIYON = [
  {
   id:'ank_ak_pmr',
-  title:'Su Jeti: PL15’e 6 aylık ara bakım eklenmesi (PMR %39 → %70)',
-  desc:'2026’da Ankara arıza duruşunun %45’i TECHNOCUT SU JETİ’nde (17,9 sa / toplam 40,1 sa). '
+  title:'Su Jeti: PL15’e 6 aylık ara bakım eklenmesi (PMR %34,8 → %70)',
+  desc:'PMR %34,8 (hedef 70), plansız bakım %65,2 (hedef 30). '      +'2026’da Ankara arıza duruşunun %45’i TECHNOCUT SU JETİ’nde (17,9 sa / toplam 40,1 sa). '
       +'Kayıtlarda tetik contası + iğne değişimi 23.01.2026 ve 29.06.2026’da iki kez yapılmış '
       +'(her biri 250 TL) — fiilen 6 aylık bir periyot işliyor, ama PL15 bu makineye yılda tek '
       +'bakım öngörüyor (15.04.2026). Yapılan iş plana yazılacak: PL15’e Su Jeti için Ocak ve '
@@ -9606,13 +9618,14 @@ const ANKARA_AKSIYON = [
  },
  {
   id:'ank_ak_pmc',
-  title:'Açık 2 planlı bakımın termininde kapatılması (PMC %75 → %90)',
-  desc:'8 planlı bakımın 6’sı tamamlandı; PMC %75, hedef %90. Açık olanlar: VARGEL(ANK) '
-      +'08.09.2026 ve ÇÖP PRESİ 11.11.2026. Her ikisi için yedek parça ve sarf malzeme bir '
-      +'hafta önceden hazırlanır; yaklaşan bakım WhatsApp hatırlatması 7 gün önceden uyarıyor. '
-      +'İkisi de termininde kapatılırsa yıl sonu 8/8 = %100 olur. '
+  title:'Açık 2 planlı bakımın termininde kapatılması (PMC %100 korunsun)',
+  desc:'Vadesi gelen 6 planlı bakımın 6’sı gününde yapıldı; PMC %100 (hedef 90). '
+      +'Bu bir sapma DEĞİL — amaç oranı korumak. Açık olanlar: VARGEL(ANK) 08.09.2026 ve '
+      +'ÇÖP PRESİ 11.11.2026. Her ikisi için yedek parça ve sarf malzeme bir hafta önceden '
+      +'hazırlanır; yaklaşan bakım WhatsApp hatırlatması 7 gün önceden uyarıyor. İkisi de '
+      +'termininde kapatılırsa yıl sonu 8/8 olur; biri kayarsa PMC %85,7’ye düşer. '
       +'Kanıt: planlı bakım listesi, tamamlanma tarihleri ve hatırlatma kaydı.',
-  priority:'medium', status:'open', location:'Ankara',
+  priority:'low', status:'open', location:'Ankara',
   assignee:'Hasan Köse', due:'2026-11-11'
  }
 ];
@@ -9620,7 +9633,7 @@ const ANKARA_AKSIYON = [
 function loadAnkaraAksiyon(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
   if(!confirm('ANKARA KPI aksiyonları yüklenecek:\n\n'
-    +'• '+ANKARA_AKSIYON.length+' aksiyon (PMR, hidrolik duruş, PMC)\n'
+    +'• '+ANKARA_AKSIYON.length+' aksiyon (PMR %34,8 · hidrolik duruş · PMC %100 korunması)\n'
     +'• Sorumlu: Hasan Köse · Terminler Ekim–Kasım 2026\n\n'
     +'Raporlar > Manuel Aksiyon Faaliyetleri altında görünür.\n'
     +'Durumunu siz değiştirirseniz tekrar yüklemede KORUNUR. Devam?')) return;
