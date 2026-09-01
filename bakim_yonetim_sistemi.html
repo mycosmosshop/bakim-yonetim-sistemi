@@ -1759,6 +1759,12 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       </div>
       <div class="modal-body">
         <div id="d8Uyari"></div>
+        <button class="btn btn-success w-100 mb-3" onclick="d8Gonder()">
+          <i class="bi bi-box-arrow-up-right me-1"></i>ERP 8D Raporuna Gönder — alanlar otomatik dolar
+        </button>
+        <div style="font-size:.75rem;color:var(--muted);text-align:center;margin-bottom:.75rem">
+          Açılmazsa aşağıdaki alanları elle kopyalayabilirsiniz.
+        </div>
         <div style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">
           ERP → Tedarikçi Sistemi → <b>8D Rapor</b> ekranını açın; aşağıdaki alanları
           karşılığına yapıştırın. Her satırın kendi kopyala düğmesi var.
@@ -3297,9 +3303,27 @@ function _d8Arizadan(f){
        +(g.tutar?(' ve '+g.tutar.toLocaleString('tr-TR')+' TL maliyet'):'')+'.')
     : ('Kayıtlarda '+g.adet+' kez görüldü; '+g.saat+' saat duruş'
        +(g.tutar?(' ve '+g.tutar.toLocaleString('tr-TR')+' TL maliyet'):'')+'.');
+  const veri={
+    d2problem: m.name+(m.code?(' ('+m.code+')'):'')+' — '+(f.desc||'')+(r.w1?('\n'+r.w1):''),
+    d2symptom: r.w1||f.desc||'',
+    d2errorLocation: [m.location,m.dept].filter(x=>!!x).join(' / '),
+    d2errorType: TYPE_LBL[f.failureType]||f.failureType||'',
+    d2riskAssessment: risk,
+    d8result: d8,
+    d1: [r.owner,f.tech].filter(x=>!!x).filter((v,i,a)=>a.indexOf(v)===i).map(n=>({name:n})),
+    d3: f.resolution ? [{ description:f.resolution, responsible:f.tech||'',
+                          date:String(f.startTime||'').slice(0,10) }] : [],
+    // Kok neden SISTEMIK kabul edilir (SCO): 5-Neden'in son adimi tipik
+    // olarak sistem eksigidir. Farkliysa formda degistirilir.
+    d4: (r.w5||zincir) ? [{ type:'sco', title:(r.w5||'Kök neden'),
+          description:(zincir?('5-Neden zinciri:\n'+zincir):'') }] : [],
+    d5: d5 ? [{ action:d5, responsible:r.owner||'', planDate:r.due||'' }] : []
+    // d6/d7 yok — uygulama tarihi ve yaygınlastirma karari kayitta yok
+  };
   return {
     baslik: mName(f.machineId)+' — '+(f.desc||'Arıza'),
     kokVar: !!(r.w1||r.w5),
+    veri: veri,
     alanlar:[
       _d8Alan('D1 — Ekip (d1TeamMembers)',
         [r.owner, f.tech].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(', '),
@@ -3333,6 +3357,14 @@ function _d8Aksiyondan(a){
   return {
     baslik: a.title||'Aksiyon',
     kokVar: false,
+    veri: {
+      d2problem: (a.title||'')+(a.desc?('\n\n'+a.desc):''),
+      d2errorLocation: a.location||'',
+      d8result: 'Sorumlu: '+(a.assignee||'—')+' · Termin: '+(a.due?fmtD(a.due):'—'),
+      d1: a.assignee ? [{name:a.assignee}] : [],
+      d3: [], d4: [],   // kok neden analizi yok — uydurulmaz
+      d5: a.desc ? [{ action:a.desc, responsible:a.assignee||'', planDate:a.due||'' }] : []
+    },
     alanlar:[
       _d8Alan('D1 — Ekip (d1TeamMembers)', a.assignee||'',
         'Ekibi tamamlayın: kalite, bakım ve üretim temsilcisi.'),
@@ -3384,6 +3416,28 @@ function _d8Goster(v){
         <div class="d8-metin${a.metin?'':' d8-bos'}">${a.metin || ('— '+(a.bos||'doldurulacak')+' —')}</div>
       </div>`).join('');
   new bootstrap.Modal(document.getElementById('modal8D')).show();
+}
+
+// ERP'nin 8D sayfasini acar ve veriyi devreder. Ayni origin oldugu icin
+// localStorage ortak; modullerin kendi devir deseni de bu.
+function d8Gonder(){
+  const v=window._d8Veri;
+  if(!v || !v.veri){ toast('Aktarılacak kayıt yok.','warning'); return; }
+  if(!confirm('8D RAPORUNA GÖNDER\n\n'+v.baslik+'\n\n'
+    +'ERP’de yeni bir 8D formu açılıp alanlar dolacak:\n'
+    +'• D1, D2, D3, D5'+(v.kokVar?', D4':'')+' ve D8\n'
+    +'• D6 ve D7 boş kalır — uygulama tarihleri ve yaygınlaştırma sizin\n'
+    +(v.kokVar?'':'• Bu kaydın kök neden analizi YOK, D4 boş gelecek\n')
+    +'\nDevam?')) return;
+  try{
+    localStorage.setItem('_cmms_8d', JSON.stringify({
+      kaynak:'cmms', baslik:v.baslik, kokVar:v.kokVar, alanlar:v.veri,
+      zaman:new Date().toLocaleString('tr-TR')
+    }));
+  }catch(e){ toast('Aktarım yazılamadı: '+e.message,'danger'); return; }
+  const p=window.open('../supplier-system/8d-rapor.html','_blank');
+  if(!p){ toast('Pencere engellendi — ERP’de 8D Rapor sayfasını açın, veri hazır bekliyor.','warning'); return; }
+  toast('8D formu açıldı, alanlar dolduruldu');
 }
 
 function aktar8DAriza(id){
