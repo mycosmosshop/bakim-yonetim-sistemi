@@ -9113,14 +9113,27 @@ function loadAnkaraDof(){
   const hedef=(db.failures||[]).filter(f=>ids.indexOf(f.machineId)>=0
       && String(f.desc||'').indexOf('Şerit testere kırılması')>=0);
   if(!hedef.length){ toast('CNC şerit testere kırılması kaydı bulunamadı — önce arıza geçmişi yüklenmeli.','warning'); return; }
-  if(!confirm('CNC Dikey Sable — 5-Neden analizi '+hedef.length+' arıza kaydına işlenecek:\n\n'
-    +'• 5 neden, kök neden, düzeltici faaliyetler\n'
+  // Bir 5-Neden, tekrarlayan problemin TEK analizidir. Her kayda yazmak
+  // RCA ekraninda ayni karti defalarca gosteriyordu. Analiz EN SON ariza
+  // kaydinda durur; digerleri "tekrarlayan" isaretiyle ona baglanir.
+  hedef.sort((a,b)=>new Date(b.startTime)-new Date(a.startTime));
+  const tasiyici=hedef[0];
+  if(!confirm('CNC Dikey Sable — 5-Neden analizi işlenecek:\n\n'
+    +'• Analiz TEK kayda yazılır: '+String(tasiyici.startTime).slice(0,10)+' (en son arıza)\n'
+    +'• Diğer '+(hedef.length-1)+' kayıt "tekrarlayan" olarak işaretlenir\n'
     +'• Sorumlu: '+ANKARA_DOF_CNC.owner+' · Termin: 30.09.2026\n\n'
     +'Kayıtların kendisi (tarih, süre, maliyet) DEĞİŞMEZ. Devam?')) return;
-  let n=0;
-  hedef.forEach(f=>{ f.rca=JSON.parse(JSON.stringify(ANKARA_DOF_CNC)); f.recurring=true; n++; });
+  let temizlenen=0;
+  hedef.forEach(f=>{
+    f.recurring=true;
+    if(f===tasiyici){ f.rca=JSON.parse(JSON.stringify(ANKARA_DOF_CNC)); return; }
+    // Onceki surum her kayda yazmisti. YALNIZCA bu analizi temizle —
+    // kullanicinin kendi yazdigi kok neden analizine dokunma.
+    if(f.rca && f.rca.w1===ANKARA_DOF_CNC.w1){ f.rca=null; temizlenen++; }
+  });
   save(); updateSelects(); nav('failures');
-  toast(n+' CNC arıza kaydına 5-Neden analizi işlendi');
+  toast('5-Neden analizi 1 kayda işlendi · '+(hedef.length-1)+' kayıt tekrarlayan'
+    +(temizlenen?(' · '+temizlenen+' kopya analiz kaldırıldı'):''));
 }
 
 // CNC Dikey Sable Cerkezkoy'den Ankara'ya tasindi. Eski kayit SILINMEZ —
