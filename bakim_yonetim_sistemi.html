@@ -720,6 +720,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <button class="btn btn-outline-primary btn-sm" onclick="loadAnkaraPlan()" title="PL15 2026 yıllık bakım planı: 9 makine + planlı bakımlar"><i class="bi bi-calendar-check me-1"></i>Ankara Planı Yükle</button>
       <button class="btn btn-outline-danger btn-sm" onclick="loadAnkaraAriza()" title="2026 Bakım Kayıtları: Ocak–Haziran arızaları"><i class="bi bi-exclamation-triangle me-1"></i>Ankara Arızalarını Yükle</button>
       <button class="btn btn-outline-warning btn-sm" onclick="loadAnkaraDof()" title="CNC Dikey Sable — tekrarlayan şerit testere kırılması için 5-Neden analizi"><i class="bi bi-diagram-3 me-1"></i>CNC 5-Neden İşle</button>
+      <button class="btn btn-outline-info btn-sm" onclick="loadAnkaraAksiyon()" title="Ankara KPI sapmalarına karşı aksiyon kayıtları (Raporlar ekranında görünür)"><i class="bi bi-clipboard-plus me-1"></i>Ankara KPI Aksiyonları</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -962,6 +963,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <label class="rpt-toggle-btn" id="rtgl_oeeReport"><input type="checkbox" value="oeeReport" checked onchange="renderReports()"> 📉 OEE Raporu</label>
       <label class="rpt-toggle-btn" id="rtgl_costReport"><input type="checkbox" value="costReport" checked onchange="renderReports()"> 💰 Maliyet Raporu</label>
       <label class="rpt-toggle-btn" id="rtgl_actionItems"><input type="checkbox" value="actionItems" checked onchange="renderReports()"> 📋 Aksiyon Faaliyetleri</label>
+      <label class="rpt-toggle-btn" id="rtgl_rcaActions"><input type="checkbox" value="rcaActions" checked onchange="renderReports()"> 🧭 Kök Neden Aksiyonları</label>
       <label class="rpt-toggle-btn" id="rtgl_manualActions"><input type="checkbox" value="manualActions" checked onchange="renderReports()"> 📌 Manuel Aksiyonlar</label>
     </div>
     <!-- KPI alt seçimi (kpiSummary/kpiTrend aktifse göster) -->
@@ -7315,6 +7317,53 @@ function renderReports(){
   }
 
   // ── 10. MANUEL AKSİYON FAALİYETLERİ ──
+  // Kok neden analizlerindeki duzeltici faaliyetler. KOPYALANMAZ —
+  // kaynak ariza kaydinin rca alani; orada degisince burada da degisir.
+  if(sections.includes('rcaActions')){
+    const _rcaF = locFails()
+      .filter(f=>f.rca && String(f.rca.action||'').trim())
+      .sort((a,b)=>new Date(b.startTime)-new Date(a.startTime));
+    html+=`<div class="rpt-section card-dark">
+      <span class="rpt-section-title">
+        <i class="bi bi-diagram-3 me-2" style="color:#ab47bc"></i>🧭 Kök Neden Analizinden Gelen Aksiyonlar
+        <span style="font-size:.75rem;color:var(--muted);font-weight:400">(${_rcaF.length} kayıt · arıza kaydından otomatik)</span>
+      </span>`;
+    if(_rcaF.length){
+      html+=`<div class="table-responsive"><table class="table table-dark table-hover rpt-table mb-0"><thead><tr>
+        <th style="width:36px">#</th>
+        <th style="width:150px">Makine / Arıza</th>
+        <th>Kök neden ve düzeltici faaliyet</th>
+        <th style="width:100px">Sorumlu</th>
+        <th style="width:90px">Termin</th>
+      </tr></thead><tbody>`;
+      _rcaF.forEach((f,i)=>{
+        const r=f.rca;
+        const gecikti = r.due && new Date(r.due)<new Date();
+        html+=`<tr>
+          <td style="color:var(--muted);font-size:.8rem">${i+1}</td>
+          <td>
+            <div style="font-weight:600;font-size:.82rem">${mName(f.machineId)}</div>
+            <div style="font-size:.72rem;color:var(--muted)">${fmtD(String(f.startTime||'').split('T')[0])}</div>
+            <div style="font-size:.72rem;color:var(--muted)">${f.desc||''}</div>
+          </td>
+          <td>
+            ${r.w5?`<div style="font-size:.76rem;color:#ce93d8;margin-bottom:3px"><b>Kök neden:</b> ${r.w5}</div>`:''}
+            <div style="font-size:.78rem">${r.action||'—'}</div>
+          </td>
+          <td style="font-size:.78rem">${r.owner||'—'}</td>
+          <td style="font-size:.78rem;color:${gecikti?'#ef5350':'inherit'}">
+            ${gecikti?'<i class="bi bi-exclamation-triangle me-1"></i>':''}${r.due?fmtD(r.due):'—'}</td>
+        </tr>`;
+      });
+      html+=`</tbody></table></div>`;
+    } else {
+      html+=`<div style="font-size:.85rem;color:var(--muted)">
+        <i class="bi bi-info-circle me-1"></i>Kök neden analizi girilmiş arıza kaydı yok.
+        Arıza düzenleme ekranındaki "5-Neden" bölümünü doldurun; buraya otomatik gelir.</div>`;
+    }
+    html+=`</div>`;
+  }
+
   if(sections.includes('manualActions')){
     const _maFiltered = (db.manualActions||[])
       .filter(a=>!locVal||!a.location||a.location===locVal)
@@ -9082,6 +9131,71 @@ function _ankSetTasks(setId, done, date){
 function _ankEstH(setId){
   const s=(db.taskSets||[]).find(x=>x.id===setId);
   return s ? Math.max(0.5, Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10) : 0;
+}
+
+// ══ Ankara KPI sapmalarina karsi aksiyonlar ══
+// Rakamlar 2026 Ocak–Eylul Ankara verisinden. Her aksiyonun dayanagi
+// kayitlarda gosterilebilir; hepsi tek teknisyen/tek vardiyayla yapilabilir.
+const ANKARA_AKSIYON = [
+ {
+  id:'ank_ak_pmr',
+  title:'Su Jeti: PL15’e 6 aylık ara bakım eklenmesi (PMR %39 → %70)',
+  desc:'2026’da Ankara arıza duruşunun %45’i TECHNOCUT SU JETİ’nde (17,9 sa / toplam 40,1 sa). '
+      +'Kayıtlarda tetik contası + iğne değişimi 23.01.2026 ve 29.06.2026’da iki kez yapılmış '
+      +'(her biri 250 TL) — fiilen 6 aylık bir periyot işliyor, ama PL15 bu makineye yılda tek '
+      +'bakım öngörüyor (15.04.2026). Yapılan iş plana yazılacak: PL15’e Su Jeti için Ocak ve '
+      +'Temmuz ara bakımı eklenir, tetik contası/iğne durumu bakım setine adım olarak girer. '
+      +'Kanıt: 2026 Bakım Kayıtları’ndaki iki revizyon satırı ve yürürlükteki PL15. '
+      +'Doğrulama: Ekim–Aralık 2026’da Su Jeti arıza duruş saati izlenir.',
+  priority:'high', status:'open', location:'Ankara',
+  assignee:'Hasan Köse', due:'2026-10-31'
+ },
+ {
+  id:'ank_ak_hid',
+  title:'Su Jeti yüksek basınç hattı: vardiya başı kontrol + yedek hortum',
+  desc:'26 arızanın 8’i hidrolik kaynaklı. En büyüğü 05.08.2026 yüksek basınç hortum kaçağı: '
+      +'3 saat duruş, 1.200 TL. Vardiya başında hortum ve rakorlarda sızıntı, ezilme ve kılıf '
+      +'aşınması görsel olarak kontrol edilir, forma kaydedilir. Yüksek basınç hortumu asgari '
+      +'stok 1 adede çıkarılır ki arıza anında tedarik beklenmesin. '
+      +'Kanıt: 05.08.2026 arıza kaydı (süre, tutar) ve yedek parça stok listesi. '
+      +'Doğrulama: Ekim–Aralık 2026’da hidrolik kaynaklı duruş saati izlenir; '
+      +'mevcut eğilimle beklenen 2 arıza / 4 saat, hedef 1 arıza / 2 saat ve altı.',
+  priority:'high', status:'open', location:'Ankara',
+  assignee:'Hasan Köse', due:'2026-10-15'
+ },
+ {
+  id:'ank_ak_pmc',
+  title:'Açık 2 planlı bakımın termininde kapatılması (PMC %75 → %90)',
+  desc:'8 planlı bakımın 6’sı tamamlandı; PMC %75, hedef %90. Açık olanlar: VARGEL(ANK) '
+      +'08.09.2026 ve ÇÖP PRESİ 11.11.2026. Her ikisi için yedek parça ve sarf malzeme bir '
+      +'hafta önceden hazırlanır; yaklaşan bakım WhatsApp hatırlatması 7 gün önceden uyarıyor. '
+      +'İkisi de termininde kapatılırsa yıl sonu 8/8 = %100 olur. '
+      +'Kanıt: planlı bakım listesi, tamamlanma tarihleri ve hatırlatma kaydı.',
+  priority:'medium', status:'open', location:'Ankara',
+  assignee:'Hasan Köse', due:'2026-11-11'
+ }
+];
+
+function loadAnkaraAksiyon(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  if(!confirm('ANKARA KPI aksiyonları yüklenecek:\n\n'
+    +'• '+ANKARA_AKSIYON.length+' aksiyon (PMR, hidrolik duruş, PMC)\n'
+    +'• Sorumlu: Hasan Köse · Terminler Ekim–Kasım 2026\n\n'
+    +'Raporlar > Manuel Aksiyon Faaliyetleri altında görünür.\n'
+    +'Durumunu siz değiştirirseniz tekrar yüklemede KORUNUR. Devam?')) return;
+  db.manualActions=db.manualActions||[];
+  let n=0, g=0;
+  ANKARA_AKSIYON.forEach(a=>{
+    let ex=db.manualActions.find(x=>x.id===a.id);
+    if(!ex){ ex={id:a.id, createdAt:new Date().toISOString()}; db.manualActions.push(ex); n++; }
+    else g++;
+    // Durum ve sorumlu KULLANICININ — yeniden yuklemede ezilmez.
+    Object.assign(ex,{ title:a.title, desc:a.desc, priority:a.priority,
+      location:a.location, due:a.due,
+      status:ex.status||a.status, assignee:ex.assignee||a.assignee });
+  });
+  save(); nav('reports');
+  toast(n+' aksiyon eklendi'+(g?(' · '+g+' güncellendi'):''));
 }
 
 // ══ CNC Dikey Sable — 5-Neden / DÖF ══
