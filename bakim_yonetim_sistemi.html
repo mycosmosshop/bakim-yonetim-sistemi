@@ -3177,6 +3177,10 @@ function calcFleetKPIs(forLoc){
   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
   const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0, cntMttf=0;
+  // Ariza kaydinin basladigi an: bundan once kurulan makinelerin MTTF'i
+  // olculemez (kurulumla ilk kayit arasindaki donem bilinmiyor).
+  const _kayitBasi = (db.failures||[]).map(f=>new Date(f.startTime))
+    .filter(d2=>!isNaN(d2.getTime())).sort((x,y)=>x-y)[0] || null;
   _ml.forEach(m=>{
     const mx = machMetrics(m.id);
     sumAvail += parseFloat(mx.avail);
@@ -3187,11 +3191,19 @@ function calcFleetKPIs(forLoc){
       // MTTF: install date → first failure
       const first = mFails.sort((a,b)=>new Date(a.startTime)-new Date(b.startTime))[0];
       // MTTF yalnizca kurulum tarihi BILINEN makinelerden hesaplanir.
-      // Once bilinmeyenler paya 0 katmadan paydayi artiriyordu ve
-      // ortalamayi asagi cekiyordu (Ankara'da 9 makinenin 9'unda yok).
+      // Once bilinmeyenler paya 0 katmadan paydayi artiriyordu.
+      //
+      // AYRICA: makine kayit tutmaya baslamadan ONCE kurulduysa "ilk
+      // ariza" gercekten ilki degildir — aradaki donemin kaydi yok.
+      // O makine icin MTTF olculemez (sansurlu veri); dahil edilirse
+      // guvenilirligi degil, kayda ne zaman baslandigini olcer. 2026'da
+      // 55.253 saat gorunmesinin sebebi buydu.
       if(first && m.installDate){
-        const mttf = Math.max(0,(new Date(first.startTime)-new Date(m.installDate))/3600000);
-        sumMttf += mttf; cntMttf++;
+        const kur = new Date(m.installDate);
+        if(!isNaN(kur.getTime()) && !(_kayitBasi && kur < _kayitBasi)){
+          sumMttf += Math.max(0,(new Date(first.startTime)-kur)/3600000);
+          cntMttf++;
+        }
       }
       cntF++;
     }
