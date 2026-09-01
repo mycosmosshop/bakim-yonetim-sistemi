@@ -114,6 +114,15 @@ select option{background:#0d1117}
 .alert-overdue{background:rgba(229,57,53,.12);border:1px solid rgba(229,57,53,.35);color:#ff8a80;border-radius:8px;padding:.75rem 1rem;font-size:.85rem}
 
 /* ── Upcoming list ── */
+
+.wa-adim{display:flex;gap:.7rem;align-items:flex-start;padding:.6rem 0;border-bottom:1px solid var(--border)}
+.wa-adim:last-of-type{border-bottom:none}
+.wa-no{flex:0 0 26px;height:26px;border-radius:50%;background:#25d36622;color:#25d366;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem}
+.wa-kopya{display:flex;gap:.4rem;align-items:center;margin:.3rem 0}
+.wa-kopya code{background:#1c2128;padding:.25rem .5rem;border-radius:5px;font-size:.85rem}
+.wa-sat{display:flex;justify-content:space-between;padding:.25rem 0;font-size:.82rem;border-bottom:1px solid var(--border)}
+.wa-sat:last-child{border-bottom:none}
 .upcoming-item{display:flex;justify-content:space-between;align-items:center;padding:.6rem 0;border-bottom:1px solid var(--border)}
 .upcoming-item:last-child{border-bottom:none}
 .maint-warn-banner{background:linear-gradient(135deg,rgba(255,160,0,.13) 0%,rgba(229,57,53,.10) 100%);border:1.5px solid #ffa000;border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1.1rem;animation:warnPulse 2.5s ease-in-out infinite}
@@ -1731,6 +1740,113 @@ body.tech-mode #mobileMenuBtn{display:none !important}
 </div>
 
 <!-- Maintenance Modal -->
+
+<div class="modal fade" id="modalWaKurulum" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-whatsapp me-2" style="color:#25d366"></i>WhatsApp Bakım Hatırlatması</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="waDurumKutu" style="margin-bottom:1rem"></div>
+
+        <div class="mb-3">
+          <label class="form-label" style="font-size:.85rem">Apps Script web uygulaması adresi</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="waGasUrl" placeholder="https://script.google.com/macros/s/.../exec">
+            <button class="btn btn-outline-light" onclick="waAdresKaydet()"><i class="bi bi-save me-1"></i>Kaydet</button>
+          </div>
+          <div style="font-size:.75rem;color:var(--muted);margin-top:.25rem">Boş bırakıp kaydederseniz otomatik gönderim kapanır.</div>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap mb-3">
+          <button class="btn btn-sm btn-outline-info" onclick="waDurumYenile()"><i class="bi bi-arrow-clockwise me-1"></i>Durumu Yenile</button>
+          <button class="btn btn-sm btn-success" onclick="whatsappSimdiGonder()"><i class="bi bi-send me-1"></i>Şimdi Gönder</button>
+        </div>
+
+        <hr style="border-color:var(--border)">
+        <h6 style="font-size:.9rem;margin-bottom:.75rem"><i class="bi bi-person-plus me-1"></i>Yeni alıcı ekleme</h6>
+        <p style="font-size:.8rem;color:var(--muted)">
+          CallMeBot'ta anahtar <b>alıcıya bağlıdır</b> — herkes kendi telefonundan izin alır,
+          başkasının anahtarı kullanılamaz.
+        </p>
+
+        <div class="wa-adim">
+          <div class="wa-no">1</div>
+          <div>
+            <b>Alıcı, CallMeBot numarasını rehbere ekler</b>
+            <div class="wa-kopya"><code id="waBotNo">+34 684 72 39 62</code>
+              <button class="btn btn-sm btn-outline-light" onclick="waKopyala('waBotNo',this)">Kopyala</button></div>
+            <div style="font-size:.72rem;color:var(--muted)">Bot dolarsa CallMeBot yeni numara bildirir; o zaman buraya yenisini yazarız.</div>
+          </div>
+        </div>
+
+        <div class="wa-adim">
+          <div class="wa-no">2</div>
+          <div>
+            <b>O numaraya WhatsApp'tan bu cümleyi yazar</b>
+            <div class="wa-kopya"><code id="waIzinCumle">I allow callmebot to send me messages</code>
+              <button class="btn btn-sm btn-outline-light" onclick="waKopyala('waIzinCumle',this)">Kopyala</button></div>
+            <div style="font-size:.72rem;color:#fb8c00">
+              Dikkat: "callmebot to <b>call</b> me" farklı bir servistir (telefonla arama). O anahtarla mesaj gitmez.
+            </div>
+          </div>
+        </div>
+
+        <div class="wa-adim">
+          <div class="wa-no">3</div>
+          <div>
+            <b>Gelen cevaptaki anahtarı alır</b>
+            <div style="font-size:.78rem;color:var(--muted)">"your apikey is <b>123456</b>" şeklinde gelir.</div>
+          </div>
+        </div>
+
+        <div class="wa-adim">
+          <div class="wa-no">4</div>
+          <div>
+            <b>Apps Script → ⚙ Proje Ayarları → Komut Dosyası Özellikleri</b>
+            <div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">
+              Boş olan ilk yuvaya yazın. Dolu yuvaya yazarsanız oradaki alıcıyı silersiniz.
+            </div>
+            <table class="table table-sm" style="font-size:.8rem;margin-bottom:.3rem">
+              <thead><tr><th>Yuva</th><th>Telefon</th><th>Anahtar</th><th>Durum</th></tr></thead>
+              <tbody id="waYuvalar"></tbody>
+            </table>
+            <div style="font-size:.72rem;color:var(--muted)">
+              Aynı gruptaki alıcıların hepsi <b>aynı</b> mesajı alır.
+            </div>
+          </div>
+        </div>
+
+        <div class="wa-adim">
+          <div class="wa-no">5</div>
+          <div>
+            <b>Kaydedin — yeniden dağıtım gerekmez</b>
+            <div style="font-size:.78rem;color:var(--muted)">Özellikler çalışma anında okunuyor. Sonra yukarıdan "Durumu Yenile" deyin, alıcı sayısı artmalı.</div>
+          </div>
+        </div>
+
+        <hr style="border-color:var(--border)">
+        <h6 style="font-size:.9rem;margin-bottom:.5rem"><i class="bi bi-diagram-2 me-1"></i>Ayrı lokasyon için ayrı bildirim</h6>
+        <p style="font-size:.8rem;color:var(--muted)">
+          Çerkezköy'e ayrı mesaj gitsin isterseniz 2. grubu tanımlayın. Her grubun kendi
+          süzgeci, kendi alıcıları ve kendi günlük gönderimi olur.
+        </p>
+        <table class="table table-sm" style="font-size:.8rem">
+          <tbody>
+            <tr><td><code>BAKIM_G2_LOKASYON</code></td><td>Çerkezköy</td></tr>
+            <tr><td><code>BAKIM_G2_TEL</code></td><td>alıcının numarası</td></tr>
+            <tr><td><code>BAKIM_G2_KEY</code></td><td>o kişinin anahtarı</td></tr>
+            <tr><td><code>BAKIM_G2_TEKNISYEN</code></td><td>İrfan Serbest <span style="color:var(--muted)">(isteğe bağlı)</span></td></tr>
+            <tr><td><code>BAKIM_G2_ESIK</code></td><td>7 <span style="color:var(--muted)">(isteğe bağlı)</span></td></tr>
+          </tbody>
+        </table>
+        <div style="font-size:.75rem;color:var(--muted)">5 gruba kadar (<code>BAKIM_G3_*</code> …).</div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="modalMaint" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -3196,45 +3312,104 @@ async function whatsappSimdiGonder(){
   toast((r.gonderilen||0)+' alıcıya gönderildi');
 }
 
+// ── WhatsApp kurulum rehberi (modal) ──────────────────────────────
 async function openWhatsAppOtomatik(){
-  const mevcut=_bakimGasUrl();
-  const girilen=prompt(
-    'OTOMATİK WHATSAPP BAKIM HATIRLATMASI\n\n'+
-    'Apps Script web uygulaması adresini yapıştırın (.../exec).\n'+
-    'Kalibrasyon için kullandığınız adresin aynısı.\n\n'+
-    'Boş bırakıp Tamam derseniz otomatik gönderim kapanır.', mevcut);
-  if(girilen===null) return;
-  const url=String(girilen).trim();
+  document.getElementById('waGasUrl').value = _bakimGasUrl();
+  new bootstrap.Modal(document.getElementById('modalWaKurulum')).show();
+  waDurumYenile();
+}
+
+function waKopyala(id, btn){
+  const t = document.getElementById(id).textContent;
+  const bitir = ()=>{ const e=btn.innerHTML; btn.innerHTML='<i class="bi bi-check2"></i> Kopyalandı';
+                      setTimeout(()=>btn.innerHTML=e, 1500); };
+  // Pano izni yoksa sessizce basarisiz olmasin: eski yontemle dene.
+  if(navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(t).then(bitir, ()=>waKopyalaEski(t,bitir));
+  } else waKopyalaEski(t, bitir);
+}
+function waKopyalaEski(t, bitir){
+  const a=document.createElement('textarea'); a.value=t;
+  a.style.position='fixed'; a.style.opacity='0'; document.body.appendChild(a);
+  a.select(); try{ document.execCommand('copy'); bitir(); }catch(e){ toast('Kopyalanamadı — elle seçin.','warning'); }
+  a.remove();
+}
+
+async function waAdresKaydet(){
+  const url = String(document.getElementById('waGasUrl').value||'').trim();
   if(url && !/^https:\/\/script\.google\.com\/.*\/exec$/.test(url)){
     toast('Adres .../exec ile bitmeli — kaydedilmedi.','warning'); return;
   }
   try{ localStorage.setItem(CMMS_GAS_KEY, url); }catch(e){}
-  if(!url){ toast('Otomatik gönderim kapatıldı.','info'); return; }
+  if(!url){ toast('Otomatik gönderim kapatıldı.','info'); waDurumYenile(); return; }
+  toast('Liste gönderiliyor…','info');
+  await bakimAnlikGonder();
+  waDurumYenile();
+}
 
-  toast('Bakım listesi gönderiliyor…','info');
-  const gitti=await bakimAnlikGonder();
-  if(!gitti){ toast('Liste gönderilemedi — adresi kontrol edin.','danger'); return; }
+function _waSat(etiket, deger, iyi){
+  const renk = iyi===undefined ? 'var(--muted)' : (iyi?'#66bb6a':'#ff5252');
+  const im = iyi===undefined ? '' : (iyi?'✓ ':'✗ ');
+  return `<div class="wa-sat"><span style="color:var(--muted)">${etiket}</span>
+    <span style="color:${renk};font-weight:600">${im}${deger}</span></div>`;
+}
 
+async function waDurumYenile(){
+  const kutu = document.getElementById('waDurumKutu');
+  if(!_bakimGasUrl()){
+    kutu.innerHTML = `<div class="card-dark" style="padding:.7rem"><div style="color:#fb8c00;font-size:.85rem">
+      <i class="bi bi-exclamation-triangle me-1"></i>Adres girilmemiş — otomatik hatırlatma kapalı.</div></div>`;
+    document.getElementById('waYuvalar').innerHTML = '';
+    return;
+  }
+  kutu.innerHTML = `<div class="card-dark" style="padding:.7rem;font-size:.85rem;color:var(--muted)">Durum okunuyor…</div>`;
   let d=null;
-  try{ d=await _bakimDurumSor(); }catch(e){ toast('Durum okunamadı: '+e.message,'warning'); return; }
+  try{ d = await _bakimSor('action=bakimDurum'); }
+  catch(e){
+    kutu.innerHTML = `<div class="card-dark" style="padding:.7rem;color:#ff5252;font-size:.85rem">
+      <i class="bi bi-x-circle me-1"></i>Sunucuya ulaşılamadı: ${e.message}<br>
+      <span style="color:var(--muted);font-size:.78rem">Dağıtımı yenilediniz mi? Dağıt → Dağıtımları yönet → Yeni sürüm.</span></div>`;
+    return;
+  }
+  const g = (d.gruplar||[]);
+  kutu.innerHTML = `<div class="card-dark" style="padding:.7rem">
+    ${_waSat('Saatlik tetikleyici', d.tetikleyici?'kurulu':'YOK', !!d.tetikleyici)}
+    ${_waSat('Alıcı', d.aliciSayisi+' kişi', d.aliciSayisi>0)}
+    ${_waSat('Sunucudaki liste', (d.bakimSayisi||0)+' açık bakım · '+(d.anlikZaman||'—'), !!d.anlikZaman)}
+    ${_waSat('Gönderim saati', (d.saat||8)+':00 sonrası, günde bir')}
+    ${g.map(x=>_waSat('&nbsp;&nbsp;'+x.ad+' — '+x.lokasyon+' / '+x.teknisyen,
+        x.yaklasan+' bakım → '+x.alicilar + (x.sonSonuc?' · '+x.sonSonuc:''))).join('')}
+    ${_waSat('Son gönderim', d.sonGonderim||'bugün henüz yok')}
+  </div>`;
 
-  const eksik=[];
-  if(!d.anahtarVar) eksik.push('• BAKIM_WA_KEY (CallMeBot anahtarı) tanımlı değil');
-  if(!d.telefon)    eksik.push('• BAKIM_WA_TEL (alıcı numara) tanımlı değil');
-  if(!d.tetikleyici) eksik.push('• Saatlik tetikleyici kurulu değil (bakimKontrol)');
-
-  alert('DURUM\n\n'+
-    'Sunucudaki liste : '+d.bakimSayisi+' bakım (gönderildi: '+(d.anlikZaman||'—')+')\n'+
-    'Eşiğe giren      : '+d.yaklasan+' bakım ('+d.esikGun+' gün)\n'+
-    'Teknisyen süzgeci: '+(d.teknisyen||'yok — herkesinki gider')+'\n'+
-    'Alıcı            : '+(d.telefon||'—')+'\n'+
-    'Gönderim saati   : '+d.saat+':00 sonrası, günde bir\n'+
-    'Son gönderim     : '+(d.sonGonderim||'henüz yok')+'\n'+
-    'Son sonuç        : '+(d.sonSonuc||'—')+'\n'+
-    (eksik.length ? '\nEKSİKLER\n'+eksik.join('\n')+
-       '\n\nApps Script > Proje Ayarları > Komut Dosyası Özellikleri\n'+
-       've Tetikleyiciler bölümünden tamamlanır.'
-     : '\nKurulum tamam — hatırlatma otomatik gidecek.'));
+  // Yuva tablosu: hangi yuva dolu, yenisi nereye.
+  // Sunucu yuva NUMARASINI veriyor — alici listesi sikistirilmis geldigi
+  // icin sirayla eslestirmek yanlis yuvayi "dolu" gosterirdi ve yeni alici
+  // mevcut kaydin uzerine yazilirdi.
+  // Sunucu eski surumdeyse yuva bilgisi gelmez. Tabloyu "hepsi bos" diye
+  // gostermek yeni aliciyi mevcudun uzerine yazdirir — onun yerine uyar.
+  if(g.length && !g[0].yuvalar){
+    document.getElementById('waYuvalar').innerHTML =
+      `<tr><td colspan="4" style="color:#fb8c00;font-size:.8rem">
+        Sunucudaki BAKIM-WHATSAPP.gs eski sürüm — hangi yuvanın dolu olduğu okunamıyor.
+        Dosyayı yeniden yapıştırıp kaydedin, sonra "Durumu Yenile" deyin.
+        <br><span style="color:var(--muted)">Şimdilik ${g[0].alicilar||'—'} kayıtlı; boş bir yuvaya yazın.</span>
+      </td></tr>`;
+    return;
+  }
+  const yuva = {};
+  ((g[0]&&g[0].yuvalar)||[]).forEach(y=>{ yuva[y.no]=y.maske; });
+  let sat = '';
+  for(let i=1;i<=5;i++){
+    const ek = i===1?'':String(i);
+    const v = yuva[i];
+    sat += `<tr>
+      <td>${i}</td>
+      <td><code>BAKIM_WA_TEL${ek}</code></td>
+      <td><code>BAKIM_WA_KEY${ek}</code></td>
+      <td style="color:${v?'#66bb6a':'#66bb6a'}">${v? ('dolu — '+v) : '<span style="color:var(--muted)">boş</span>'}</td></tr>`;
+  }
+  document.getElementById('waYuvalar').innerHTML = sat;
 }
 
 // ══ WhatsApp'a yaklasan bakim listesi ══
