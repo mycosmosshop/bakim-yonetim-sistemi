@@ -346,6 +346,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <a href="#" onclick="openKpiSettings();return false"><i class="bi bi-sliders"></i>KPI Hedefleri</a>
     <a href="#" onclick="openFormSettings();return false"><i class="bi bi-file-earmark-text"></i>Form Ayarları</a>
     <a href="#" onclick="openWhatsAppOtomatik();return false"><i class="bi bi-whatsapp"></i>Otomatik WhatsApp</a>
+    <a href="#" onclick="whatsappSimdiGonder();return false"><i class="bi bi-send"></i>WhatsApp: Şimdi Gönder</a>
     <a href="#" onclick="exportData(event)"><i class="bi bi-download"></i>Veri Dışa Aktar</a>
     <a href="#" onclick="document.getElementById('importFile').click();return false"><i class="bi bi-upload"></i>Veri İçe Aktar</a>
 
@@ -3150,18 +3151,49 @@ function _bakimAnlikPlanla(){
   _waPushTimer=setTimeout(bakimAnlikGonder, 3000);
 }
 
-// Sunucunun kendi gercekleri (JSONP — Apps Script CORS'a kapali)
-function _bakimDurumSor(){
+// Apps Script CORS'a kapali; yanit <script> ile okunur (JSONP).
+function _bakimSor(sorgu, sure){
   return new Promise((cz,rd)=>{
     const url=_bakimGasUrl(); if(!url){ rd(new Error('adres yok')); return; }
-    const fn='_bd'+Date.now(), sc=document.createElement('script');
-    const zaman=setTimeout(()=>{ temizle(); rd(new Error('sunucu yanıt vermedi')); }, 20000);
+    const fn='_bd'+Date.now()+Math.floor(Math.random()*1000);
+    const sc=document.createElement('script');
+    const zaman=setTimeout(()=>{ temizle(); rd(new Error('sunucu yanıt vermedi')); }, sure||20000);
     function temizle(){ clearTimeout(zaman); delete window[fn]; sc.remove(); }
     window[fn]=(o)=>{ temizle(); cz(o); };
     sc.onerror=()=>{ temizle(); rd(new Error('adrese ulaşılamadı')); };
-    sc.src=url+(url.indexOf('?')<0?'?':'&')+'action=bakimDurum&callback='+fn;
+    sc.src=url+(url.indexOf('?')<0?'?':'&')+sorgu+'&callback='+fn;
     document.body.appendChild(sc);
   });
+}
+function _bakimDurumSor(){ return _bakimSor('action=bakimDurum'); }
+
+// Istek uzerine gonderim. ONCE guncel listeyi iter — itmezse sunucu eski
+// listeyi gonderir ve dun kapatilmis bir bakim hala "yaklasiyor" der.
+// zorla=1: gunluk damga yazilmaz, normal hatirlatma yutulmaz.
+async function whatsappSimdiGonder(){
+  const url=_bakimGasUrl();
+  if(!url){ toast('Önce menüden "Otomatik WhatsApp" adresini girin.','warning'); return; }
+  const n=(db.maintenance||[]).filter(p=>(p.status==='scheduled'||p.status==='overdue')&&p.sched).length;
+  if(!confirm('Yaklaşan bakım hatırlatması ŞİMDİ gönderilecek.\n\n'
+    +'• Önce güncel liste sunucuya gönderilir ('+n+' açık bakım)\n'
+    +'• Sonra her gruba kendi listesi WhatsApp\'tan atılır\n\n'
+    +'Günlük otomatik hatırlatma bundan etkilenmez. Devam?')) return;
+
+  toast('Liste gönderiliyor…','info');
+  if(!await bakimAnlikGonder()){ toast('Liste gönderilemedi — adresi kontrol edin.','danger'); return; }
+
+  let r=null;
+  try{ r=await _bakimSor('action=bakimGonder&zorla=1', 60000); }
+  catch(e){ toast('Gönderim sonucu okunamadı: '+e.message,'danger'); return; }
+
+  if(!r || r.ok===false){
+    alert('GÖNDERİLEMEDİ\n\n'+((r&&r.mesaj)||'bilinmeyen hata'));
+    return;
+  }
+  alert('WHATSAPP GÖNDERİMİ\n\n'
+    +(r.satirlar||[]).join('\n')
+    +'\n\nSunucudaki liste: '+(r.zaman||'—'));
+  toast((r.gonderilen||0)+' alıcıya gönderildi');
 }
 
 async function openWhatsAppOtomatik(){
