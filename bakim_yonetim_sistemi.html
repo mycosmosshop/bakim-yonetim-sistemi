@@ -2873,14 +2873,24 @@ function _activeKpiYear(){
 function getKpi(k, loc, year){
   const yr = year || _activeKpiYear();
   const l  = loc !== undefined ? loc : (gLocFilter||'');
-  // 1) Yıl+Lokasyon
-  if(yr&&l){ const c=kpiConfig[yr+'_'+l]?.[k]; if(c) return c; }
-  // 2) Yıl+Global
-  if(yr){    const c=kpiConfig[yr+'_']?.[k];   if(c) return c; }
-  // 3) Lokasyon eski format
-  if(l){     const c=kpiConfig[l]?.[k];         if(c) return c; }
-  // 4) Global ''
-  const c=kpiConfig['']?.[k]; if(c) return c;
+  // Tarih araligi secili degilse ("Tum zamanlar") _activeKpiYear boş
+  // doner. KPI penceresi hedefi HER ZAMAN yil onekiyle kaydediyor
+  // (2026_Ankara); eskiden bu durumda arama dogrudan global'e dusuyor ve
+  // LOKASYON HEDEFI HIC GORULMUYORDU — panoda Ankara icin 100 yazilan
+  // hedef 500 gorunuyordu. Yil yoksa BU YILI dene.
+  const cy = String(new Date().getFullYear());
+  let c;
+  // 1) Secili yil + lokasyon
+  if(yr && l && (c = kpiConfig[yr+'_'+l]?.[k])) return c;
+  // 2) Yil secilmemisse bu yil + lokasyon
+  if(!yr && l && (c = kpiConfig[cy+'_'+l]?.[k])) return c;
+  // 3) Yil + global
+  if(yr && (c = kpiConfig[yr+'_']?.[k])) return c;
+  if(!yr && (c = kpiConfig[cy+'_']?.[k])) return c;
+  // 4) Lokasyon eski format
+  if(l && (c = kpiConfig[l]?.[k])) return c;
+  // 5) Global ''
+  if((c = kpiConfig['']?.[k])) return c;
   return { enabled: true, target: KPI_DEFS[k]?.defaultTarget ?? 0 };
 }
 
