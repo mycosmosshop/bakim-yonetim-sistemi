@@ -8288,7 +8288,8 @@ const ANKARA_MACHINES = [
   "dept": "KESİM",
   "sk": "910.5.163",
   "plan": "2026-04-15",
-  "comp": "2026-04-15"
+  "comp": "2026-04-15",
+  "set": "sfm_sjt"
  },
  {
   "code": "FRT",
@@ -8296,7 +8297,8 @@ const ANKARA_MACHINES = [
   "dept": "DEPO",
   "sk": "910.5.019",
   "plan": "SAATLİK BAKIM YAPILIR",
-  "comp": ""
+  "comp": "",
+  "set": ""
  },
  {
   "code": "KOMP1",
@@ -8304,7 +8306,8 @@ const ANKARA_MACHINES = [
   "dept": "ATELYE",
   "sk": "910.5.812",
   "plan": "SAATLİK BAKIM YAPILIR",
-  "comp": ""
+  "comp": "",
+  "set": ""
  },
  {
   "code": "VRGL",
@@ -8312,7 +8315,8 @@ const ANKARA_MACHINES = [
   "dept": "KESİM",
   "sk": "910.5.703",
   "plan": "2026-09-08",
-  "comp": ""
+  "comp": "",
+  "set": "sfm_kesme_pres"
  },
  {
   "code": "BLS",
@@ -8320,7 +8324,8 @@ const ANKARA_MACHINES = [
   "dept": "KESİM",
   "sk": "910.5.003",
   "plan": "2026-05-21",
-  "comp": "2026-05-21"
+  "comp": "2026-05-21",
+  "set": "sfm_yatay_kesim"
  },
  {
   "code": "CNC",
@@ -8328,7 +8333,8 @@ const ANKARA_MACHINES = [
   "dept": "KESİM",
   "sk": "910.5.961",
   "plan": "2026-07-17",
-  "comp": "2026-07-17"
+  "comp": "2026-07-17",
+  "set": "sfm_cnc_kesim"
  },
  {
   "code": "ÇPRS",
@@ -8336,7 +8342,8 @@ const ANKARA_MACHINES = [
   "dept": "PRES",
   "sk": "910.5.704",
   "plan": "2026-11-11",
-  "comp": ""
+  "comp": "",
+  "set": "sfm_kesme_pres"
  },
  {
   "code": "LMN4",
@@ -8344,7 +8351,8 @@ const ANKARA_MACHINES = [
   "dept": "LAMİNASYON",
   "sk": "910.5.701",
   "plan": "2026-06-22",
-  "comp": "2026-06-22"
+  "comp": "2026-06-22",
+  "set": "sfm_laminasyon"
  },
  {
   "code": "ISM1",
@@ -8352,7 +8360,8 @@ const ANKARA_MACHINES = [
   "dept": "Üretim",
   "sk": "910.5.706",
   "plan": "2026-03-15",
-  "comp": ""
+  "comp": "",
+  "set": "sfm_cnc_kesim"
  }
 ];
 const ANKARA_ARIZA = [
@@ -8588,6 +8597,19 @@ function _ankMacId(){
   return h;
 }
 
+// Bakim seti adimlarini kontrol listesine cevir (Cerkezkoy yukleyicisiyle
+// ayni davranis: tamamlanmis bakimda adimlar da isaretli gelir).
+function _ankSetTasks(setId, done, date){
+  const s=(db.taskSets||[]).find(x=>x.id===setId);
+  if(!s) return [];
+  return (s.tasks||[]).map((t,i)=>({ id:uid(), no:i+1, title:t.title, note:t.note||'',
+    mins:t.mins||0, done:!!done, doneBy:done?ANKARA_TEKNISYEN:'', doneAt:done?(date+'T08:00:00'):null }));
+}
+function _ankEstH(setId){
+  const s=(db.taskSets||[]).find(x=>x.id===setId);
+  return s ? Math.max(0.5, Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10) : 0;
+}
+
 function loadAnkaraPlan(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
   if(!confirm('ANKARA 2026 Yıllık Bakım Planı yüklenecek:\n\n'
@@ -8596,7 +8618,11 @@ function loadAnkaraPlan(){
     +'• Tarihi geçmiş ve yapılmış olanlar KAPATILIR\n\n'
     +'Aynı kodlu kayıtlar GÜNCELLENİR (çift kayıt olmaz). LeanSys\'e dokunulmaz. Devam?')) return;
 
-  db.machines=db.machines||[]; db.maintenance=db.maintenance||[];
+  db.machines=db.machines||[]; db.maintenance=db.maintenance||[]; db.taskSets=db.taskSets||[];
+  // Sanifoam bakim setleri yoksa once onlar yuklenir (Cerkezkoy ile ayni)
+  if(!db.taskSets.some(t=>String(t.id||'').startsWith('sfm_'))){
+    db.taskSets.push(...JSON.parse(JSON.stringify(SANIFOAM_TASK_SETS)));
+  }
   let nM=0;
   ANKARA_MACHINES.forEach(m=>{
     let ex=_ankBul(m);
@@ -8619,21 +8645,27 @@ function loadAnkaraPlan(){
     Object.assign(ex,{ machineId:macId[m.code]||'', type:'preventive', basis:'date',
       sched:m.plan, comp:m.comp||null, status:m.comp?'completed':'scheduled',
       period:12, periodUnit:'month', desc:'PL15 yıllık planlı bakım — Ankara',
-      assetType:'makine', assetName:null, fixtureId:'', taskSetId:'',
-      tech:ANKARA_TEKNISYEN, cost:0, estDur:0, actDur:0, checklist:[], external:false, wo:'', partsUsed:'' });
+      assetType:'makine', assetName:null, fixtureId:'', taskSetId:m.set||'',
+      tech:ANKARA_TEKNISYEN, cost:0,
+      estDur:_ankEstH(m.set), actDur:m.comp?_ankEstH(m.set):0,
+      checklist:_ankSetTasks(m.set, !!m.comp, m.comp||m.plan),
+      external:false, wo:'', partsUsed:'' });
   });
 
   // Periyodik bakim revizyonlari (kayitlardan): tamamlanmis bakim olarak
   ANKARA_PBAKIM.forEach((b,i)=>{
     const mid=macId[b.code]; if(!mid) return;
+    const bSet=(ANKARA_MACHINES.find(x=>x.code===b.code)||{}).set||'';
     const id='ank_pr_'+i;
     let ex=db.maintenance.find(x=>x.id===id);
     if(!ex){ ex={id:id}; db.maintenance.push(ex); nP++; }
     Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date',
       sched:b.start.slice(0,10), comp:b.end.slice(0,10), status:'completed',
       period:0, periodUnit:'month', desc:b.desc, assetType:'makine',
-      tech:ANKARA_TEKNISYEN, cost:b.cost||0, estDur:b.sure||0, actDur:b.sure||0,
-      checklist:[], external:false, wo:'', partsUsed:'' });
+      taskSetId:bSet, tech:ANKARA_TEKNISYEN, cost:b.cost||0,
+      estDur:b.sure||0, actDur:b.sure||0,
+      checklist:_ankSetTasks(bSet, true, b.end.slice(0,10)),
+      external:false, wo:'', partsUsed:'' });
   });
 
   save(); updateSelects(); nav('maintenance');

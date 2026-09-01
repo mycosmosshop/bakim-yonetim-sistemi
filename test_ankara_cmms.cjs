@@ -14,11 +14,20 @@ const son = src.indexOf('function loadCerkezkoyPlan');
 assert(bas > 0 && son > bas, 'Ankara bölümü bulunamadı');
 const kod = src.slice(bas, son);
 
+// Gercek Sanifoam bakim setleri (adim sayilari testte kullaniliyor)
+const SETLER = (() => {
+    const i = src.indexOf('const SANIFOAM_TASK_SETS');
+    const j = src.indexOf('\n];', i) + 3;
+    return new Function(src.slice(i, j) + '\nreturn SANIFOAM_TASK_SETS;')();
+})();
+
 function ortam(db, izin = true) {
+    let n = 0;
     const g = {
         db, canWrite: () => izin, save: () => { g._kaydedildi = true; },
         updateSelects: () => {}, nav: (x) => { g._ekran = x; },
         toast: (m) => { g._mesaj = m; }, confirm: () => true,
+        uid: () => 'u' + (++n), SANIFOAM_TASK_SETS: SETLER,
         String, Object, Array, JSON, Math, Date, RegExp, console
     };
     const f = new Function('__k', 'with (__k) {\n' + kod +
@@ -221,6 +230,74 @@ function ortam(db, izin = true) {
     assert(u.indexOf("['fMachF','tsMachF']") > 0 && /innerHTML=fOpts/.test(u),
         '13d: liste süzgeci bozulmuş');
     console.log('✓ 13 modalde tüm makineler lokasyona göre gruplu; liste süzgeci değişmedi');
+}
+
+// 14) Her planli bakima BAKIM SETI ve kontrol listesi atanmis
+{
+    const db = { machines: [], maintenance: [], failures: [], taskSets: [] };
+    const [, api] = ortam(db);
+    api.plan();
+    // Setler yoksa once yuklenmeli
+    assert(db.taskSets.some(t => t.id === 'sfm_sjt'), '14a: Sanifoam setleri yüklenmedi');
+    const planlar = db.maintenance.filter(x => x.id.startsWith('ank_p_'));
+    assert.strictEqual(planlar.length, 7, '14b: plan sayısı');
+    planlar.forEach(p => {
+        assert(p.taskSetId, '14c: setsiz bakım: ' + p.id);
+        assert(p.checklist.length > 0, '14d: kontrol listesi boş: ' + p.id + ' / ' + p.taskSetId);
+        assert(p.estDur > 0, '14e: tahmini süre 0: ' + p.id);
+    });
+    console.log('✓ 14 yedi planlı bakımın hepsinde set ve dolu kontrol listesi var');
+}
+
+// 15) Set eslesmesi Cerkezkoy'deki makine turleriyle AYNI
+{
+    const db = { machines: [], maintenance: [], failures: [], taskSets: [] };
+    const [, api] = ortam(db);
+    api.plan();
+    const setOf = (kod) => {
+        const m = db.machines.find(x => x.notes === 'Makina Kodu: ' + kod);
+        const p = db.maintenance.find(x => x.machineId === m.id && x.id.startsWith('ank_p_'));
+        return p ? p.taskSetId : null;
+    };
+    assert.strictEqual(setOf('CMS'), 'sfm_sjt', '15a: su jeti seti');
+    assert.strictEqual(setOf('BLS'), 'sfm_yatay_kesim', '15b: yatay kesim seti');
+    assert.strictEqual(setOf('CNC'), 'sfm_cnc_kesim', '15c: dikey CNC seti');
+    assert.strictEqual(setOf('ISM1'), 'sfm_cnc_kesim', '15d: ISM dikey kesim seti');
+    assert.strictEqual(setOf('VRGL'), 'sfm_kesme_pres', '15e: vargel/pres seti');
+    assert.strictEqual(setOf('ÇPRS'), 'sfm_kesme_pres', '15f: çöp presi seti');
+    assert.strictEqual(setOf('LMN4'), 'sfm_laminasyon', '15g: laminasyon seti');
+    console.log('✓ 15 set eşleşmesi Çerkezköy\'deki makine türleriyle aynı');
+}
+
+// 16) TAMAMLANAN bakimda adimlar da isaretli, acikta degil
+{
+    const db = { machines: [], maintenance: [], failures: [], taskSets: [] };
+    const [, api] = ortam(db);
+    api.plan();
+    const kapali = db.maintenance.filter(x => x.id.startsWith('ank_p_') && x.status === 'completed');
+    const acik = db.maintenance.filter(x => x.id.startsWith('ank_p_') && x.status === 'scheduled');
+    assert(kapali.length && acik.length, '16a: örnek yok');
+    kapali.forEach(p => {
+        assert(p.checklist.every(t => t.done), '16b: kapalı bakımda işaretsiz adım: ' + p.id);
+        assert(p.checklist.every(t => t.doneBy === 'Hasan Köse'), '16c: adımı yapan yazılmamış');
+        assert(p.actDur > 0, '16d: gerçekleşen süre 0: ' + p.id);
+    });
+    acik.forEach(p => {
+        assert(p.checklist.every(t => !t.done), '16e: açık bakımda işaretli adım: ' + p.id);
+        assert.strictEqual(p.actDur, 0, '16f: açık bakımda gerçekleşen süre var');
+    });
+    console.log('✓ 16 tamamlanan bakımlarda adımlar işaretli, açıklarda boş');
+}
+
+// 17) Mevcut setler varsa TEKRAR yuklenmiyor (cogaltma yok)
+{
+    const db = { machines: [], maintenance: [], failures: [],
+                 taskSets: JSON.parse(JSON.stringify(SETLER)) };
+    const once = db.taskSets.length;
+    const [, api] = ortam(db);
+    api.plan(); api.plan();
+    assert.strictEqual(db.taskSets.length, once, '17: set çoğaldı: ' + db.taskSets.length);
+    console.log('✓ 17 bakım setleri zaten varsa tekrar eklenmiyor');
 }
 
 console.log('\nTüm senaryolar geçti.');
