@@ -455,7 +455,15 @@ function ortam(db, izin = true) {
         assert.strictEqual(p.minQty, b, '26j: ' + p.partName + ' min stok');
     });
     const gorselli = db.parts.filter(p => p.img);
-    assert.strictEqual(gorselli.length, 16, '26k: görselli parça');
+    assert.strictEqual(gorselli.length, 17, '26k: görselli parça');
+    // Gorsel eslesmesi: resim satirin altina tasabildigi icin _from.row
+    // yerine DIKEY MERKEZ kullaniliyor; iğne takiminin fotografi O-ring'e
+    // yazilmisti.
+    const igne = db.parts.find(p => p.partName === 'İnce İğne Takımı');
+    assert(igne && igne.img, '26m: İnce İğne Takımı görselsiz kalmamalı');
+    const oring = db.parts.find(p => p.partName.indexOf('O-ring') === 0);
+    assert(oring && oring.img && oring.img !== igne.img,
+        '26n: O-ring ile iğne takımı aynı görseli taşımamalı');
     assert(gorselli.every(p => p.img.indexOf('data:image/') === 0), '26l: görsel data URI');
     console.log('✓ 26 yedek parça: 31 kalem doğru makinelere, min stok kuralı tutuyor');
 }
