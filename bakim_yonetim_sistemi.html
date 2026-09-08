@@ -10594,12 +10594,38 @@ function loadAnkaraParts(){
           +'makineleri yükleyin, sonra yedek parçaları ekleyin.');
     return;
   }
-  const yeni=ANKARA_PARTS.filter(p=>{
-    const mk=kodMak[p.m]; if(!mk) return false;
-    return !(db.parts||[]).some(x=>x.machineId===mk.id &&
-      (x.partName||'').trim().toLowerCase()===p.ad.trim().toLowerCase());
+  const esle=p=>{
+    const mk=kodMak[p.m]; if(!mk) return null;
+    return (db.parts||[]).find(x=>x.machineId===mk.id &&
+      (x.partName||'').trim().toLowerCase()===p.ad.trim().toLowerCase()) || null;
+  };
+  const yeni=ANKARA_PARTS.filter(p=>kodMak[p.m] && !esle(p));
+  // Listede DURAN kayitlarin gorseli: eslesme bir satir kaymisti, ilk
+  // yuklemede O-ring'e igne takiminin fotografi yazilmis, igne takimi
+  // gorselsiz kalmisti. Bos gorsel doldurulur; DOLU gorsel ise ancak bu
+  // yukleyicinin kendi koydugu (ANKARA_PARTS'taki baska bir kalemin)
+  // fotografiysa duzeltilir — kullanicinin yukledigi fotograf korunur.
+  const bizimGorseller=new Set(ANKARA_PARTS.filter(p=>p.img).map(p=>p.img));
+  const gorselEksik=ANKARA_PARTS.filter(p=>{
+    if(!p.img) return false;
+    const x=esle(p);
+    if(!x) return false;
+    if(!x.img) return true;                       // boş → doldur
+    return x.img!==p.img && bizimGorseller.has(x.img);   // kaymış → düzelt
   });
-  if(!yeni.length){ toast('Ankara yedek parçaları zaten listede.','warning'); return; }
+  if(!yeni.length && !gorselEksik.length){
+    toast('Ankara yedek parçaları zaten listede.','warning'); return; }
+  if(!yeni.length && gorselEksik.length){
+    if(!confirm(gorselEksik.length+' parçanın görseli eksik veya hatalı '
+        +'(ilk yüklemede eşleşme bir satır kaymıştı).\n\n'
+        +'Görseller düzeltilsin mi? Miktar, fiyat ve tedarikçi bilgilerine '
+        +'dokunulmaz; kendi yüklediğiniz fotoğraflar korunur.')) return;
+    let g=0;
+    gorselEksik.forEach(p=>{ const x=esle(p); if(x){ x.img=p.img; g++; } });
+    save(); renderParts();
+    toast(g+' parçanın görseli düzeltildi','success');
+    return;
+  }
   if(!confirm('Ankara yedek parça stoğu yüklenecek:\n'
       +'• '+yeni.length+' parça (su jeti '+yeni.filter(p=>p.m==='CMS').length
       +', diğer makineler '+yeni.filter(p=>p.m!=='CMS').length+')\n'
@@ -10618,8 +10644,11 @@ function loadAnkaraParts(){
       isCritical:false, leadTime:0, img:p.img||'' });
     n++;
   });
+  let g=0;
+  gorselEksik.forEach(p=>{ const x=esle(p); if(x){ x.img=p.img; g++; } });
   save(); updateSelects(); renderParts();
-  toast(n+' Ankara yedek parçası eklendi','success');
+  toast(n+' Ankara yedek parçası eklendi'+(g?(' · '+g+' görsel düzeltildi'):''),
+        'success');
 }
 
 function loadCerkezkoyPlan(){

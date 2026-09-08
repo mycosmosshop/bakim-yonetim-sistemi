@@ -489,6 +489,37 @@ function ortam(db, izin = true) {
     console.log('✓ 27 yedek parça: mevcut kayıt ezilmiyor, tekrar yüklemede çoğalmıyor');
 }
 
+// 27b) Eskiden eklenmis, gorseli olmayan kayitlarin gorseli tamamlanir
+// (gorsel eslesmesi bir satir kaymisti; duzeltilince listede duran
+// kayitlar gorselsiz kaliyordu)
+{
+    const db = { machines: [], maintenance: [], failures: [], parts: [] };
+    const [g, api] = ortam(db);
+    api.plan();
+    api.parca();
+    const igne = db.parts.find(p => p.partName === 'İnce İğne Takımı');
+    const dogruGorsel = igne.img;
+    // Eski yukleme gibi: gorseli sil, miktari elle degistir
+    const oring = db.parts.find(p => p.partName.indexOf('O-ring') === 0);
+    const oringDogru = oring.img;
+    // Eski (kaymis) yukleme: igne gorselsiz, O-ring'de IGNENIN fotografi
+    igne.img = '';
+    igne.qty = 42;
+    igne.unitCost = 555;
+    oring.img = dogruGorsel;
+    // Kullanicinin kendi yukledigi fotograf ezilmemeli
+    const mantar = db.parts.find(p => p.partName === 'Mantar');
+    mantar.img = 'data:image/jpeg;base64,KULLANICI_FOTOGRAFI';
+    api.parca();
+    assert.strictEqual(igne.img, dogruGorsel, '27b-1: eksik görsel tamamlanmalı');
+    assert.strictEqual(igne.qty, 42, '27b-2: elle girilen miktar korunmalı');
+    assert.strictEqual(igne.unitCost, 555, '27b-3: elle girilen fiyat korunmalı');
+    assert.strictEqual(oring.img, oringDogru, '27b-4: kaymış görsel düzeltilmeli');
+    assert.strictEqual(mantar.img, 'data:image/jpeg;base64,KULLANICI_FOTOGRAFI',
+        '27b-5: kullanıcının yüklediği fotoğraf korunmalı');
+    console.log('✓ 27b eksik görsel tamamlanıyor, elle girilen alanlar korunuyor');
+}
+
 // 28) Makine yoksa parca eklenmez
 {
     const db = { machines: [], maintenance: [], failures: [], parts: [] };
