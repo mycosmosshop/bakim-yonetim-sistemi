@@ -28,13 +28,19 @@ function ortam(db, izin = true) {
     const g = {
         db, canWrite: () => izin, save: () => { g._kaydedildi = true; },
         updateSelects: () => {}, nav: (x) => { g._ekran = x; },
+        renderParts: () => { g._parcaCizildi = true; },
         toast: (m) => { g._mesaj = m; }, confirm: () => true,
         uid: () => 'u' + (++n), SANIFOAM_TASK_SETS: SETLER,
-        String, Object, Array, JSON, Math, Date, RegExp, console
+        requireWrite: () => izin, alert: (m) => { g._uyari = m; },
+        // Set/Map yoksa `new Set()` "not a constructor" ile patliyor:
+        // with(Proxy has:()=>true) tanimsiz adi undefined yapiyor.
+        String, Object, Array, JSON, Math, Date, RegExp, console,
+        Set, Map, Number, Boolean, parseInt, parseFloat, isNaN
     };
     const f = new Function('__k', 'with (__k) {\n' + kod +
         '\nreturn { plan: loadAnkaraPlan, ariza: loadAnkaraAriza, dof: loadAnkaraDof,' +
-        ' MAK: ANKARA_MACHINES, ARZ: ANKARA_ARIZA, PB: ANKARA_PBAKIM, DOF: ANKARA_DOF_CNC };\n}');
+        ' parca: loadAnkaraParts, MAK: ANKARA_MACHINES, ARZ: ANKARA_ARIZA,' +
+        ' PB: ANKARA_PBAKIM, DOF: ANKARA_DOF_CNC, PRT: ANKARA_PARTS };\n}');
     return [g, f(new Proxy(g, { has: () => true, get: (t, p) => (p in t ? t[p] : undefined) }))];
 }
 
@@ -62,7 +68,8 @@ function ortam(db, izin = true) {
     const [, api] = ortam(db);
     api.plan();
     const planlar = db.maintenance.filter(x => x.id.startsWith('ank_p_'));
-    assert.strictEqual(planlar.length, 7, '2a: planlı bakım ' + planlar.length + ' (7 olmalı)');
+    // ISM1'in PL15'te plan satiri yok; tarihli plan 6 makinede.
+    assert.strictEqual(planlar.length, 6, '2a: planlı bakım ' + planlar.length + ' (6 olmalı)');
     planlar.forEach(p => assert(/^\d{4}-\d{2}-\d{2}$/.test(p.sched), '2b: geçersiz tarih: ' + p.sched));
     // FRT ve KOMP1 saatlik bakim: plana girmemeli
     assert(!db.maintenance.some(x => x.id === 'ank_p_FRT_2026'), '2c: FRT saatlik bakım plana girmiş');
@@ -144,13 +151,14 @@ function ortam(db, izin = true) {
     console.log('✓ 5c eski (kısa kodlu) yükleme güncelleniyor, ikinci kayıt açılmıyor');
 }
 
-// 6) Arizalar: 19 kayit, hepsi bir makineye bagli ve KAPALI
+// 6) Arizalar: ANKARA_ARIZA kadar kayit, hepsi bir makineye bagli ve KAPALI
+// (sabit sayi yaziliyordu; kayit eklendikce test eskiyordu)
 {
     const db = { machines: [], maintenance: [], failures: [] };
     const [, api] = ortam(db);
     api.plan(); api.ariza();
     const arz = db.failures.filter(x => x.id.startsWith('ank_a_'));
-    assert.strictEqual(arz.length, 19, '6a: arıza ' + arz.length);
+    assert.strictEqual(arz.length, api.ARZ.length, '6a: arıza ' + arz.length);
     const idler = new Set(db.machines.map(m => m.id));
     assert(arz.every(f => idler.has(f.machineId)), '6b: makinesiz arıza var');
     assert(arz.every(f => f.status === 'closed'), '6c: kapatılmamış arıza var');
@@ -179,16 +187,21 @@ function ortam(db, izin = true) {
     console.log('✓ 8  görüntüleme modunda hiçbir şey yazılmıyor');
 }
 
-// 9) Periyodik bakim revizyonlari ariza degil, BAKIM olarak giriyor
+// 9) Periyodik bakim revizyonlari: yapilmis is olarak KAPALI kayit
+// (PL15'te plan satiri yok; planli bakim listesine yazilmaz, kapali
+// kayit olarak durur — id oneki ank_prv_)
 {
     const db = { machines: [], maintenance: [], failures: [] };
     const [, api] = ortam(db);
     api.plan(); api.ariza();
-    const pr = db.maintenance.filter(x => x.id.startsWith('ank_pr_'));
-    assert.strictEqual(pr.length, 2, '9a: periyodik bakım ' + pr.length);
-    assert(pr.every(x => x.status === 'completed' && x.type === 'preventive'), '9b: durum/tip');
-    assert(!db.failures.some(f => /PERİYODİK/.test(f.rootCause || '')), '9c: periyodik bakım arızaya yazılmış');
-    console.log('✓ 9  periyodik bakım revizyonları arıza değil, tamamlanmış bakım');
+    const pr = db.failures.filter(x => x.id.startsWith('ank_prv_'));
+    assert.strictEqual(pr.length, api.PB.length, '9a: periyodik bakım ' + pr.length);
+    assert(pr.every(x => x.status === 'closed'), '9b: kapalı olmalı');
+    assert(pr.every(x => /PERİYODİK/.test(x.rootCause || '')), '9c: kaynak tipi');
+    assert(pr.every(x => x.machineId), '9d: makineye bağlı olmalı');
+    assert(!db.maintenance.some(x => x.id.indexOf('ank_pr_') === 0),
+        '9e: planlı bakım listesine yazılmamalı');
+    console.log('✓ 9  periyodik bakım revizyonları kapalı kayıt, plana yazılmıyor');
 }
 
 // 10) Dugmeler arayuze eklenmis
@@ -243,7 +256,7 @@ function ortam(db, izin = true) {
     // Setler yoksa once yuklenmeli
     assert(db.taskSets.some(t => t.id === 'sfm_sjt'), '14a: Sanifoam setleri yüklenmedi');
     const planlar = db.maintenance.filter(x => x.id.startsWith('ank_p_'));
-    assert.strictEqual(planlar.length, 7, '14b: plan sayısı');
+    assert.strictEqual(planlar.length, 6, '14b: plan sayısı');
     planlar.forEach(p => {
         assert(p.taskSetId, '14c: setsiz bakım: ' + p.id);
         assert(p.checklist.length > 0, '14d: kontrol listesi boş: ' + p.id + ' / ' + p.taskSetId);
@@ -258,16 +271,19 @@ function ortam(db, izin = true) {
     const [, api] = ortam(db);
     api.plan();
     const setOf = (kod) => {
-        const m = db.machines.find(x => x.notes === 'Makina Kodu: ' + kod);
+        // notes'a kaynak eki gelebiliyor ('Makina Kodu: X · …'): tam eşitlik arama
+        const m = db.machines.find(x => (x.notes || '').indexOf('Makina Kodu: ' + kod) === 0);
+        if (!m) return '(makine yok: ' + kod + ')';
         const p = db.maintenance.find(x => x.machineId === m.id && x.id.startsWith('ank_p_'));
         return p ? p.taskSetId : null;
     };
     assert.strictEqual(setOf('CMS'), 'sfm_sjt', '15a: su jeti seti');
     assert.strictEqual(setOf('BLS'), 'sfm_yatay_kesim', '15b: yatay kesim seti');
     assert.strictEqual(setOf('CNC'), 'sfm_cnc_kesim', '15c: dikey CNC seti');
-    assert.strictEqual(setOf('ISM1'), 'sfm_cnc_kesim', '15d: ISM dikey kesim seti');
+    // ISM1'in PL15'te plan satiri yok: planli bakim acilmiyor, set de yok
+    assert.strictEqual(setOf('ISM1'), null, '15d: ISM1 planı yok');
     assert.strictEqual(setOf('VRGL'), 'sfm_kesme_pres', '15e: vargel/pres seti');
-    assert.strictEqual(setOf('ÇPRS'), 'sfm_kesme_pres', '15f: çöp presi seti');
+    assert.strictEqual(setOf('CPRS'), 'sfm_kesme_pres', '15f: çöp presi seti');
     assert.strictEqual(setOf('LMN4'), 'sfm_laminasyon', '15g: laminasyon seti');
     console.log('✓ 15 set eşleşmesi Çerkezköy\'deki makine türleriyle aynı');
 }
@@ -411,6 +427,69 @@ function ortam(db, izin = true) {
     assert(/onclick="loadAnkaraDof\(\)"/.test(src), '25a: düğme yok');
     assert(/CNC 5-Neden İşle/.test(src), '25b: etiket');
     console.log('✓ 25 "CNC 5-Neden İşle" düğmesi var');
+}
+
+// ══════════════════════════════════════════
+//  YEDEK PARÇA YÜKLEYİCİSİ
+// ══════════════════════════════════════════
+// 26) Parcalar dogru makinelere baglanir, min stok kurali tutar
+{
+    const db = { machines: [], maintenance: [], failures: [], parts: [] };
+    const [g, api] = ortam(db);
+    api.plan();
+    api.parca();
+    assert.strictEqual(db.parts.length, 31, '26a: parça sayısı');
+    const makAd = id => (db.machines.find(m => m.id === id) || {}).name;
+    const dagilim = {};
+    db.parts.forEach(p => { const a = makAd(p.machineId); dagilim[a] = (dagilim[a] || 0) + 1; });
+    assert.strictEqual(dagilim['TECHNOCUT SU JETI'], 17, '26b: su jeti');
+    assert.strictEqual(dagilim['TUNEL LAMINASYON MAKINESİ'], 3, '26c: laminasyon');
+    assert.strictEqual(dagilim['BSL 204 YATAY KESİM'], 3, '26d: yatay');
+    assert.strictEqual(dagilim['CNC DIKEY SABLE'], 3, '26e: dikey');
+    assert.strictEqual(dagilim['VARGEL(ANK)'], 4, '26f: vargel');
+    assert.strictEqual(dagilim['ÇÖP PRESİ'], 1, '26g: çöp presi');
+    assert(!db.parts.some(p => !p.machineId), '26h: makinesiz parça olmamalı');
+    assert(db.parts.every(p => p.location === 'Ankara'), '26i: lokasyon Ankara');
+    db.parts.forEach(p => {
+        const b = p.qty >= 5 ? p.qty - 2 : (p.qty >= 2 ? p.qty - 1 : 1);
+        assert.strictEqual(p.minQty, b, '26j: ' + p.partName + ' min stok');
+    });
+    const gorselli = db.parts.filter(p => p.img);
+    assert.strictEqual(gorselli.length, 16, '26k: görselli parça');
+    assert(gorselli.every(p => p.img.indexOf('data:image/') === 0), '26l: görsel data URI');
+    console.log('✓ 26 yedek parça: 31 kalem doğru makinelere, min stok kuralı tutuyor');
+}
+
+// 27) Ikinci yukleme mevcut kaydi EZMEZ
+{
+    const db = { machines: [], maintenance: [], failures: [], parts: [] };
+    const [g, api] = ortam(db);
+    api.plan();
+    const cnc = db.machines.find(m => m.name === 'CNC DIKEY SABLE');
+    db.parts.push({ id: 'elle1', partName: 'Dikey CNC bıçağı', machineId: cnc.id,
+        location: 'Ankara', qty: 99, minQty: 50, unitCost: 1234, supplier: 'ESKİ' });
+    api.parca();
+    const elle = db.parts.find(p => p.id === 'elle1');
+    assert.strictEqual(elle.qty, 99, '27a: elle girilen miktar korunmalı');
+    assert.strictEqual(elle.unitCost, 1234, '27b: elle girilen fiyat korunmalı');
+    assert.strictEqual(elle.supplier, 'ESKİ', '27c: tedarikçi korunmalı');
+    assert.strictEqual(db.parts.filter(p => p.partName === 'Dikey CNC bıçağı').length, 1,
+        '27d: aynı parça iki kez eklenmemeli');
+    const oncekiSayi = db.parts.length;
+    api.parca();
+    assert.strictEqual(db.parts.length, oncekiSayi, '27e: tekrar çağrıda yeni kayıt olmamalı');
+    console.log('✓ 27 yedek parça: mevcut kayıt ezilmiyor, tekrar yüklemede çoğalmıyor');
+}
+
+// 28) Makine yoksa parca eklenmez
+{
+    const db = { machines: [], maintenance: [], failures: [], parts: [] };
+    const [g, api] = ortam(db);
+    api.parca();
+    assert.strictEqual(db.parts.length, 0, '28a: makine yokken parça eklenmemeli');
+    assert(String(g._uyari || '').indexOf('Ankara Planı Yükle') >= 0,
+        '28b: kullanıcı makineleri yüklemeye yönlendirilmeli');
+    console.log('✓ 28 yedek parça: makine yokken uyarır, makinesiz kayıt üretmez');
 }
 
 console.log('\nTüm senaryolar geçti.');

@@ -730,6 +730,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <button class="btn btn-outline-primary btn-sm" onclick="loadAnkaraPlan()" title="PL15 2026 yıllık bakım planı: 9 makine + planlı bakımlar"><i class="bi bi-calendar-check me-1"></i>Ankara Planı Yükle</button>
       <button class="btn btn-outline-danger btn-sm" onclick="loadAnkaraAriza()" title="2026 Bakım Kayıtları: Ocak–Haziran arızaları"><i class="bi bi-exclamation-triangle me-1"></i>Ankara Arızalarını Yükle</button>
       <button class="btn btn-outline-warning btn-sm" onclick="loadAnkaraDof()" title="CNC Dikey Sable — tekrarlayan şerit testere kırılması için 5-Neden analizi"><i class="bi bi-diagram-3 me-1"></i>CNC 5-Neden İşle</button>
+      <button class="btn btn-outline-success btn-sm" onclick="loadAnkaraParts()" title="SU JETİ stok listesi + saha sayımı: 31 yedek parça, su jeti parçaları görselli"><i class="bi bi-box-seam me-1"></i>Ankara Yedek Parçaları</button>
       <button class="btn btn-outline-info btn-sm" onclick="loadAnkaraAksiyon()" title="Ankara KPI sapmalarına karşı aksiyon kayıtları (Raporlar ekranında görünür)"><i class="bi bi-clipboard-plus me-1"></i>Ankara KPI Aksiyonları</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
@@ -765,6 +766,10 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       </div>
       <button class="btn btn-outline-info btn-sm" onclick="printPartsList()"><i class="bi bi-printer me-1"></i>PDF / Yazdır</button>
       <button class="btn btn-sm text-white" style="background:#1d6f42" onclick="exportPartsExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+      <label class="btn btn-outline-success btn-sm mb-0" style="cursor:pointer">
+        <i class="bi bi-upload me-1"></i>İçe Aktar
+        <input type="file" accept=".json,application/json" hidden onchange="importPartsJson(this)">
+      </label>
       <button class="btn btn-outline-warning btn-sm" onclick="openPartSuggestModal()"><i class="bi bi-stars me-1"></i>Önerilen Parçalar</button>
       <button class="btn btn-warning btn-sm text-dark" onclick="openPartModal()"><i class="bi bi-plus-lg me-1"></i>Parça Ekle</button>
     </div>
@@ -2173,6 +2178,15 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <div class="col-md-6"><label class="form-label">Değiştirme Tarihi</label><input type="date" class="form-control" id="mPtRepDate"></div>
           <div class="col-md-6"><label class="form-label">Sonraki Değişim Tarihi</label><input type="date" class="form-control" id="mPtNextDate"></div>
           <div class="col-12"><label class="form-label">Notlar</label><textarea class="form-control" id="mPtNotes" rows="2"></textarea></div>
+          <div class="col-12">
+            <label class="form-label">Parça Görseli <small class="text-muted">(listede küçük görünür)</small></label>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <input type="file" class="form-control form-control-sm" style="max-width:260px" accept="image/*" onchange="ptPickImg(this)">
+              <button type="button" class="btn btn-outline-secondary btn-sm" onclick="ptClearImg()"><i class="bi bi-x-lg me-1"></i>Kaldır</button>
+              <img id="mPtImgPrev" style="height:48px;background:#fff;border-radius:4px;display:none">
+              <input type="hidden" id="mPtImg">
+            </div>
+          </div>
           <!-- TPM — Kritik Yedek Parça -->
           <div class="col-md-6 d-flex align-items-center gap-3 p-2 rounded" style="background:rgba(255,112,67,.07);border:1px solid rgba(255,112,67,.2)">
             <div class="form-check mb-0">
@@ -5698,9 +5712,134 @@ function _savePartSuggestions(){
 }
 
 // ══════════════════════════════════════════
+//  PARÇA GÖRSELİ  (küçük görünüm → büyütme)
+// ══════════════════════════════════════════
+function ptShowImg(id){
+  const p=(db.parts||[]).find(x=>x.id===id);
+  if(!p||!p.img) return;
+  let m=document.getElementById('ptImgModal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='ptImgModal'; m.className='modal fade'; m.tabIndex=-1;
+    m.innerHTML=`<div class="modal-dialog modal-dialog-centered modal-lg"><div class="modal-content">
+      <div class="modal-header"><h6 class="modal-title" id="ptImgTitle"></h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body text-center" style="background:#fff">
+        <img id="ptImgBig" style="max-width:100%;max-height:70vh;object-fit:contain"></div></div></div>`;
+    document.body.appendChild(m);
+  }
+  document.getElementById('ptImgTitle').textContent=
+    (p.partName||'')+(p.partNo?'  ·  '+p.partNo:'');
+  document.getElementById('ptImgBig').src=p.img;
+  new bootstrap.Modal(m).show();
+}
+
+// Secilen dosyayi 96 px yuksekliginde JPEG'e indirir: liste gorseli
+// localStorage'da tutuldugu icin ham fotograf saklanmaz.
+function _ptKucult(dosya, tamam){
+  const fr=new FileReader();
+  fr.onload=e=>{
+    const g=new Image();
+    g.onload=()=>{
+      const h=96, w=Math.max(1,Math.round(g.width*h/g.height));
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      const x=c.getContext('2d');
+      x.fillStyle='#fff'; x.fillRect(0,0,w,h);
+      x.drawImage(g,0,0,w,h);
+      tamam(c.toDataURL('image/jpeg',0.72));
+    };
+    g.onerror=()=>{ toast('Görsel okunamadı','danger'); tamam(''); };
+    g.src=e.target.result;
+  };
+  fr.readAsDataURL(dosya);
+}
+function ptPickImg(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  _ptKucult(f, d=>{
+    document.getElementById('mPtImg').value=d;
+    const on=document.getElementById('mPtImgPrev');
+    on.src=d; on.style.display=d?'inline-block':'none';
+  });
+}
+function ptClearImg(){
+  document.getElementById('mPtImg').value='';
+  document.getElementById('mPtImgPrev').style.display='none';
+}
+
+// ══════════════════════════════════════════
+//  TOPLU PARÇA İÇE AKTARMA  (JSON)
+// ══════════════════════════════════════════
+// Beklenen bicim:
+// { "location":"Ankara",
+//   "parts":[{"partName":"…","partNo":"…","machine":"Su Jeti","qty":7,
+//             "minQty":5,"unitCost":0,"supplier":"","notes":"","img":"data:…",
+//             "isCritical":false}] }
+function importPartsJson(input){
+  if(!requireWrite()){ input.value=''; return; }
+  const f=input.files&&input.files[0]; if(!f) return;
+  const fr=new FileReader();
+  fr.onload=e=>{
+    let veri;
+    try{ veri=JSON.parse(e.target.result); }
+    catch(err){ toast('JSON okunamadı: '+err.message,'danger'); input.value=''; return; }
+    _ptImportData(veri);
+    input.value='';
+  };
+  fr.readAsText(f,'utf-8');
+}
+
+// Asil ice aktarma. Dosya okumadan ayri tutulur ki konsoldan ve testten
+// de cagirilabilsin.
+function _ptImportData(veri){
+    const list=Array.isArray(veri)?veri:(veri.parts||[]);
+    if(!list.length){ toast('Dosyada parça yok','warning'); return {eklenen:0,atlanan:0,yeniMak:0}; }
+    const varsayilanLok=(veri.location||'').trim();
+    let eklenen=0, atlanan=0, yeniMak=0;
+    list.forEach(k=>{
+      const ad=(k.partName||'').trim(); if(!ad) return;
+      const lok=(k.location||varsayilanLok||'').trim();
+      const makAd=(k.machine||'').trim();
+      let mak=null;
+      if(makAd){
+        mak=(db.machines||[]).find(m=>(m.name||'').trim().toLowerCase()===makAd.toLowerCase()
+                 && (!lok || (m.location||'')===lok));
+        if(!mak){
+          mak={id:uid(), name:makAd, model:'', code:'', serial:'', location:lok,
+               dept:'', installDate:'', criticality:'medium', status:'active',
+               mfg:'', capacity:'', runHours:0,
+               notes:'Yedek parça içe aktarımında oluşturuldu'};
+          db.machines.push(mak); yeniMak++;
+        }
+      }
+      // Ayni makinede ayni parca varsa MEVCUT KAYIT KORUNUR
+      const zaten=(db.parts||[]).some(p=>
+        (p.partName||'').trim().toLowerCase()===ad.toLowerCase() &&
+        (p.machineId||'')===(mak?mak.id:'') );
+      if(zaten){ atlanan++; return; }
+      db.parts.push({
+        id:uid(), partName:ad, partNo:(k.partNo||''),
+        machineId:mak?mak.id:'', location:lok,
+        qty:parseInt(k.qty)||0, minQty:parseInt(k.minQty)||0,
+        unitCost:parseFloat(k.unitCost)||0,
+        supplier:k.supplier||'', supPhone:k.supPhone||'', supMail:k.supMail||'',
+        supAddr:k.supAddr||'', repDate:k.repDate||'', nextDate:k.nextDate||null,
+        notes:k.notes||'', isCritical:!!k.isCritical,
+        leadTime:parseInt(k.leadTime)||0, img:k.img||''
+      });
+      eklenen++;
+    });
+    if(eklenen||yeniMak){ save(); updateSelects(); renderParts(); }
+    toast(`${eklenen} parça eklendi`+(yeniMak?` · ${yeniMak} yeni makine`:'')
+          +(atlanan?` · ${atlanan} kayıt zaten vardı, atlandı`:''),
+          eklenen?'success':'warning');
+    return {eklenen, atlanan, yeniMak};
+}
+
+// ══════════════════════════════════════════
 //  YEDEK PARÇALAR — SÜTUN YÖNETİMİ
 // ══════════════════════════════════════════
 const PT_COLS_DEF = [
+  {key:'img',      label:'Görsel',           def:true},
   {key:'partNo',   label:'Parça No',        def:true},
   {key:'location', label:'Lokasyon',         def:true},
   {key:'machine',  label:'Makine',           def:true},
@@ -5740,6 +5879,11 @@ function _renderPtColDrop(){
 }
 function _ptCell(p, key, total, dd, warn, isLow){
   switch(key){
+    case 'img':      return `<td style="width:56px;padding:4px">${p.img
+        ? `<img src="${p.img}" alt="${(p.partName||'').replace(/"/g,'')}" loading="lazy"
+             style="height:38px;width:52px;object-fit:contain;background:#fff;border-radius:4px;cursor:zoom-in"
+             onclick="ptShowImg('${p.id}')">`
+        : `<span style="display:inline-flex;align-items:center;justify-content:center;height:38px;width:52px;border:1px dashed var(--border);border-radius:4px;color:var(--muted)"><i class="bi bi-image"></i></span>`}</td>`;
     case 'partNo':   return `<td style="font-size:.82rem;color:var(--muted)">${p.partNo||'—'}</td>`;
     case 'location': return `<td style="font-size:.8rem;color:#42a5f5">${p.location?`<i class="bi bi-geo-alt-fill me-1" style="font-size:.7rem"></i>${p.location}`:'—'}</td>`;
     case 'machine':  return `<td style="font-size:.82rem">${mName(p.machineId)}</td>`;
@@ -5833,6 +5977,9 @@ function openPartModal(p){
   document.getElementById('mPtNextDate').value=p?(p.nextDate||''):'';
   document.getElementById('mPtMinQty').value=p?(p.minQty||0):0;
   document.getElementById('mPtNotes').value=p?(p.notes||''):'';
+  document.getElementById('mPtImg').value=p?(p.img||''):'';
+  const _pv=document.getElementById('mPtImgPrev');
+  _pv.src=(p&&p.img)||''; _pv.style.display=(p&&p.img)?'inline-block':'none';
   document.getElementById('mPtCritical').checked=p?(p.isCritical||false):false;
   document.getElementById('mPtLeadTime').value=p?(p.leadTime||0):0;
   new bootstrap.Modal(document.getElementById('modalPart')).show();
@@ -5860,7 +6007,8 @@ function savePart(){ if(!requireWrite())return;
     nextDate:document.getElementById('mPtNextDate').value||null,
     notes:document.getElementById('mPtNotes').value,
     isCritical:document.getElementById('mPtCritical').checked,
-    leadTime:parseInt(document.getElementById('mPtLeadTime').value)||0};
+    leadTime:parseInt(document.getElementById('mPtLeadTime').value)||0,
+    img:document.getElementById('mPtImg').value||''};
   if(!p.partName){toast('Parça adı zorunlu!','danger');return;}
   if(id){const i=db.parts.findIndex(x=>x.id===id);if(i>-1)db.parts[i]=p;}else db.parts.push(p);
   save();bootstrap.Modal.getInstance(document.getElementById('modalPart')).hide();
@@ -10144,6 +10292,329 @@ function loadAnkaraAriza(){
   toast('Ankara: '+n+' arıza yüklendi'
     +(nR?(' · '+nR+' periyodik bakım revizyonu'):'')
     +(atlanan?(' · '+atlanan+' kayıt makinesiz atlandı'):''));
+}
+
+// ══════════════════════════════════════════
+//  ANKARA — YEDEK PARÇA STOĞU
+// ══════════════════════════════════════════
+// Kaynak: SU JETİ stok listesi (17 kalem, parça görselleri gömülü) +
+// saha sayımı (laminasyon, yatay, dikey, vargel, çöp presi).
+// Min. stok mevcut miktardan 1–2 adet az: 5+ için −2, 2–4 için −1, altı 1.
+// Birim fiyat ve tedarikçi kaynakta yok; boş bırakıldı.
+const ANKARA_PARTS = [
+ {
+  "m": "CMS",
+  "ad": "Dar Conta tertibatı Takımı",
+  "no": "10727",
+  "q": 7,
+  "min": 5,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Yedek halka pnömatik valf",
+  "no": "10002",
+  "q": 2,
+  "min": 1,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Rulman diski pnömatik valf",
+  "no": "10003",
+  "q": 3,
+  "min": 2,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "O-ring.Valf gövdesi",
+  "no": "10019",
+  "q": 3,
+  "min": 2,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "İnce İğne Takımı",
+  "no": "10001",
+  "q": 4,
+  "min": 3,
+  "not": "SU JETİ stok listesi."
+ },
+ {
+  "m": "CMS",
+  "ad": "Mantar",
+  "no": "10004",
+  "q": 2,
+  "min": 1,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "İğne Takımı (Geniş)",
+  "no": "200104",
+  "q": 1,
+  "min": 1,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5Ojf/2wBDAQoKCg0MDRoPDxo3JR8lNzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzf/wAARCABgAMcDASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAAAAIBBAUDBv/EADgQAAEEAQIDBQYFBAEFAAAAAAEAAgMRBAUhEjFBEyIyUWEUcYGRobEGFSMzckJDRFJTorLBwvD/xAAZAQEBAAMBAAAAAAAAAAAAAAAAAQIDBAX/xAAiEQACAgIDAAIDAQAAAAAAAAAAAQIRAwQSITEFQRMUQiL/2gAMAwEAAhEDEQA/ANekUmpFLtNAtIpNSKQC0ik1IpALSKTUo96AikUodLG14Y57Q48gTuuHtsJa10dvLpOzAqu98UsFikUs46zjslInDoYgG/qSbCySKPy5q/BNFkRiTHlZLGduKNwcPmEtAakUmpFIBaRSakUgFpFJqRSAUixRGyyZfw5pk8xlyoX5BPJksriwDoA26odNlsUikfYKuLg4mG3hxMWGAVw/pxhu3lfVWKTUikAtLhm4cGdB2OSwubYcCHFrmkciCNwfUKzSKQGP7TmaV3c1k2Zjf05MTOKQej2D/uHyQtikKdl6JpFJqRSpBaRSakUgFpCakUgFIsEWRfUdF5hmZqM7pOx0jPeBIDH2zmsYWjYE8Rs3zNcttl6mlFKNWEeZj03XZRwl+n4bHVx+Kd1tNgjkPSlb/IJZy85+rZk3aHieyHhhYXcv6RdV0tblIpTii2zKx/w7pGO5rmYETnN8LpbkI+LidkT6Jj9p2+A9+Bk/8mOAA7+TPC4f/WtWkUrSJbMb8xzdP7ur43FEP8zEaXM972eJv1C08eeHKhbNjSslidyex1grsszI0WB0rsjCe/ByjuZINg7+TeTk7RejRRSyfzHN0/bV8bjhH+ZiNLmD+bPE33iwtSCWLIhZNBIySJ4tr2Gw4eiWShqRSakUqBaRSk0OZA96qy6lhReLJjJq6aeIn5KWVRk/EWaRSzJNbgFiGGWT1rhH1VZ+r5jxUcMUe3M242pyRvjq5ZfRuUil5yTIzZrEmS4A9Gd1Z82fqWkSwNxJRJjPsdlKOIBw3oHmLH2U5o2S0ckY2ezpCy9C1c6o2ZsuP2E0RFtDuIFp5EIWSdnJKLi6Zr0ik1IpCC0ik1IpALSy5NRlnyHw4HY9wlpfJZJI500dPVW9Unfj4ZdEale5scZI5Ocav4bn4LLGFjAbRN4gbEgFPvz4udrCT+kd+lrLK3KXiKufn6vFL2Mzo4uIW10TdnDrRP2VnTNVmDxHmEOadg+tx71pY0DdXxpMHIIGTHTmSDa/J1e/YhYDGmqe3he0lrm+TgaI+YKxt+ndPUxVxSPVopYP5pk4+O2OOJj62DnOO3wXSPWphjkvx2vlH+rqBWamjy3qZV9G1SKXnpdXz5D+mIom+jeI/VVpH5k4qbKmcCKIDqB+AU5o2R0cj96PTyzQw/vSsZvXecAqUms4LPDKZDV1G0lYIxWWSRZPMncldRE0dFObOiPx6/pl2fXXEH2TGJd0dKaHyCzH5WL7RI/TfaMDUaD5Y4wDE8nqWnY+8UV37oWbqThDm4eW3o7spPVpWLkzOWniirNXH1vU5GFk+JBHIP7jXlzX+4cx8UPys+Xx5Lmg1swBq58Z6NKmpXchSWzdDWxQ8RzdDxm5XuebvvOJ3TCONg2ACfsHnxOpT2UbfE/5lDckl4hOJo5KOMnwtKcPhumAvPk0WrEcOVIP0sVwHm/u/dCSyRj6ytwynpSU4fb5OHHK4AOyWC/IG7+i0maZmP8AHLHGPTddsfRxHlRzy5D5ezPE1nCAOLzPu6K8WzmybeJL2yxDp8GNlmXHFN7IRnzcbu0K3SFsSo8jJNzm5MakUmUOc1u7iB7zSpiRSKVWXU8KLnkMcaumd4n5KvJrcINRQSyb8zTRXnupaNkcOSXiI1v9zAb0M7iR51G8j5HdcVUz82fMMJ4WQ9k4uFHislpb19CVyZPIyQPfMXUb4aFLW32ezpxlixVJd2amLOMTPxcommMkDZP4O2P/AIPwT/i3C9h1x72tqPLYJRttxjuu/wDU/ErlmwxuMsLHExvbTSOdOG33+iufiXIGf+G9H1AlvatLWvq+bm8Lh8HN+iv0zZN/6UkYIN2D1UWAuTHHiBrquns5J3KwLfbQOcGmvJKZPIWu5jYN3EXSUyQs6hBGVxRyt55NUiKR3M0ujZi/aGF7/wCLSV3ZiajKdsfsxfN7gFTGWWEfWVxjf7FUdbiaMSNrBcjp4+EDmacCfoCt1mi5L/38lrPRjSfureHpEGLkDI45JJGtpvGRTb5kBXi2c2Xbx8Wl2ZjIsmQnssR9XVuFD6ruzTc6Qd90UXpzP0W6hZcUckt7I/OjJZorLubJlfvybTQrEWlYUf8AYDj5vJd91eQsqRolnyS9YjI2MFMa1o9BSmkyENXbFpFJkKgWkJkIDyX4k1XJx9SkiZNKyOMMJax1Ag8yfr16BKWiR1kPkN3biStnXNBZqkjZQ5rZOAxlzr2BvcV1Fnnsu8ejxj92aR/u7oWqnZ6ODYxY4d+mEGOA8LWD1Q1nGaa8vPlG0lelj0/EjNtgYTzt2/3VlrQ0U0ADyApXiZS+QX8o8yMDILHPGLIQBffIF+4JIYnSRMkZ2bQ5tja16pYDovZMqXGqmXxw/wAD0+BsKONGzV2fyzcZBFxNY3jIc4DchLLOD+F34xAuDJLGn3S3f/Uulgbnl1WSJ70qJhO80wdZ628uBPwpQ75pJUWBEAeSZsWbLIWxY0lX4iKHzQJA54a0WXGgF6eNvDG1vkAESs4NrO8TXEy26Hjk8U0kj3EbgOoK3Dp+JCbjx2A+ZF/dW0LZSPMllnL1igACm7AdAikyFTWLSKTIQC0ikyEAtIpMhALSKTIQC0ikyEAtITIQDUilKFARSKUoQEUq2bhR5jGhznMew8THt5tNV8R6K0hCptO0eH1rKzsK8bMxREx9t9oY7iY9vLbbYkdCuWLi5ueYn4+PIYIxbXEUHHltfQC17xzWubwuAI8iLClYcTs/dyV32YGkaPPFkCfLIHBu1gN7reUoWSVHNkySyO5EUilKFTWRSKUoQEUilKEBFIpShARSKUoQEUilKEBFIpShARSFKEB//9k="
+ },
+ {
+  "m": "CMS",
+  "ad": "Su Jeti Parçası 200101",
+  "no": "200101",
+  "q": 5,
+  "min": 3,
+  "not": "SU JETİ stok listesi. Listede ad girilmemiş, görselden tanımlanmalı.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Orifiz Filtresi",
+  "no": "10424",
+  "q": 2,
+  "min": 1,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0iIiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5Ojf/2wBDAQoKCg0MDRoPDxo3JR8lNzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzf/wAARCABgAK0DASIAAhEBAxEB/8QAHAABAQADAQEBAQAAAAAAAAAAAAEFBgcEAgMI/8QALxAAAQMDAgUCBQQDAAAAAAAAAAECAwQFEQYhEjFBUWETcQcUIlKBIyQykTZ0wf/EABkBAQEBAQEBAAAAAAAAAAAAAAABAgQDBv/EAB8RAQEAAgICAwEAAAAAAAAAAAABAhEDBCExBRJBUf/aAAwDAQACEQMRAD8Azwxnpy69ig7Hg1/Uuk6LUMkU8sj6epYmEmjTKuToip4PNZr/AC0FQ60apmZBVwtzFVu2jqGJ57m08+Z4LxZrfeoI4LlB6rGO4m8K4cnsvRPBiz9jUr3IqOa1zVRUciORU7LyUGn0VVUaPq2W66PfPZp3ftKzCqsK/a7x0NvjkjlZxxSMkZnCujdxJntksy2ligo6ZNCA+iAQFAEBQBAUAQFAEBQBAUAUFARCd90Tf+z6AHnr6OCvo5aSrjbJDKmHMVNk8p5NQkoKjQ8iVlr9arsj8JVU7t3xL96G7kVEVHIqIqOTCoqZRUM3H+NSvHbLrb7tE+W21TahjMI9W7K1V8HsxhMqvvnqandNNvtMrLtpOL0amBv61Ii5bUM6p7mR07qm3X+Z8FPxw1cbUV8EuyqvVG+xJdezTN4ATdEXuXG+Ns+De0QYXsv9GD1le1sdmfNA6L5uReCKN67qi83J7HOaLWt/pa2GWor3VcTXfXFJjhcnksxys3J4WR2IHxTzRVNPFUU8jJIpGo5jmrlHd8H6YJPKICgCAoAgKAICgACgggKAICgIJnKYXCp1QwWodNw3Rkc9DwUdygXjp5404cu54djnkzoJYu2C01fZLm6eiuMLqe7UqfuGY+l6fengzUj2RMa6Z7ImLs10juFF/JjNS1S2m1Vt4pYofnYo2t9R7f5Nz/FfBy2vu1VenLNcq3iZI71Pl2r9DFx0Q7eh1L2c/pvWjK6ZDX16pr5XwRUbFdHR8TEmXnIqrvsavNSSOhc9qKiN5oicz3NmpY0w1quVOS9w+vajVRqc0Pqb8f1+Pr5cc/XlMrvbcPhNcIvQrLZJM9anj9WNi7tRiJvheh0H2OTfCT/Jp/8AWf8A8OspyQ+Ij2y9gKDTKAoCoCgCAoAAoKICgggKAICgD8KykgrqWSmq4klgkxxxquEdg1+46FslXTtipoXULkdn1Yl4lVO2FNnBvDPLju8aNCqPhtSR08z4rjVPlZGro4/TT63JyT8nNpGyMe+J7VZIxVa9rkwrV7Kf0MndMoatqrRdLf52VUc6UdVykkRuUkTpt38nTj3+XH35hqNO+EzVZqeZqrlflX8vwdYTkhidM6dpNPUXoQYkqJN5ahU3f7dk8GY/GDi8S7npbdoCgqICgCAoAgKAGOwL43XAwBAUAQFAEBQBAXAAgwhQBMDBQNiAoIICgogKAICgCkKAqAoIiAoAgKAICgCAoAgKAICgCAoAgKAICgD/2Q=="
+ },
+ {
+  "m": "CMS",
+  "ad": "Su Jeti Parçası 200103",
+  "no": "200103",
+  "q": 1,
+  "min": 1,
+  "not": "SU JETİ stok listesi. Listede ad girilmemiş, görselden tanımlanmalı.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Su Jeti Parçası 200102",
+  "no": "200102",
+  "q": 0,
+  "min": 1,
+  "not": "SU JETİ stok listesi. Listede ad girilmemiş, görselden tanımlanmalı.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Su Jeti Parçası 200100",
+  "no": "200100",
+  "q": 1,
+  "min": 1,
+  "not": "SU JETİ stok listesi. Listede ad girilmemiş, görselden tanımlanmalı.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Su Jeti Parçası 10007",
+  "no": "10007",
+  "q": 1,
+  "min": 1,
+  "not": "SU JETİ stok listesi. Listede ad girilmemiş, görselden tanımlanmalı.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Su Jeti Parçası 200300",
+  "no": "200300",
+  "q": 1,
+  "min": 1,
+  "not": "SU JETİ stok listesi. Listede ad girilmemiş, görselden tanımlanmalı.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Su Jeti Parçası 200301",
+  "no": "200301",
+  "q": 1,
+  "min": 1,
+  "not": "SU JETİ stok listesi. Listede ad girilmemiş, görselden tanımlanmalı.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Orifiz",
+  "no": "10229",
+  "q": 16,
+  "min": 14,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "CMS",
+  "ad": "Geniş Conta tertibatı",
+  "no": "10628",
+  "q": 9,
+  "min": 7,
+  "not": "SU JETİ stok listesi.",
+  "img": "data:image/jpeg;base64,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"
+ },
+ {
+  "m": "LMN4",
+  "ad": "Üst teflon bant",
+  "no": "",
+  "q": 3,
+  "min": 2,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "LMN4",
+  "ad": "Alt teflon bant",
+  "no": "",
+  "q": 2,
+  "min": 1,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "LMN4",
+  "ad": "Hava hortumu",
+  "no": "",
+  "q": 4,
+  "min": 3,
+  "not": "Birim: metre."
+ },
+ {
+  "m": "BLS",
+  "ad": "Frenleme sensörü",
+  "no": "",
+  "q": 2,
+  "min": 1,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "BLS",
+  "ad": "Kayış",
+  "no": "",
+  "q": 1,
+  "min": 1,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "BLS",
+  "ad": "Yatay kesim bıçağı",
+  "no": "",
+  "q": 10,
+  "min": 8,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "CNC",
+  "ad": "Dikey CNC bıçağı",
+  "no": "",
+  "q": 12,
+  "min": 10,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "CNC",
+  "ad": "Bileyleme taşı",
+  "no": "",
+  "q": 2,
+  "min": 1,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "CNC",
+  "ad": "Hava hortumu",
+  "no": "",
+  "q": 5,
+  "min": 3,
+  "not": "Birim: metre."
+ },
+ {
+  "m": "VRGL",
+  "ad": "Gergi kayışı",
+  "no": "",
+  "q": 12,
+  "min": 10,
+  "not": "Birim: metre."
+ },
+ {
+  "m": "VRGL",
+  "ad": "Sac kayış raptiyesi",
+  "no": "",
+  "q": 10,
+  "min": 8,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "VRGL",
+  "ad": "Sigorta",
+  "no": "",
+  "q": 2,
+  "min": 1,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "VRGL",
+  "ad": "Rulman",
+  "no": "",
+  "q": 3,
+  "min": 2,
+  "not": "Birim: adet."
+ },
+ {
+  "m": "CPRS",
+  "ad": "Sigorta",
+  "no": "",
+  "q": 2,
+  "min": 1,
+  "not": "Birim: adet."
+ }
+];
+
+// Makine kodu → ANKARA_MACHINES adı (yükleyici id'yi ank_<kod> yapıyor;
+// makine elle eklenmişse ad üzerinden bulunur).
+const ANKARA_PART_MAK = { CMS:'TECHNOCUT SU JETI', LMN4:'TUNEL LAMINASYON MAKINESİ',
+  BLS:'BSL 204 YATAY KESİM', CNC:'CNC DIKEY SABLE', VRGL:'VARGEL(ANK)',
+  CPRS:'ÇÖP PRESİ' };
+function loadAnkaraParts(){
+  if(!requireWrite())return;
+  const kodMak={};
+  Object.keys(ANKARA_PART_MAK).forEach(kod=>{
+    const ad=ANKARA_PART_MAK[kod];
+    const m=(db.machines||[]).find(x=>x.id==='ank_'+kod)
+        || (db.machines||[]).find(x=>(x.notes||'').indexOf('Makina Kodu: '+kod)>=0)
+        || (db.machines||[]).find(x=>(x.name||'').trim().toUpperCase()===ad.toUpperCase());
+    if(m) kodMak[kod]=m;
+  });
+  const eksik=[...new Set(ANKARA_PARTS.map(p=>p.m))].filter(k=>!kodMak[k]);
+  if(eksik.length===[...new Set(ANKARA_PARTS.map(p=>p.m))].length){
+    alert('Ankara makineleri bulunamadı.\n\nÖnce "Ankara Planı Yükle" ile '
+          +'makineleri yükleyin, sonra yedek parçaları ekleyin.');
+    return;
+  }
+  const yeni=ANKARA_PARTS.filter(p=>{
+    const mk=kodMak[p.m]; if(!mk) return false;
+    return !(db.parts||[]).some(x=>x.machineId===mk.id &&
+      (x.partName||'').trim().toLowerCase()===p.ad.trim().toLowerCase());
+  });
+  if(!yeni.length){ toast('Ankara yedek parçaları zaten listede.','warning'); return; }
+  if(!confirm('Ankara yedek parça stoğu yüklenecek:\n'
+      +'• '+yeni.length+' parça (su jeti '+yeni.filter(p=>p.m==='CMS').length
+      +', diğer makineler '+yeni.filter(p=>p.m!=='CMS').length+')\n'
+      +'• Su jeti parçalarının görselleri listede küçük olarak görünür\n'
+      +'• Min. stok mevcut miktardan 1–2 adet az\n\n'
+      +(eksik.length?('Makinesi bulunamayan '+eksik.length+' grup atlanacak.\n\n'):'')
+      +'Mevcut parça kayıtlarına dokunulmaz.')) return;
+  let n=0;
+  yeni.forEach(p=>{
+    const mk=kodMak[p.m];
+    db.parts.push({ id:uid(), partName:p.ad, partNo:p.no||'',
+      machineId:mk.id, location:mk.location||'Ankara',
+      qty:p.q, minQty:p.min, unitCost:0,
+      supplier:'', supPhone:'', supMail:'', supAddr:'',
+      repDate:'', nextDate:null, notes:p['not']||'',
+      isCritical:false, leadTime:0, img:p.img||'' });
+    n++;
+  });
+  save(); updateSelects(); renderParts();
+  toast(n+' Ankara yedek parçası eklendi','success');
 }
 
 function loadCerkezkoyPlan(){
