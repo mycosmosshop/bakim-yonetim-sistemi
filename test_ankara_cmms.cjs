@@ -531,4 +531,15 @@ function ortam(db, izin = true) {
     console.log('✓ 28 yedek parça: makine yokken uyarır, makinesiz kayıt üretmez');
 }
 
+// 29) Excel disa aktariminda GÖRSEL sutunu ve hucreye gomme
+{
+    assert(/\{header:'GÖRSEL'/.test(src), '29a: Excel GÖRSEL sütunu yok');
+    assert(/imageIndex:\s*3/.test(src), '29b: imageIndex tanımlı değil');
+    assert(/totalIndex:\s*9/.test(src), '29c: sütun eklenince toplam indeksi kaymalı');
+    assert(/editAs:'oneCell'/.test(src), '29d: resim hücreye bağlanmalı');
+    assert(/wb\.addImage\(\{base64:row\.img/.test(src), '29e: satır görseli gömülmüyor');
+    assert(/if\(imgSut>=0 && row\.img\)/.test(src), '29f: görselsiz satır atlanmalı');
+    console.log('✓ 29 Excel dışa aktarımında görsel sütunu hücreye gömülüyor');
+}
+
 console.log('\nTüm senaryolar geçti.');

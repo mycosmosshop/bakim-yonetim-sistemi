@@ -12620,6 +12620,18 @@ const SANIFOAM_LOGO_B64 = 'iVBORw0KGgoAAAANSUhEUgAAA6wAAADiCAYAAABKgUrFAAAACXBIW
 const _XL_FILL={scheduled:'FFD6E4F5',completed:'FFD7F0DC',overdue:'FFF8D7DA','in-progress':'FFFFF0CC',cancelled:'FFE9ECEF',open:'FFF8D7DA',closed:'FFD7F0DC',running:'FFD7F0DC',maintenance:'FFFFF0CC',failed:'FFF8D7DA',idle:'FFE9ECEF',active:'FFD7F0DC',faulty:'FFF8D7DA',scrapped:'FFE9ECEF'};
 const _XL_TXT ={scheduled:'FF0B5394',completed:'FF1E7B34',overdue:'FFB02A37','in-progress':'FF8A6D00',cancelled:'FF6C757D',open:'FFB02A37',closed:'FF1E7B34',running:'FF1E7B34',maintenance:'FF8A6D00',failed:'FFB02A37',idle:'FF6C757D',active:'FF1E7B34',faulty:'FFB02A37',scrapped:'FF6C757D'};
 
+// Data URI'nin en-boy oranini olcer (Excel'e gomerken resim ezilmesin).
+function _imgOlcu(dataUrl){
+  return new Promise(res=>{
+    try{
+      const g=new Image();
+      g.onload=()=>res({w:g.naturalWidth||g.width, h:g.naturalHeight||g.height});
+      g.onerror=()=>res(null);
+      g.src=dataUrl;
+    }catch(e){ res(null); }
+  });
+}
+
 async function genExcelReport(opts){
   if(typeof ExcelJS==='undefined'){ toast('Excel kütüphanesi yüklenemedi, internet bağlantını kontrol et.','danger'); return; }
   if(!opts.rows || !opts.rows.length){ toast('Aktarılacak kayıt yok.','warning'); return; }
@@ -12680,6 +12692,16 @@ async function genExcelReport(opts){
   });
   hr.height=24;
 
+  // Gorselli rapor: resimlerin olculeri onceden alinir (oran korunsun)
+  const imgSut=(opts.imageIndex!=null)?opts.imageIndex:-1;
+  let imgOlcu={};
+  if(imgSut>=0){
+    const benzersiz=[...new Set(opts.rows.map(r=>r.img).filter(Boolean))];
+    const olculer=await Promise.all(benzersiz.map(_imgOlcu));
+    benzersiz.forEach((d,i)=>{ if(olculer[i]) imgOlcu[d]=olculer[i]; });
+  }
+  const IMG_H=40, IMG_W=88;             // hucre ici kutu (px)
+
   // Veri
   opts.rows.forEach((row,idx)=>{
     const r=ws.addRow(row.values);
@@ -12697,6 +12719,20 @@ async function genExcelReport(opts){
       stc.alignment={horizontal:'center',vertical:'middle'};
     }
     r.height=18;
+    // Parca gorseli: hucreye oturtulur (oneCell → satir/sutunla hareket eder)
+    if(imgSut>=0 && row.img){
+      try{
+        const p=row.img.indexOf(','), tur=/png/i.test(row.img.slice(0,p))?'png':'jpeg';
+        const id=wb.addImage({base64:row.img.slice(p+1), extension:tur});
+        const o=imgOlcu[row.img]||{w:IMG_W,h:IMG_H};
+        let h=IMG_H, w=Math.round(h*o.w/o.h);
+        if(w>IMG_W){ w=IMG_W; h=Math.round(w*o.h/o.w); }
+        ws.addImage(id,{
+          tl:{col:imgSut+((IMG_W-w)/2)/90, row:r.number-1+((IMG_H+8-h)/2)/60},
+          ext:{width:w,height:h}, editAs:'oneCell'});
+        r.height=Math.max(r.height, (IMG_H+8)*0.75);   // px → punto
+      }catch(e){}
+    }
   });
   // Toplam
   if(opts.totalIndex!=null){
@@ -12760,9 +12796,10 @@ function _exportPartsExcelImpl(){
   genExcelReport({
     sheet:'Yedek Parça', formName:'YEDEK PARÇA LİSTESİ', reportTitle:'YEDEK PARÇA LİSTESİ',
     docNo:formSettings.ptDocNo, revNo:formSettings.ptRevNo,
-    columns:[{header:'#',width:5},{header:'MAKİNE',width:22,align:'left'},{header:'PARÇA ADI',width:24,align:'left'},{header:'PARÇA NO',width:14},{header:'KRİTİK',width:10},{header:'STOK',width:9},{header:'MİN.',width:9},{header:'BİRİM FİYAT',width:13,kind:'currency'},{header:'TOPLAM',width:13,kind:'currency'}],
-    rows:list.map((p,i)=>({values:[i+1,mName(p.machineId),p.partName||'—',p.partNo||'—',p.isCritical?'✔ Kritik':'—',p.qty||0,p.minQty||0,p.unitCost||0,(p.qty||0)*(p.unitCost||0)]})),
-    totalIndex:8,
+    columns:[{header:'#',width:5},{header:'MAKİNE',width:22,align:'left'},{header:'PARÇA ADI',width:24,align:'left'},{header:'GÖRSEL',width:13},{header:'PARÇA NO',width:14},{header:'KRİTİK',width:10},{header:'STOK',width:9},{header:'MİN.',width:9},{header:'BİRİM FİYAT',width:13,kind:'currency'},{header:'TOPLAM',width:13,kind:'currency'}],
+    rows:list.map((p,i)=>({values:[i+1,mName(p.machineId),p.partName||'—','',p.partNo||'—',p.isCritical?'✔ Kritik':'—',p.qty||0,p.minQty||0,p.unitCost||0,(p.qty||0)*(p.unitCost||0)],img:p.img||''})),
+    imageIndex:3,
+    totalIndex:9,
     filename:`Yedek_Parca_Listesi_${new Date().toISOString().slice(0,10)}.xlsx`
   });
 }
