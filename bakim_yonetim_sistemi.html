@@ -13242,7 +13242,7 @@ async function doAuth(mode){
       user = data.user;
     } else {
       const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-      if(error){ _authMsg('authError', error.message); return; }
+      if(error){ _authMsg('authError', _girisHatasi(error.message)); return; }
       user = data.user;
     }
     // Başarılı → arayüzü doğrudan aç (kırılgan event guard'ına bağlı kalma)
@@ -13250,6 +13250,29 @@ async function doAuth(mode){
     if(user) await onLoggedIn(user);
   }catch(e){ _authMsg('authError', e.message||'Beklenmeyen hata'); }
   finally{ if(btn) btn.disabled = false; }
+}
+
+// Supabase giris hatalarini kullanicinin anlayacagi dile cevirir.
+// "Invalid login credentials" UC durumu birden kapatiyor (sifre yanlis,
+// hesap yok, e-posta dogrulanmamis) — ucu de yazilir ki kullanici hangi
+// adimda takildigini bilsin.
+function _girisHatasi(mesaj){
+  const m = String(mesaj||'');
+  if(/invalid login credentials/i.test(m))
+    return 'E-posta veya şifre hatalı. Hesabınız yeni açıldıysa önce '
+         + 'e-postanıza gelen DOĞRULAMA bağlantısına tıklamanız gerekir; '
+         + 'doğrulanmadan giriş yapılamaz (gelen kutusu ve spam klasörünü '
+         + 'kontrol edin). Şifrenizi hatırlamıyorsanız "Şifremi unuttum" ile '
+         + 'yenileyin.';
+  if(/email not confirmed/i.test(m))
+    return 'E-posta adresiniz henüz doğrulanmamış. Kayıt sırasında gelen '
+         + 'doğrulama bağlantısına tıklayın, sonra giriş yapın.';
+  if(/user already registered/i.test(m))
+    return 'Bu e-posta ile hesap zaten var. "Giriş Yap" ile deneyin, '
+         + 'şifrenizi bilmiyorsanız "Şifremi unuttum" ile yenileyin.';
+  if(/rate limit|too many/i.test(m))
+    return 'Çok fazla deneme yapıldı. Birkaç dakika bekleyip tekrar deneyin.';
+  return m;
 }
 
 async function forgotPassword(){
