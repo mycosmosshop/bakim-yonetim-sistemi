@@ -13244,6 +13244,7 @@ async function doAuth(mode){
       const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
       if(error){ _authMsg('authError', _girisHatasi(error.message)); return; }
       user = data.user;
+      _girisKaydet(user);          // kim ne zaman girdi — Aktivite Geçmişi
     }
     // Başarılı → arayüzü doğrudan aç (kırılgan event guard'ına bağlı kalma)
     currentUser = null;
@@ -13273,6 +13274,18 @@ function _girisHatasi(mesaj){
   if(/rate limit|too many/i.test(m))
     return 'Çok fazla deneme yapıldı. Birkaç dakika bekleyip tekrar deneyin.';
   return m;
+}
+
+// Basarili girisi Aktivite Gecmisi'ne yazar. Yalniz e-posta+sifre ile
+// girilince cagrilir; oturum yenilemede yazilmaz, gunluk sismesin.
+function _girisKaydet(user){
+  if(!sb || !user) return;
+  try{
+    sb.from('activity_log').insert([{ user_id:user.id, user_email:user.email,
+      section:'Oturum', action:'giriş', count:1,
+      detail:(navigator.userAgent||'').slice(0,120) }])
+      .then(({error})=>{ if(error) console.warn('giriş kaydı', error); });
+  }catch(e){ console.warn('giriş kaydı', e); }
 }
 
 async function forgotPassword(){
