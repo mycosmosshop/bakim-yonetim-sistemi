@@ -13381,6 +13381,10 @@ async function _onLoggedIn(user){
   hideAuthOverlay();
   hidePendingOverlay();
   bootAppUI();
+  // Acilista sunucudaki bakim kopyasini tazele: kayit baska bir cihazda
+  // eklenip buluttan geldiginde save() calismiyor ve WhatsApp hatirlatmasi
+  // eski listeyle gidiyordu.
+  try{ _bakimAnlikPlanla(); }catch(e){ console.warn('bakım kopyası', e); }
   setSyncStatus('ok');
 }
 

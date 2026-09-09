@@ -542,4 +542,18 @@ function ortam(db, izin = true) {
     console.log('✓ 29 Excel dışa aktarımında görsel sütunu hücreye gömülüyor');
 }
 
+// 30) WhatsApp hatirlatmasi: sunucudaki kopya acilista da tazelenir
+// Kopya yalniz save() sirasinda itiliyordu; bakim baska cihazda eklenip
+// buluttan gelince sunucu ESKI listeyi gonderiyordu.
+{
+    assert(/_bakimAnlikPlanla\(\);\s*\/\/ otomatik WhatsApp/.test(src),
+        '30a: kayıt sonrası itme yok');
+    assert(/Acilista sunucudaki bakim kopyasini tazele/.test(src),
+        '30b: açılışta tazeleme yok');
+    // Liste filtresi: acik ve tarihli TUM bakimlar (lokasyon suzgeci yok)
+    assert(/status==='scheduled'\|\|p\.status==='overdue'\) && p\.sched/.test(src),
+        '30c: WhatsApp listesi filtresi değişmiş');
+    console.log('✓ 30 WhatsApp kopyası hem kayıtta hem açılışta tazeleniyor');
+}
+
 console.log('\nTüm senaryolar geçti.');
