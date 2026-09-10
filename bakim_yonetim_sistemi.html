@@ -1794,7 +1794,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title"><i class="bi bi-whatsapp me-2" style="color:#25d366"></i><i class="bi bi-telegram me-2" style="color:#29a9eb"></i>Bakım Hatırlatması — WhatsApp &amp; Telegram</h5>
+        <h5 class="modal-title"><i class="bi bi-whatsapp me-2" style="color:#25d366"></i><i class="bi bi-telegram me-2" style="color:#29a9eb"></i><i class="bi bi-envelope me-2" style="color:#8e7cc3"></i>Bakım Hatırlatması — WhatsApp · Telegram · E-posta</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -1812,6 +1812,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <div class="d-flex gap-2 flex-wrap mb-3">
           <button class="btn btn-sm btn-outline-info" onclick="waDurumYenile()"><i class="bi bi-arrow-clockwise me-1"></i>Durumu Yenile</button>
           <button class="btn btn-sm btn-success" onclick="whatsappSimdiGonder()"><i class="bi bi-send me-1"></i>Şimdi Gönder</button>
+          <button class="btn btn-sm btn-outline-light" onclick="bakimDenemePostasi()" title="Yalnız e-posta kanalını dener; günlük hatırlatmayı etkilemez"><i class="bi bi-envelope-check me-1"></i>Deneme postası</button>
         </div>
 
         <hr style="border-color:var(--border)">
@@ -1857,6 +1858,37 @@ body.tech-mode #mobileMenuBtn{display:none !important}
                 </tbody>
               </table>
               <div style="font-size:.72rem;color:var(--muted)">Birden fazla kişi virgülle ayrılır. <code>@</code> yazmasanız da olur.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- E-posta: alicinin hicbir sey yapmasi gerekmiyor; ortak
+             adreslere (ankarabakim@ gibi) en uygun kanal. -->
+        <div class="card-dark" style="padding:.7rem;margin-bottom:1rem;border-left:3px solid #8e7cc3">
+          <div style="font-weight:600;font-size:.85rem;margin-bottom:.5rem">
+            <i class="bi bi-envelope me-1" style="color:#8e7cc3"></i>E-posta &nbsp;
+            <span style="font-size:.7rem;font-weight:400;color:#66bb6a">— alıcı hiçbir şey yapmaz</span>
+          </div>
+          <div class="wa-adim">
+            <div class="wa-no" style="background:#8e7cc3">1</div>
+            <div>
+              <b>Apps Script → ⚙ Proje Ayarları → Komut Dosyası Özellikleri</b>
+              <table class="table table-sm table-dark" style="font-size:.76rem;margin:.4rem 0 0">
+                <tbody>
+                  <tr><td style="width:42%"><code>BAKIM_MAIL</code></td>
+                      <td>herkese giden liste — <code>a@x.com, b@x.com</code></td></tr>
+                <tr><td><code>BAKIM_G2_MAIL</code></td>
+                      <td>yalnız 2. grubun (örn. Ankara) adresi</td></tr>
+                </tbody>
+              </table>
+              <div style="font-size:.72rem;color:var(--muted)">Google'ın kendi kotasından gider (günde ~100 e-posta); anahtar, izin, kayıt gerekmez.</div>
+            </div>
+          </div>
+          <div class="wa-adim">
+            <div class="wa-no" style="background:#8e7cc3">2</div>
+            <div>
+              <b>Yukarıdaki “Deneme postası” düğmesiyle sınayın</b>
+              <div style="font-size:.72rem;color:var(--muted)">Günlük hatırlatmayı etkilemez. Gelmezse spam klasörüne bakın.</div>
             </div>
           </div>
         </div>
@@ -1935,6 +1967,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <tbody>
             <tr><td><code>BAKIM_G2_LOKASYON</code></td><td>Çerkezköy</td></tr>
             <tr><td><code>BAKIM_G2_TG</code></td><td>Telegram kullanıcı adı <span style="color:#66bb6a">(tek başına da yeter)</span></td></tr>
+            <tr><td><code>BAKIM_G2_MAIL</code></td><td>e-posta adresi <span style="color:#66bb6a">(tek başına da yeter)</span></td></tr>
             <tr><td><code>BAKIM_G2_TEL</code></td><td>alıcının numarası <span style="color:var(--muted)">(WhatsApp)</span></td></tr>
             <tr><td><code>BAKIM_G2_KEY</code></td><td>o kişinin anahtarı <span style="color:var(--muted)">(WhatsApp)</span></td></tr>
             <tr><td><code>BAKIM_G2_TEKNISYEN</code></td><td>İrfan Serbest <span style="color:var(--muted)">(isteğe bağlı)</span></td></tr>
@@ -4022,6 +4055,26 @@ async function whatsappSimdiGonder(){
     +(r.satirlar||[]).join('\n')
     +'\n\nSunucudaki liste: '+(r.zaman||'—'));
   toast((r.gonderilen||0)+' alıcıya gönderildi');
+}
+
+// Deneme postasi: yalniz e-posta kanalini dener. Gunluk gonderimi
+// ETKILEMEZ (sunucuda damga yazilmaz) — kurulumu sinamak icin.
+async function bakimDenemePostasi(){
+  const url=_bakimGasUrl();
+  if(!url){ toast('Önce menüden "Otomatik Bildirim" adresini girin.','warning'); return; }
+  toast('Deneme postası gönderiliyor…','info');
+  let r=null;
+  try{ r=await _bakimSor('action=bakimDeneme', 45000); }
+  catch(e){ toast('Sonuç okunamadı: '+e.message,'danger'); return; }
+  if(!r || r.ok===false){
+    alert('DENEME POSTASI GÖNDERİLEMEDİ\n\n'
+      +((r&&r.mesaj)||'bilinmeyen hata'));
+    return;
+  }
+  alert('DENEME POSTASI GÖNDERİLDİ\n\n'
+    +'Alıcı: '+(r.alicilar||'—')+'\n\n'
+    +'Gelen kutusunu kontrol edin; görünmüyorsa spam klasörüne bakın.');
+  toast((r.gonderilen||0)+' adrese gönderildi');
 }
 
 // ── WhatsApp kurulum rehberi (modal) ──────────────────────────────
