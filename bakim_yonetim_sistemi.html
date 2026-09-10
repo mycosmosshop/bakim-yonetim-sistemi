@@ -364,8 +364,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <hr class="sb-divider">
     <a href="#" onclick="openKpiSettings();return false"><i class="bi bi-sliders"></i>KPI Hedefleri</a>
     <a href="#" onclick="openFormSettings();return false"><i class="bi bi-file-earmark-text"></i>Form Ayarları</a>
-    <a href="#" onclick="openWhatsAppOtomatik();return false"><i class="bi bi-whatsapp"></i>Otomatik Bildirim (WA/TG)</a>
-    <a href="#" onclick="whatsappSimdiGonder();return false"><i class="bi bi-send"></i>Bildirimi Şimdi Gönder</a>
+    <a href="#" onclick="openWhatsAppOtomatik();return false"><i class="bi bi-broadcast"></i>Otomatik Bildirim (WA · TG · Mail)</a>
+    <a href="#" onclick="whatsappSimdiGonder();return false"><i class="bi bi-send"></i>Bildirimi Şimdi Gönder (3 kanal)</a>
     <a href="#" onclick="exportData(event)"><i class="bi bi-download"></i>Veri Dışa Aktar</a>
     <a href="#" onclick="document.getElementById('importFile').click();return false"><i class="bi bi-upload"></i>Veri İçe Aktar</a>
 
@@ -1818,8 +1818,10 @@ body.tech-mode #mobileMenuBtn{display:none !important}
         <hr style="border-color:var(--border)">
         <h6 style="font-size:.9rem;margin-bottom:.75rem"><i class="bi bi-person-plus me-1"></i>Yeni alıcı ekleme</h6>
         <p style="font-size:.8rem;color:var(--muted)">
-          İki kanal var; bir alıcı ikisinden birini ya da <b>ikisini birden</b> kullanabilir.
-          Aynı mesaj her ikisine de gider.
+          Üç kanal var: <b>Telegram</b>, <b>WhatsApp</b> ve <b>e-posta</b>. Bir alıcı
+          bunlardan birini ya da <b>birkaçını birden</b> kullanabilir; aynı mesaj hepsine gider.
+          Ortak adresler (ankarabakim@… gibi) için e-posta en uygunu: alıcının
+          hiçbir şey yapması gerekmez, anahtar da istemez.
         </p>
 
         <!-- Telegram once: anahtar gerektirmiyor ve bot doluluk yasamiyor.
@@ -4013,7 +4015,7 @@ async function whatsappSimdiGonder(){
   const n=(db.maintenance||[]).filter(p=>(p.status==='scheduled'||p.status==='overdue')&&p.sched).length;
   if(!confirm('Yaklaşan bakım hatırlatması ŞİMDİ gönderilecek.\n\n'
     +'• Önce güncel liste sunucuya gönderilir ('+n+' açık bakım)\n'
-    +'• Sonra her gruba kendi listesi WhatsApp ve Telegram\'dan atılır\n\n'
+    +'• Sonra her gruba kendi listesi WhatsApp, Telegram ve e-posta ile atılır\n\n'
     +'Günlük otomatik hatırlatma bundan etkilenmez. Devam?')) return;
 
   toast('Liste gönderiliyor…','info');
