@@ -13246,6 +13246,36 @@ async function _maliyetiErpYaz(rows){
 
 // ── KPI Takip köprüsü: aylık MTBF/MTTR özetini cmms_metrics tablosuna yaz (anon okunur) ──
 // KPI Takip uygulaması bu özetten lokasyon+yıl+ay bazında değer çeker.
+// ── Yeni sürüm yayınlanınca kendiliğinden yükle ──────────────────────
+// GitHub Pages sayfayı önbelleklediği için açık sekme eski kodu
+// çalıştırmaya devam ediyordu; her yayından sonra elle Ctrl+Shift+R
+// gerekiyordu. Sayfanın kendi ETag'i izlenir (Vite hash'i yok, tek HTML).
+let _surumEtag = null;
+async function _surumKontrol(){
+  try{
+    const r = await fetch(location.pathname + '?_v=' + Date.now(),
+                          { method:'HEAD', cache:'no-store' });
+    if(!r.ok) return;
+    const damga = r.headers.get('etag') || r.headers.get('last-modified');
+    if(!damga) return;
+    if(_surumEtag === null){ _surumEtag = damga; return; }   // ilk okuma
+    if(damga === _surumEtag) return;
+    _surumEtag = damga;
+    // Kullanıcı bir alana yazıyorsa bekle — veri kaybı olmasın.
+    const el = document.activeElement;
+    const yaziyor = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+      || el.tagName === 'SELECT' || el.isContentEditable);
+    if(yaziyor){ setTimeout(_surumKontrol, 60000); return; }
+    location.reload();
+  }catch(e){ /* file:// veya ağ yok — sessiz geç */ }
+}
+try{
+  if(location.protocol.startsWith('http')){
+    _surumKontrol();
+    setInterval(_surumKontrol, 5*60*1000);   // 5 dakikada bir
+  }
+}catch(e){}
+
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
