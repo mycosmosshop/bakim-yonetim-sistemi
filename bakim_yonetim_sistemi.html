@@ -3351,7 +3351,11 @@ function machMetrics(mid){
     mtbf:mtbf.toFixed(0), mttr:mttr.toFixed(1),
     avail:avail.toFixed(1),
     totalCost: fCost+pCost+ptCost,
-    maintCount: db.maintenance.filter(p=>p.machineId===mid).length
+    maintCount: db.maintenance.filter(p=>p.machineId===mid).length,
+    // Filo (havuz) hesabi icin ham bilesenler. Makine-basi MTBF/MTTR
+    // ortalamasi agirliksizdi ve arizasiz makineyi hic saymiyordu.
+    operH, closedCount: closedF.length, closedDown,
+    failCost: fCost, maintCost: pCost, partCost: ptCost
   };
 }
 
@@ -3438,6 +3442,8 @@ function calcFleetKPIs(forLoc){
   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
   const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0, cntMttf=0;
+  // Havuz (pooled) toplamlari — MTBF/MTTR bunlardan hesaplanir.
+  let poolOperH=0, poolFail=0, poolClosedDown=0, poolClosedCnt=0, poolCost=0;
   // MTTF neden olculemedi? Ciplak "Veri yok" kullaniciyi yanlis yere
   // goturuyor (kurulum tarihi girili oldugu halde deger gelmiyor).
   const mttfDisi = { tarihYok:0, sansurlu:0, arizasiz:0 };
@@ -3447,6 +3453,12 @@ function calcFleetKPIs(forLoc){
     // Hic arizasi olmayan makine de MTTF'e giremez (ilk ariza yok)
     if(!db.failures.some(f=>f.machineId===m.id && _dfFilter(f))) mttfDisi.arizasiz++;
     sumAvail += parseFloat(mx.avail);
+    // Havuz: arizasiz makinenin calisma saati de paydaya girer.
+    poolOperH      += mx.operH || 0;
+    poolFail       += mx.failCount || 0;
+    poolClosedDown += mx.closedDown || 0;
+    poolClosedCnt  += mx.closedCount || 0;
+    poolCost       += mx.totalCost || 0;
     const mFails = db.failures.filter(f=>f.machineId===m.id && _dfFilter(f));
     if(mFails.length>0){
       sumMtbf += parseFloat(mx.mtbf);
@@ -3506,8 +3518,17 @@ function calcFleetKPIs(forLoc){
   const pmcVal    = schedPlan.length>0 ? compPlan/schedPlan.length*100 : null;
 
   return {
-    mtbf:         cntF>0 ? +(sumMtbf/cntF).toFixed(0)   : null,
-    mttr:         cntF>0 ? +(sumMttr/cntF).toFixed(1)   : null,
+    // HAVUZ hesabi: MTBF = toplam calisma saati / toplam ariza,
+    // MTTR = toplam onarim suresi / kapanmis ariza sayisi. Once her
+    // makinenin kendi degeri agirliksiz ortalaniyordu ve payda yalniz
+    // arizali makinelerdi.
+    mtbf:         poolFail>0      ? +(poolOperH/poolFail).toFixed(0)           : null,
+    mttr:         poolClosedCnt>0 ? +(poolClosedDown/poolClosedCnt).toFixed(1) : null,
+    // Bakim maliyeti (ariza + planli bakim + yedek parca) — KPI'ya taşinir
+    cost:         hasData ? +poolCost.toFixed(0) : null,
+    // Eski makine-basi ortalamalar: karsilastirma/teshis icin duruyor
+    mtbfMakineBasi: cntF>0 ? +(sumMtbf/cntF).toFixed(0) : null,
+    mttrMakineBasi: cntF>0 ? +(sumMttr/cntF).toFixed(1) : null,
     mttf:         cntMttf>0 ? +(sumMttf/cntMttf).toFixed(0) : null,
     mttfDisi:     mttfDisi,
     mttfSayi:     cntMttf,
@@ -13184,8 +13205,52 @@ async function cloudPush(){
   }catch(e){ setSyncStatus('error'); console.warn('cloudPush', e); }
 }
 
+// ── Bakım maliyeti köprüsü: ERP ana projesi egt_ayar (anahtar→JSON) ──
+// cmms_metrics'te `cost` sütunu yok ve o projede şema değiştirilemiyor.
+// Maliyet lokasyon+yıl başına tek satırda taşınır: {"1":1650,"2":500,...}
+const ERP_URL  = 'https://nnubrxbpthmkitueixbh.supabase.co';
+const ERP_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5udWJyeGJwdGhta2l0dWVpeGJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NjI2MDIsImV4cCI6MjA5NjEzODYwMn0.CHZUOylf_q8kkOQbFf9VWZ6-doUTlynmAhahM2EuImE';
+const maliyetAnahtari = (loc, yil) => `cmms_maliyet_${loc}_${yil}`;
+
+async function _maliyetiErpYaz(rows){
+  // lokasyon+yıl -> {ay: maliyet}
+  const grup = new Map();
+  (rows||[]).forEach(r=>{
+    if(r.cost == null) return;
+    const a = maliyetAnahtari(r.location, r.year);
+    if(!grup.has(a)) grup.set(a, {});
+    grup.get(a)[String(r.month)] = r.cost;
+  });
+  if(!grup.size) return;
+  const govde = [...grup].map(([anahtar, deger])=>({ anahtar, deger: JSON.stringify(deger) }));
+  const y = await fetch(`${ERP_URL}/rest/v1/egt_ayar?on_conflict=anahtar`, {
+    method:'POST',
+    headers:{ apikey:ERP_ANON, Authorization:`Bearer ${ERP_ANON}`,
+              'Content-Type':'application/json',
+              Prefer:'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(govde),
+  });
+  if(!y.ok) console.warn('maliyet köprüsü', y.status, await y.text());
+}
+
 // ── KPI Takip köprüsü: aylık MTBF/MTTR özetini cmms_metrics tablosuna yaz (anon okunur) ──
 // KPI Takip uygulaması bu özetten lokasyon+yıl+ay bazında değer çeker.
+// Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
+// MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
+// arizasiz makinelerin calisma saati de paydaya giriyor.
+const HESAP_SURUMU = '2026-09-16-havuz';
+
+// Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
+// ayni gun icinde tekrar yazmaz.
+async function syncCmmsMetricsAcilista(){
+  try{
+    const damga = HESAP_SURUMU + '|' + new Date().toISOString().slice(0,10);
+    if(localStorage.getItem('cmms_metrik_damga') === damga) return;
+    await syncCmmsMetrics();
+    localStorage.setItem('cmms_metrik_damga', damga);
+  }catch(e){ console.warn('syncCmmsMetricsAcilista', e); }
+}
+
 async function syncCmmsMetrics(){
   if(!sb) return;
   try{
@@ -13203,15 +13268,32 @@ async function syncCmmsMetrics(){
           _dashRange = { from, to }; _dashRangeActive = true;
           let k = null;
           try{ k = calcFleetKPIs(loc); }catch(e){}
-          if(k && (k.mtbf != null || k.mttr != null || k.availability != null || k.pmr != null || k.pmc != null || k.unplanned != null || k.mttf != null)){
-            rows.push({ location: loc, year: yr, month: mo+1, mtbf: k.mtbf, mttr: k.mttr, availability: k.availability, pmr: k.pmr, pmc: k.pmc, unplanned: k.unplanned, mttf: k.mttf, updated_at: new Date().toISOString() });
+          if(k && (k.mtbf != null || k.mttr != null || k.availability != null || k.pmr != null || k.pmc != null || k.unplanned != null || k.mttf != null || k.cost != null)){
+            rows.push({ location: loc, year: yr, month: mo+1, mtbf: k.mtbf, mttr: k.mttr, availability: k.availability, pmr: k.pmr, pmc: k.pmc, unplanned: k.unplanned, mttf: k.mttf, cost: k.cost, updated_at: new Date().toISOString() });
           }
         }
       }
     }
     _dashRange = _sR; _dashRangeActive = _sA;
+    // Maliyeti ERP ana projesindeki egt_ayar'a da yaz: cmms_metrics'te
+    // `cost` sutunu yok ve o projede DDL yapilamiyor. KPI Takip maliyeti
+    // oradan okur. Sutun bir gun eklenirse asagidaki upsert zaten cost'u
+    // yazar, bu yol yedekte kalir.
+    try{ await _maliyetiErpYaz(rows); }catch(e){ console.warn('maliyet köprüsü', e); }
+    // `cost` sutunu tabloda yoksa upsert TUM satiri reddeder; o durumda
+    // cost'suz tekrar gonderilir. Sutun eklenince kendiliginden calisir:
+    //   alter table cmms_metrics add column if not exists cost numeric;
+    let _costYok = false;
     for(let i=0; i<rows.length; i+=200){
-      const { error } = await sb.from('cmms_metrics').upsert(rows.slice(i, i+200), { onConflict: 'location,year,month' });
+      let dilim = rows.slice(i, i+200);
+      if(_costYok) dilim = dilim.map(({cost, ...r})=>r);
+      let { error } = await sb.from('cmms_metrics').upsert(dilim, { onConflict: 'location,year,month' });
+      if(error && !_costYok && /cost/i.test(error.message||'')){
+        _costYok = true;
+        console.warn('cmms_metrics.cost sütunu yok — maliyet olmadan yazılıyor');
+        ({ error } = await sb.from('cmms_metrics')
+          .upsert(dilim.map(({cost, ...r})=>r), { onConflict: 'location,year,month' }));
+      }
       if(error){ console.warn('syncCmmsMetrics', error); break; }
     }
   }catch(e){ console.warn('syncCmmsMetrics', e); }
@@ -13565,6 +13647,9 @@ async function _onLoggedIn(user){
     await cloudPush();
   }
   _lastSnapshot = _snapshot(); // günlük için başlangıç anlık görüntüsü
+  // Metrikler veri degismese de guncel kalsin: hesap kurali degistiginde
+  // (HESAP_SURUMU) ya da yeni gunde bir kez yeniden yazilir.
+  syncCmmsMetricsAcilista();
   hideAuthOverlay();
   hidePendingOverlay();
   bootAppUI();
