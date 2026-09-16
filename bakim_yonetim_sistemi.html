@@ -3282,12 +3282,32 @@ function _dmFilter(p){
   if(_dashRange.to && t > _dashRange.to) return false;
   return true;
 }
+// Makinenin PASIF olduğu tarih. Devir işlemi yalnız status='passive'
+// yazıyor, tarih tutmuyor; bu yüzden elle girilen passiveDate yoksa
+// makinenin SON hareketine (arıza bitişi / bakım tarihi) düşülür.
+// Devir dışı makine o tarihe KADAR çalışmıştı; çalışma süresi ve
+// arızaları o döneme kadar sayılır.
+function _makinePasifTarihi(m){
+  if(!m || m.status !== 'passive') return null;
+  if(m.passiveDate){ const d = new Date(m.passiveDate); if(!isNaN(d.getTime())) return d; }
+  const t = [];
+  (db.failures||[]).forEach(f=>{ if(f.machineId!==m.id) return;
+    const d = f.endTime || f.startTime; if(d) t.push(new Date(d)); });
+  (db.maintenance||[]).forEach(p=>{ if(p.machineId!==m.id) return;
+    const d = p.comp || p.sched; if(d) t.push(new Date(d)); });
+  const en = t.filter(d=>!isNaN(d.getTime())).sort((a,b)=>b-a)[0];
+  return en || null;
+}
+
 function _windowHours(installDate, machine){
   let start = new Date(installDate), end = new Date();
   if(_dashRangeActive){
     if(_dashRange.from && _dashRange.from > start) start = _dashRange.from;
     if(_dashRange.to && _dashRange.to < end) end = _dashRange.to;
   }
+  // Pasif makine: devir tarihinden sonrası çalışma sayılmaz.
+  const _pasif = _makinePasifTarihi(machine);
+  if(_pasif && _pasif < end) end = _pasif;
   const takvim = Math.max(1,(end - start)/3600000);
   // Makinenin lokasyonunda vardiya tanımlıysa pencere ÇALIŞMA saatine
   // çevrilir. Tanımlı değilse çarpan 1 → eski davranış.
@@ -3452,12 +3472,18 @@ function _mttfSebep(fleet){
 function calcFleetKPIs(forLoc){
   const loc = forLoc !== undefined ? forLoc : gLocFilter;
   const _mids = loc ? new Set(db.machines.filter(m=>m.location===loc).map(m=>m.id)) : null;
-  // PASIF makine KPI'ya girmez: devir disi birakilmis makine artik
-  // calismiyor, calisma saatini MTBF paydasina eklemek MTBF'i sisiriyordu
-  // (Ankara: 9 makineyle 647 saat, 8 aktifle 573 olmali). locMachines()
-  // zaten pasifi eliyor ve "Toplam" karti 8 gosteriyordu; hesap elemiyordu.
-  const _aktif = m => m && m.status !== 'passive';
-  const _ml = (_mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines).filter(_aktif);
+  // PASIF makine, pasif OLDUGU TARIHE KADAR sayilir: devir disi
+  // birakilana dek gercekten calisiyordu. Pasif tarihi donemin
+  // BASINDAN onceyse o donemde hic calismamistir, sayilmaz.
+  // (Once tamamen hariç tutuluyordu; Mart'ta ISM1'in arizasi dusuyor ve
+  // MTBF 884 saat cikiyordu, ~664 olmali.)
+  const _donemde = m => {
+    const p = _makinePasifTarihi(m);
+    if(!p) return true;                       // aktif makine
+    const bas = (_dashRangeActive && _dashRange.from) ? _dashRange.from : null;
+    return !bas || p > bas;
+  };
+  const _ml = (_mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines).filter(_donemde);
   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
   const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0, cntMttf=0;
@@ -13299,7 +13325,7 @@ try{
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
-const HESAP_SURUMU = '2026-09-16-havuz-donemMaliyet-pasifHaric-detay2';
+const HESAP_SURUMU = '2026-09-16-havuz-pasifDonemi';
 
 // Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
 // ayni gun icinde tekrar yazmaz.
