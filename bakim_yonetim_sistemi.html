@@ -8925,6 +8925,26 @@ function _renderKpiRows(){
 }
 
 function saveKpiConfig(){
+  // Calisma takvimi de BU dugmeyle kaydedilsin. Vardiya alanlari yalniz
+  // kendi onchange'inde yaziliyordu; kullanici saati girip dogrudan
+  // "Kaydet & Uygula"ya basinca vardiya kaydedilmis SANILIYOR ama
+  // yazilmiyordu ve her acilista "tanimli degil"e donuyordu.
+  let _vdNot = '';
+  try{
+    const _bs = document.getElementById('vardiyaBas');
+    const _bt = document.getElementById('vardiyaBitis');
+    const _gn = document.getElementById('vardiyaGun');
+    if(_bs && _bt && _gn){
+      const _sa = _vdSure(_bs.value, _bt.value);
+      const _g  = parseFloat(_gn.value);
+      if(_sa>0 && _sa<=24 && _g>0 && _g<=7){
+        _vardiyaFormKaydet();
+        _vdNot = ` · vardiya ${_bs.value}–${_bt.value}, ${_g} gün/hafta`;
+      } else {
+        _vdNot = ' · vardiya YAZILMADI (bitiş saati başlangıçla aynı ya da gün/hafta geçersiz)';
+      }
+    }
+  }catch(e){}
   const storeKey = _kpiModalYear ? (_kpiModalYear+'_'+_kpiModalLoc) : _kpiModalLoc;
   if(!kpiConfig[storeKey]) kpiConfig[storeKey] = {};
   Object.keys(KPI_DEFS).forEach(k=>{
@@ -8936,7 +8956,7 @@ function saveKpiConfig(){
   renderDashboard();
   const lbl = _kpiModalYear+(_kpiModalLoc?' — '+_kpiModalLoc:' Global');
   const st = document.getElementById('kpiSaveStatus');
-  if(st) st.innerHTML = `<i class="bi bi-check-circle-fill me-1" style="color:#69f0ae"></i><span style="color:#69f0ae">${lbl} kaydedildi — ${new Date().toLocaleTimeString('tr-TR')}</span>`;
+  if(st) st.innerHTML = `<i class="bi bi-check-circle-fill me-1" style="color:#69f0ae"></i><span style="color:#69f0ae">${lbl} kaydedildi — ${new Date().toLocaleTimeString('tr-TR')}${_vdNot}</span>`;
   toast(`KPI ayarları kaydedildi ('${lbl}')`);
 }
 
@@ -13325,7 +13345,7 @@ try{
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
-const HESAP_SURUMU = '2026-09-16-havuz-pasifDonemi-vardiyaYukle';
+const HESAP_SURUMU = '2026-09-16-havuz-pasifDonemi-vardiyaKaydet';
 
 // Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
 // ayni gun icinde tekrar yazmaz.
