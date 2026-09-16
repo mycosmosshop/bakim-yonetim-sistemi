@@ -13325,7 +13325,7 @@ try{
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
-const HESAP_SURUMU = '2026-09-16-havuz-pasifDonemi';
+const HESAP_SURUMU = '2026-09-16-havuz-pasifDonemi-vardiyaYukle';
 
 // Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
 // ayni gun icinde tekrar yazmaz.
@@ -13723,6 +13723,17 @@ async function _onLoggedIn(user){
     // Buluttaki veri ana kaynak
     db = cloud.db;
     if(cloud.kpiConfig) kpiConfig = cloud.kpiConfig;
+    // VARDIYA: bu yolda hic yuklenmiyordu. load() yalniz bulut BOSKEN
+    // calisiyor, dolayisiyla loadVardiya() da atlaniyor ve vardiyaAyar
+    // bos kaliyordu — kullanicinin kaydettigi calisma takvimi her
+    // yenilemede "tanimli degil"e donuyordu (MTBF 7/24 hesaplaniyordu).
+    // Bulutta varsa o esas, yoksa yereldeki kayit okunur.
+    if(cloud.vardiyaAyar && Object.keys(cloud.vardiyaAyar).length){
+      vardiyaAyar = cloud.vardiyaAyar;
+      try{ localStorage.setItem(STORAGE_VARDIYA_KEY, JSON.stringify(vardiyaAyar)); }catch(e){}
+    } else {
+      loadVardiya();
+    }
     ensureDbShape();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
     localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
