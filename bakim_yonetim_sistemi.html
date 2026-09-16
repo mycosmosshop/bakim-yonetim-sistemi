@@ -3204,7 +3204,11 @@ function loadVardiya(){
 }
 function saveVardiya(){
   try{ localStorage.setItem(STORAGE_VARDIYA_KEY, JSON.stringify(vardiyaAyar)); }catch(e){}
-  try{ scheduleCloudSync(); }catch(e){}
+  // BEKLEMEDEN buluta yaz: scheduleCloudSync 1,2 sn geciktiriyor ve o
+  // aralikta sayfa yenilenirse ayar buluta hic gitmiyor, sonra uzaktan
+  // gelen ESKI kayit uzerine yaziyordu (vardiya surekli sifirlaniyordu).
+  try{ if(typeof cloudPush === 'function' && cloudReady) cloudPush();
+       else scheduleCloudSync(); }catch(e){ try{ scheduleCloudSync(); }catch(e2){} }
 }
 // Lokasyonun vardiyası: önce kendi ayarı, yoksa global (''), o da yoksa 7/24
 function _vardiya(loc){
@@ -13271,11 +13275,17 @@ async function _surumKontrol(){
     if(_surumEtag === null){ _surumEtag = damga; return; }   // ilk okuma
     if(damga === _surumEtag) return;
     _surumEtag = damga;
-    // Kullanıcı bir alana yazıyorsa bekle — veri kaybı olmasın.
+    // Veri kaybi olmasin: acik modal, doldurulan alan ya da bekleyen
+    // bulut yazimi varsa yenileme ERTELENIR. Vardiya ayari modal
+    // aciktayken girilip yenileme araya girince kayboluyordu.
     const el = document.activeElement;
     const yaziyor = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
       || el.tagName === 'SELECT' || el.isContentEditable);
-    if(yaziyor){ setTimeout(_surumKontrol, 60000); return; }
+    const modalAcik = !!document.querySelector('.modal.show');
+    const yazimBekliyor = typeof _syncTimer !== 'undefined' && !!_syncTimer;
+    if(yaziyor || modalAcik || yazimBekliyor){
+      setTimeout(_surumKontrol, 30000); return;
+    }
     location.reload();
   }catch(e){ /* file:// veya ağ yok — sessiz geç */ }
 }
@@ -13289,7 +13299,7 @@ try{
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
-const HESAP_SURUMU = '2026-09-16-havuz-donemMaliyet-pasifHaric-detay';
+const HESAP_SURUMU = '2026-09-16-havuz-donemMaliyet-pasifHaric-detay2';
 
 // Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
 // ayni gun icinde tekrar yazmaz.
