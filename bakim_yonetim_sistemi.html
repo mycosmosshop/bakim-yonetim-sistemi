@@ -3299,6 +3299,21 @@ function _makinePasifTarihi(m){
   return en || null;
 }
 
+// KPI ve detay tablosunun ORTAK makine listesi. Pasif makine, pasif
+// OLDUGU TARIHE KADAR sayilir; pasif tarihi donemin basindan onceyse o
+// donemde hic calismamistir ve listeye girmez. locMachines() pasifi her
+// durumda eledigi icin detay tablosu hesapla tutarsiz kaliyordu.
+function _kpiMakineleri(loc){
+  const l = loc === undefined ? gLocFilter : loc;
+  const hepsi = l ? db.machines.filter(m=>m.location===l) : db.machines;
+  return hepsi.filter(m=>{
+    const p = _makinePasifTarihi(m);
+    if(!p) return true;                        // aktif makine
+    const bas = (_dashRangeActive && _dashRange.from) ? _dashRange.from : null;
+    return !bas || p > bas;
+  });
+}
+
 function _windowHours(installDate, machine){
   let start = new Date(installDate), end = new Date();
   if(_dashRangeActive){
@@ -3477,13 +3492,7 @@ function calcFleetKPIs(forLoc){
   // BASINDAN onceyse o donemde hic calismamistir, sayilmaz.
   // (Once tamamen hariç tutuluyordu; Mart'ta ISM1'in arizasi dusuyor ve
   // MTBF 884 saat cikiyordu, ~664 olmali.)
-  const _donemde = m => {
-    const p = _makinePasifTarihi(m);
-    if(!p) return true;                       // aktif makine
-    const bas = (_dashRangeActive && _dashRange.from) ? _dashRange.from : null;
-    return !bas || p > bas;
-  };
-  const _ml = (_mids ? db.machines.filter(m=>_mids.has(m.id)) : db.machines).filter(_donemde);
+  const _ml = _kpiMakineleri(loc);
   const _lf = (_mids ? db.failures.filter(f=>_mids.has(f.machineId)) : db.failures).filter(_dfFilter);
   const _lm = _maintKpi((_mids ? db.maintenance.filter(p=>_mids.has(p.machineId)) : db.maintenance).filter(_dmFilter));
   let sumMtbf=0, sumMttr=0, sumMttf=0, sumAvail=0, cntF=0, cntMttf=0;
@@ -12345,7 +12354,9 @@ function openKpiDetail(key){
   const target = cfg.target ?? def.defaultTarget;
 
   // Build per-machine rows
-  const rows = locMachines().map(m=>{
+  // locMachines() pasifi her durumda eliyordu: hesapta sayilan makine
+  // listede gorunmuyordu. Ortak liste ile tutarli.
+  const rows = _kpiMakineleri().map(m=>{
     const mx  = machMetrics(m.id);
     const mFails   = dashFails().filter(f=>f.machineId===m.id);
     const closedF  = mFails.filter(f=>f.status==='closed');
@@ -12471,7 +12482,9 @@ function openKpiDetail(key){
                 <span style="font-size:.7rem;color:${ev.color};min-width:36px">${bar>=100?'✓':''}${bar.toFixed(0)}%</span>
               </div>`;
             return `<tr>
-              <td style="font-weight:600">${m.name}</td>
+              <td style="font-weight:600">${m.name}${_makinePasifTarihi(m)
+                ? ` <span style="font-weight:400;font-size:.66rem;padding:1px 5px;border-radius:8px;background:#6c757d;color:#fff" title="Devir dışı — yalnız aktif olduğu döneme ait değerler">devir dışı</span>`
+                : ''}</td>
               <td><span class="${CRIT_CL[m.criticality]||''}">${CRIT_LBL[m.criticality]||m.criticality}</span></td>
               <td>${dispVal}</td>
               <td>${barHtml}</td>
@@ -13345,7 +13358,7 @@ try{
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
-const HESAP_SURUMU = '2026-09-16-havuz-pasifDonemi-vardiyaKaydet';
+const HESAP_SURUMU = '2026-09-16-havuz-pasifDonemi-detayListe';
 
 // Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
 // ayni gun icinde tekrar yazmaz.
