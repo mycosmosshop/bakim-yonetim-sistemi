@@ -3555,6 +3555,11 @@ function calcFleetKPIs(forLoc){
     // Ham hesaplama girdileri (detay/şeffaflık için)
     _calc: {
       machineCount:n, failMachineCount:cntF,
+      // Havuz girdileri — detay ekrani bunlari gosterir (makine-basi
+      // toplamlar yalniz karsilastirma icin duruyor).
+      poolOperH:+poolOperH.toFixed(0), poolFail:poolFail,
+      poolClosedDown:+poolClosedDown.toFixed(1), poolClosedCnt:poolClosedCnt,
+      poolCost:+poolCost.toFixed(0),
       sumMtbf:+sumMtbf.toFixed(0), sumMttr:+sumMttr.toFixed(1), sumMttf:+sumMttf.toFixed(0), sumAvail:+sumAvail.toFixed(1),
       plannedH:+plannedH.toFixed(1), correctiveH:+correctiveH.toFixed(1), failDownH:+failDownH.toFixed(1), totalMaintH:+totalMaintH.toFixed(1),
       schedPlanCount:schedPlan.length, compPlan
@@ -12334,8 +12339,8 @@ function openKpiDetail(key){
 
   // Formula explanation per KPI
   const formulas = {
-    mtbf:         'MTBF = Σ(makine MTBF) ÷ arızalı makine sayısı  ·  (makine MTBF = çalışma süresi ÷ arıza sayısı)',
-    mttr:         'MTTR = Σ(makine MTTR) ÷ arızalı makine sayısı  ·  (makine MTTR = toplam duruş ÷ kapalı arıza)',
+    mtbf:         'MTBF = toplam çalışma süresi ÷ toplam arıza adedi  ·  (filo havuzu: pasif makineler hariç, arızasız makinenin çalışma süresi de paydaya girer)',
+    mttr:         'MTTR = toplam onarım süresi ÷ kapanmış arıza adedi  ·  (filo havuzu: çok arızalı makine ağırlığınca sayılır)',
     mttf:         'MTTF = Σ(kurulum → ilk arıza saat farkı) ÷ ÖLÇÜLEBİLEN makine sayısı  ·  (kayıt tutulmadan önce kurulan makine ölçülemez)',
     availability: 'Kullanılabilirlik = Σ(makine kullanılabilirlik %) ÷ makine sayısı  ·  (makine = (süre − duruş) ÷ süre × 100)',
     pmr:          'PMR = Planlı Bakım Saati ÷ (Planlı + Düzeltici + Duruş) Saati × 100',
@@ -12352,8 +12357,8 @@ function openKpiDetail(key){
   const _u = def.unit==='%'?'%':' '+def.unit;
   const calcText = (()=>{
     switch(key){
-      case 'mtbf':         return `${c.sumMtbf} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
-      case 'mttr':         return `${c.sumMttr} ${def.unit} ÷ ${c.failMachineCount} makine = <b>${fleetVal}${_u}</b>`;
+      case 'mtbf':         return `${c.poolOperH} ${def.unit} çalışma ÷ ${c.poolFail} arıza = <b>${fleetVal}${_u}</b>`;
+      case 'mttr':         return `${c.poolClosedDown} ${def.unit} onarım ÷ ${c.poolClosedCnt} kapanmış arıza = <b>${fleetVal}${_u}</b>`;
       case 'mttf':         return `${c.sumMttf} ${def.unit} ÷ ${c.mttfSayi} makine = <b>${fleetVal}${_u}</b>`
                                   + (c.mttfSayi === 1
                                       ? `<div style="font-size:.75rem;color:#ffa726;margin-top:.35rem">Yalnızca <b>1 makine</b> ölçülebiliyor — bu bir filo ortalaması değil, tek makinenin değeri.</div>`
@@ -13284,7 +13289,7 @@ try{
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
-const HESAP_SURUMU = '2026-09-16-havuz-donemMaliyet-pasifHaric';
+const HESAP_SURUMU = '2026-09-16-havuz-donemMaliyet-pasifHaric-detay';
 
 // Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
 // ayni gun icinde tekrar yazmaz.
