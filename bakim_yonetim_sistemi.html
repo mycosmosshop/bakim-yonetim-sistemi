@@ -3346,6 +3346,15 @@ function machMetrics(mid){
   const fCost = allF.reduce((s,f)=>s+(f.cost||0),0);
   const pCost = db.maintenance.filter(p=>p.machineId===mid).reduce((s,p)=>s+(p.cost||0),0);
   const ptCost = db.parts.filter(p=>p.machineId===mid).reduce((s,p)=>s+(p.unitCost||0)*(p.qty||1),0);
+  // DONEM maliyeti — pencere icinde kalan. totalCost (makine kartindaki
+  // "Toplam Maliyet") tum zamanlari kapsar ve oyle kalmali; aylik KPI'ya
+  // onu yazmak her aya TUM ZAMANLARIN bakim maliyetini ekliyordu
+  // (Ankara'da her ay ~8.600 TL fazla). Yedek parca (db.parts) bir stok
+  // katalogu, tarihi yok ve harcama kaydi degil — aylik maliyete girmez.
+  const donemBakim = db.maintenance
+    .filter(p=>p.machineId===mid && p.status==='completed' && _dmFilter(p))
+    .reduce((s,p)=>s+(p.cost||0),0);
+  const donemCost = fCost + donemBakim;
   return {
     failCount:allF.length, totalDown:totalDown.toFixed(1),
     mtbf:mtbf.toFixed(0), mttr:mttr.toFixed(1),
@@ -3355,7 +3364,8 @@ function machMetrics(mid){
     // Filo (havuz) hesabi icin ham bilesenler. Makine-basi MTBF/MTTR
     // ortalamasi agirliksizdi ve arizasiz makineyi hic saymiyordu.
     operH, closedCount: closedF.length, closedDown,
-    failCost: fCost, maintCost: pCost, partCost: ptCost
+    failCost: fCost, maintCost: pCost, partCost: ptCost,
+    donemCost
   };
 }
 
@@ -3458,7 +3468,8 @@ function calcFleetKPIs(forLoc){
     poolFail       += mx.failCount || 0;
     poolClosedDown += mx.closedDown || 0;
     poolClosedCnt  += mx.closedCount || 0;
-    poolCost       += mx.totalCost || 0;
+    // Aylik KPI'ya DONEM maliyeti gider; totalCost tum zamanlardir.
+    poolCost       += mx.donemCost || 0;
     const mFails = db.failures.filter(f=>f.machineId===m.id && _dfFilter(f));
     if(mFails.length>0){
       sumMtbf += parseFloat(mx.mtbf);
@@ -13238,7 +13249,7 @@ async function _maliyetiErpYaz(rows){
 // Hesap kurali degistiginde metrikler yeniden yazilsin diye surum.
 // MTBF/MTTR makine-basi ortalamadan HAVUZ hesabina gecti (2026-09-16):
 // arizasiz makinelerin calisma saati de paydaya giriyor.
-const HESAP_SURUMU = '2026-09-16-havuz';
+const HESAP_SURUMU = '2026-09-16-havuz-donemMaliyet';
 
 // Acilista bir kez: veri degismese de metrikleri tazele. Ayni surum ve
 // ayni gun icinde tekrar yazmaz.
