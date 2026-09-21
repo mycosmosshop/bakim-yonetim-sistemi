@@ -2959,7 +2959,17 @@ function save(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync();
   _bakimAnlikPlanla();   // otomatik WhatsApp hatirlatmasi icin sunucudaki kopyayi tazele
 }
-function saveKpiStore(){ localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig)); scheduleCloudSync(); }
+function saveKpiStore(){
+  localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
+  // BEKLEMEDEN buluta yaz — saveVardiya ile ayni gerekce: scheduleCloudSync
+  // 1,2 sn geciktiriyor ve o aralikta sayfa yenilenirse hedef buluta HIC
+  // gitmiyor; acilista gelen ESKI kayit hem bellegi hem localStorage'i
+  // eziyordu (KPI hedefi her yenilemede eski degerine donuyordu).
+  try{
+    if(typeof cloudPush === 'function' && cloudReady) return cloudPush();
+    scheduleCloudSync();
+  }catch(e){ try{ scheduleCloudSync(); }catch(e2){} }
+}
 
 function _defaultKpiSet(){
   const s={};
@@ -8933,7 +8943,20 @@ function _renderKpiRows(){
   }).join('');
 }
 
-function saveKpiConfig(){
+async function saveKpiConfig(){
+  // SIRA ONEMLI: once HEDEFLER bellege yazilir, sonra vardiya.
+  // Tersi (vardiya once) su hatayi veriyordu: _vardiyaFormKaydet ->
+  // saveVardiya -> cloudPush zinciri, hedefler henuz bellege girmeden
+  // ESKI kpiConfig'i buluta yaziyordu. Kullanici kaydedip yenileyince
+  // acilis o eski blob'u geri yukluyor ve hedef 500 -> 200'e donuyordu.
+  const storeKey = _kpiModalYear ? (_kpiModalYear+'_'+_kpiModalLoc) : _kpiModalLoc;
+  if(!kpiConfig[storeKey]) kpiConfig[storeKey] = {};
+  Object.keys(KPI_DEFS).forEach(k=>{
+    const en  = document.getElementById('kpiEn_'+k)?.checked;
+    const tgt = parseFloat(document.getElementById('kpiTgt_'+k)?.value)||KPI_DEFS[k].defaultTarget;
+    kpiConfig[storeKey][k] = { enabled: en!==undefined?en:true, target: tgt };
+  });
+
   // Calisma takvimi de BU dugmeyle kaydedilsin. Vardiya alanlari yalniz
   // kendi onchange'inde yaziliyordu; kullanici saati girip dogrudan
   // "Kaydet & Uygula"ya basinca vardiya kaydedilmis SANILIYOR ama
@@ -8954,19 +8977,20 @@ function saveKpiConfig(){
       }
     }
   }catch(e){}
-  const storeKey = _kpiModalYear ? (_kpiModalYear+'_'+_kpiModalLoc) : _kpiModalLoc;
-  if(!kpiConfig[storeKey]) kpiConfig[storeKey] = {};
-  Object.keys(KPI_DEFS).forEach(k=>{
-    const en  = document.getElementById('kpiEn_'+k)?.checked;
-    const tgt = parseFloat(document.getElementById('kpiTgt_'+k)?.value)||KPI_DEFS[k].defaultTarget;
-    kpiConfig[storeKey][k] = { enabled: en!==undefined?en:true, target: tgt };
-  });
-  saveKpiStore();
-  renderDashboard();
+
   const lbl = _kpiModalYear+(_kpiModalLoc?' — '+_kpiModalLoc:' Global');
   const st = document.getElementById('kpiSaveStatus');
-  if(st) st.innerHTML = `<i class="bi bi-check-circle-fill me-1" style="color:#69f0ae"></i><span style="color:#69f0ae">${lbl} kaydedildi — ${new Date().toLocaleTimeString('tr-TR')}${_vdNot}</span>`;
-  toast(`KPI ayarları kaydedildi ('${lbl}')`);
+  if(st) st.innerHTML = `<i class="bi bi-hourglass-split me-1"></i><span style="color:var(--muted)">${lbl} — buluta yazılıyor…</span>`;
+  await saveKpiStore();        // localStorage + BEKLEMEDEN bulut yazimi
+  renderDashboard();
+  // Bulut yazimi basarisiz olduysa SESSIZ KALMA: kullanici kaydettim
+  // sanip yeniliyor ve hedef eski degerine donuyordu.
+  const _ok = !cloudReady || _sonSyncDurumu !== 'error';
+  if(st) st.innerHTML = _ok
+    ? `<i class="bi bi-check-circle-fill me-1" style="color:#69f0ae"></i><span style="color:#69f0ae">${lbl} kaydedildi — ${new Date().toLocaleTimeString('tr-TR')}${_vdNot}</span>`
+    : `<i class="bi bi-exclamation-triangle-fill me-1" style="color:#ff5252"></i><span style="color:#ff5252">${lbl} buluta YAZILAMADI — sayfayı yenilemeyin, bağlantıyı kontrol edip tekrar kaydedin${_vdNot}</span>`;
+  toast(_ok ? `KPI ayarları kaydedildi ('${lbl}')`
+            : `KPI ayarları buluta yazılamadı ('${lbl}') — yenilemeyin`, _ok?'success':'danger');
 }
 
 // ══════════════════════════════════════════
@@ -13251,7 +13275,11 @@ function initSupabase(){
   return false;
 }
 
+let _sonSyncDurumu = '';
 function setSyncStatus(state){
+  // Durum SAKLANIR: "Kaydet & Uygula" bulut yaziminin gercekten basarili
+  // olup olmadigini buradan okuyup kullaniciya gosteriyor (sessiz kayip yok).
+  _sonSyncDurumu = state;
   const el = document.getElementById('syncStatus');
   if(!el) return;
   const map = {
