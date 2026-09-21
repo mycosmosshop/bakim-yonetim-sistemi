@@ -7901,10 +7901,15 @@ function renderReports(){
               borderColor:col, backgroundColor:col+'22', tension:.35, fill:locs.length===1, pointRadius:4, spanGaps:true
             };
           });
-          // Hedef çizgisi
+          // Hedef çizgisi. RENK SABIT BEYAZ OLMAMALI: 'rgba(255,255,255,.2)'
+          // koyu temada zar zor, ACIK TEMADA HIC gorunmuyordu (beyaz zemin
+          // uzerinde beyaz) — legendde "Hedef 200 saat" yaziyor ama grafikte
+          // cizgi yok saniliyordu. '#8b949e' _themeForCharts tarafindan
+          // temanin --chart-muted degerine cevrilir (acik temada #526073).
           const tgt=getKpi(k,locVal,String(year));
-          datasets.push({label:`Hedef ${tgt.target}${def.unit}`,data:Array(monthLabels.length).fill(tgt.target),
-            borderColor:'rgba(255,255,255,.2)',borderDash:[5,5],pointRadius:0,borderWidth:1.5});
+          const _tgtBirim = def.unit==='%' ? '%' : ' '+def.unit;
+          datasets.push({label:`Hedef ${tgt.target}${_tgtBirim}`,data:Array(monthLabels.length).fill(tgt.target),
+            borderColor:'#8b949e',borderDash:[6,4],pointRadius:0,borderWidth:2,fill:false,tension:0});
           mkChart(cid,{type:'line',data:{labels:monthLabels,datasets},
             options:{responsive:true,plugins:{legend:{labels:{color:'#e6edf3',font:{size:10}}}},
               scales:{x:{ticks:{color:'#8b949e'},grid:{color:'#1c2128'}},
@@ -8158,7 +8163,7 @@ function renderReports(){
         {label:'A %',data:sorted5.map(r=>calcOee(r).A),borderColor:'#42a5f5',tension:.3,pointRadius:2},
         {label:'P %',data:sorted5.map(r=>calcOee(r).P),borderColor:'#ffa726',tension:.3,pointRadius:2},
         {label:'Q %',data:sorted5.map(r=>calcOee(r).Q),borderColor:'#66bb6a',tension:.3,pointRadius:2},
-        {label:'Hedef 85%',data:Array(sorted5.length).fill(85),borderColor:'rgba(255,255,255,.2)',borderDash:[4,4],pointRadius:0}
+        {label:'Hedef 85%',data:Array(sorted5.length).fill(85),borderColor:'#8b949e',borderDash:[6,4],pointRadius:0,borderWidth:2}
       ]},options:{responsive:true,plugins:{legend:{labels:{color:'#e6edf3',font:{size:10}}}},
         scales:{x:{ticks:{color:'#8b949e',maxTicksLimit:12},grid:{color:'#1c2128'}},y:{min:0,max:100,ticks:{color:'#8b949e'},grid:{color:'#1c2128'}}}}});
     },50);
@@ -11972,7 +11977,7 @@ function renderOee(){
     {label:'A %',data:sorted.map(r=>calcOee(r).A),borderColor:'#42a5f5',tension:.3,pointRadius:2},
     {label:'P %',data:sorted.map(r=>calcOee(r).P),borderColor:'#ffa726',tension:.3,pointRadius:2},
     {label:'Q %',data:sorted.map(r=>calcOee(r).Q),borderColor:'#66bb6a',tension:.3,pointRadius:2},
-    {label:'Hedef 85%',data:Array(sorted.length).fill(85),borderColor:'rgba(255,255,255,.2)',borderDash:[4,4],pointRadius:0,type:'line'}
+    {label:'Hedef 85%',data:Array(sorted.length).fill(85),borderColor:'#8b949e',borderDash:[6,4],pointRadius:0,borderWidth:2,type:'line'}
   ]},options:{responsive:true,plugins:{legend:{labels:{color:'#e6edf3',font:{size:11}}}},
     scales:{x:{ticks:{color:'#8b949e'},grid:{color:'#1c2128'}},y:{min:0,max:100,ticks:{color:'#8b949e'},grid:{color:'#1c2128'}}}}});
 
