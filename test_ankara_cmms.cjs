@@ -5,7 +5,7 @@
 // makinesi olmayan ariza uretilmesi, "SAATLİK BAKIM YAPILIR" gibi tarih
 // olmayan degerlerin plana tarih diye girmesi.
 const fs = require('fs'), assert = require('assert');
-const KOK = 'C:/Users/User/AppData/Local/Temp/claude/D--Yaz-l-m/651c3d70-fb75-4585-8b7d-1923454b8e83/scratchpad/cmms/';
+const KOK = __dirname + '/';  // eskiden silinen bir oturum klasorunu okuyordu
 const src = fs.readFileSync(KOK + 'bakim_yonetim_sistemi.html', 'utf8');
 
 // Eklenen bolumu cikar ve gercek fonksiyonlari calistir

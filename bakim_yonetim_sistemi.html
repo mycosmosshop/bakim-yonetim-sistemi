@@ -744,6 +744,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <button class="btn btn-outline-warning btn-sm" onclick="loadAnkaraDof()" title="CNC Dikey Sable — tekrarlayan şerit testere kırılması için 5-Neden analizi"><i class="bi bi-diagram-3 me-1"></i>CNC 5-Neden İşle</button>
       <button class="btn btn-outline-success btn-sm" onclick="loadAnkaraParts()" title="SU JETİ stok listesi + saha sayımı: 31 yedek parça, su jeti parçaları görselli"><i class="bi bi-box-seam me-1"></i>Ankara Yedek Parçaları</button>
       <button class="btn btn-outline-info btn-sm" onclick="loadAnkaraAksiyon()" title="Ankara KPI sapmalarına karşı aksiyon kayıtları (Raporlar ekranında görünür)"><i class="bi bi-clipboard-plus me-1"></i>Ankara KPI Aksiyonları</button>
+      <button class="btn btn-outline-primary btn-sm" onclick="loadVelikoyPlan()" title="PL15 Veliköy + LeanSys makine kartı: makineler ve 2025–2026 planlı bakımlar"><i class="bi bi-calendar-check me-1"></i>Veliköy Planı</button>
+      <button class="btn btn-outline-danger btn-sm" onclick="loadVelikoyAriza()" title="LeanSys web duruş modülü: 2025–2026 Veliköy arızaları"><i class="bi bi-exclamation-triangle me-1"></i>Veliköy Arızaları</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -10594,6 +10596,1151 @@ function loadAnkaraAriza(){
     +(nR?(' · '+nR+' periyodik bakım revizyonu'):'')
     +(atlanan?(' · '+atlanan+' kayıt makinesiz atlandı'):''));
 }
+
+/* VELIKOY-BASLA (D:\Yazılım\vileda-16qa\velikoy_cmms.py üretir — elle düzeltme) */
+/* VELİKÖY — makine listesi, 2025–2026 planlı bakım ve arızalar.
+   Kaynak (salt okunur): PL15 Veliköy 2024 (NAS 21 VALİDASYON\Validasyonlar 2024), LeanSys SBT060 makine
+   kartı (VELİKÖY ŞUBESİ), URETIMRAPORU 2025+, WEB_MODUL_BKM_DURUS 2025+ (yalnız Mekanik/Elektrik arıza).
+   Uydurma yok: gerçekleşme kaydı olmayan bakım 'planlandı' kalır, maliyet kaynakta yok → 0.
+   Başka lokasyondaki makineye dokunulmaz. LeanSys'e yazılmaz. */
+const VELIKOY_MACHINES = [
+ {
+  "sk": "910.5.138",
+  "code": "ISM3",
+  "name": "ISM3 ISM  DIKEY KESIM 3",
+  "dept": "KESİM",
+  "set": "sfm_cnc_kesim",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    11,
+    14
+   ]
+  ],
+  "pl15_yil": 2024,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2024 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.019",
+  "code": "FRT",
+  "name": "FRT FORKLIFT",
+  "dept": "DEPO",
+  "set": "",
+  "saatlik": true,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (saatlik)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.025",
+  "code": "MP5",
+  "name": "MP5 PAKETLEME AMBALAJ 5 FORMA MAKINA",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    9,
+    11
+   ]
+  ],
+  "pl15_yil": 2024,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2024 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.026",
+  "code": "BDX",
+  "name": "BDX BONDEX DÖKÜM(VELIKÖY)",
+  "dept": "EMPREGNE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    10,
+    7
+   ]
+  ],
+  "pl15_yil": 2024,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2024 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.072",
+  "code": "JNR1",
+  "name": "JN1 JENARATÖR 1 350 KVA",
+  "dept": "ATELYE",
+  "set": "",
+  "saatlik": true,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (saatlik)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.074",
+  "code": "MP4",
+  "name": "MP4 PAKETLEME AMBALAJ 4 FORMA",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    1,
+    18
+   ],
+   [
+    7,
+    11
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.094",
+  "code": "EHU3",
+  "name": "EHU 3 ELYAF HAZIRLAMA UNITESI/VELIKÖY",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    1,
+    20
+   ],
+   [
+    7,
+    24
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.108",
+  "code": "KOMP1",
+  "name": "KOMP 1 HAVA KOMPRESÖRÜ 1",
+  "dept": "ATELYE",
+  "set": "",
+  "saatlik": true,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (saatlik)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.117",
+  "code": "YTY2",
+  "name": "YTY2  YATAY KESIM MAKINESI SUNKIST",
+  "dept": "KESİM",
+  "set": "sfm_yatay_kesim",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    5,
+    10
+   ],
+   [
+    8,
+    23
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.118",
+  "code": "FR5",
+  "name": "FR 5 KEÇE FIRINI",
+  "dept": "KEÇE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    2,
+    21
+   ],
+   [
+    10,
+    11
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.122",
+  "code": "FRT2",
+  "name": "FORKLİFT",
+  "dept": "DEPO",
+  "set": "",
+  "saatlik": true,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (saatlik)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.127",
+  "code": "KP7",
+  "name": "KP7 HIDROLIK KESME PRESI (1000*1200)",
+  "dept": "KESİM",
+  "set": "sfm_kesme_pres",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    8,
+    21
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.129",
+  "code": "DSD3",
+  "name": "DSD 3 DIKEY KESIM MAKINASI",
+  "dept": "PERAKENDE",
+  "set": "sfm_dilimleme",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    5,
+    18
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.137",
+  "code": "MP7",
+  "name": "MP7 PAKETLEME AMBALAJ MAKINASI 7 AYDINNU",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    9,
+    13
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.139",
+  "code": "MP8",
+  "name": "MP8 PAKETLEME AMBALAJ MAK 8-AYDINNUR MAK",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    10,
+    9
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.215",
+  "code": "LAB",
+  "name": "AŞINMA TEST CİHAZI",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    5,
+    23
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.160",
+  "code": "OKP1",
+  "name": "OKP1 OTOMATIK KESME PAKETLEME MAK",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    11,
+    25
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.113",
+  "code": "Bkm3",
+  "name": "BKM3 BEZ KESME VE KATLAMA MAKINASI",
+  "dept": "PEAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    6,
+    16
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.162",
+  "code": "OKP2",
+  "name": "OKP-2  OTOMATIK KESME PAKETLEME MAK",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    12,
+    17
+   ]
+  ],
+  "pl15_yil": 2022,
+  "pl15": true,
+  "uretim": true,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2022 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.009",
+  "code": "STC1",
+  "name": "DENMAK MARKA YARI OTOMATIK PALET STRECH MAKINASI ",
+  "dept": "PERAKENDE",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [
+   [
+    4,
+    16
+   ]
+  ],
+  "pl15_yil": 2024,
+  "pl15": true,
+  "uretim": false,
+  "kaynak": "PL15 Veliköy 2024 (plan satırında 2024 tarihi)",
+  "oner": false
+ },
+ {
+  "sk": "910.5.007",
+  "code": "MDT",
+  "name": "MERCURY MARKA METAL DEDÖKTÖR CEIA-KONVAYÖRLÜ",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": true
+ },
+ {
+  "sk": "910.5.008",
+  "code": "KAM",
+  "name": "KENAR AÇMA MAKINESI 2012",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ },
+ {
+  "sk": "910.5.029",
+  "code": "LMN1",
+  "name": "LMN1 LAMINASYON MERDANESI(VELIKÖY)",
+  "dept": "",
+  "set": "sfm_laminasyon",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.036",
+  "code": "SKB2",
+  "name": "SKB2 KONVEYÖRLÜ POSET AGZI KAPATMA MAKINASI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ },
+ {
+  "sk": "910.5.039",
+  "code": "BPK",
+  "name": "BPK BEZ PERFORE KESIM VE SARIM(VELIKÖY)",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.058",
+  "code": "SFT2",
+  "name": "SFT-2 KENAR OLUK AÇMA MAKINASI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.059",
+  "code": "BKM1",
+  "name": "BKM1 BEZ KESME KATLAMA 38 CM(VELIKÖY)",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.080",
+  "code": "SFT3",
+  "name": "SFT-3 KENAR OLUK AÇMA MAKINASI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.116",
+  "code": "BKM4",
+  "name": "BKM 4 38 CM BEZ KESME KATLAMA MAKINESI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.121",
+  "code": "KSK",
+  "name": "KSK KEÇE SARMA VE KESME MAKINASI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.155",
+  "code": "INKJET",
+  "name": "MANUEL INKJET BASKI MAKINASI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": true,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · 2025–2026'da üretim kaydı var",
+  "oner": true
+ },
+ {
+  "sk": "910.5.322",
+  "code": "KANSA",
+  "name": "KANSAN  BEZ KESME KATLAMA MAKINASI 40'LIK",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ },
+ {
+  "sk": "910.5.959",
+  "code": "ISTEC-",
+  "name": "ISTEC-TP BIO DEZENFEKSIYON KABINI 100X100X210 CM KABIN",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ },
+ {
+  "sk": "910.5.966",
+  "code": "AKSOY",
+  "name": "AKSOY FILE SÜNGER KUMAS DILIMLEME VE SARMA MAKINESI  190 MM",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ },
+ {
+  "sk": "910.5.967",
+  "code": "FILE",
+  "name": "FILE KUMAS SUNGER ICINE YERLESTIRME APARATI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ },
+ {
+  "sk": "910.5.970",
+  "code": "SIRUB",
+  "name": "SIRUBA 947QD 4 IPLIK DIKIS MAKINASI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ },
+ {
+  "sk": "910.5.971",
+  "code": "ULTRA",
+  "name": "ULTRASONIK FILE SÜNGER KAYNAK MAKINASI",
+  "dept": "",
+  "set": "",
+  "saatlik": false,
+  "ay_gun": [],
+  "pl15_yil": null,
+  "pl15": false,
+  "uretim": false,
+  "kaynak": "LeanSys makine kartı — PL15 Veliköy 2024'te YOK · aktif",
+  "oner": false
+ }
+];
+const VELIKOY_ARIZA = [
+ {
+  "sk": "910.5.029",
+  "key": "5096",
+  "desc": "Laminasyon merdane zincir koptu",
+  "start": "2025-01-04T12:45",
+  "end": "2025-01-04T14:04",
+  "dakika": 79,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5100",
+  "desc": "Alt pompa arizasi nedeniyle üretim 4 saat durmustur",
+  "start": "2025-01-07T19:34",
+  "end": "2025-01-07T19:34",
+  "dakika": 0,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5102",
+  "desc": "Mekanik Ariza (LeanSys'te açıklama girilmemiş)",
+  "start": "2025-01-08T11:54",
+  "end": "2025-01-08T13:03",
+  "dakika": 69,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.117",
+  "key": "5105",
+  "desc": "Bileme tasi arizali",
+  "start": "2025-01-09T16:41",
+  "end": "2025-01-09T18:37",
+  "dakika": 116,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.139",
+  "key": "5106",
+  "desc": "DISKLER DÖNMÜYOR BAKIMA HAVER VERILDI",
+  "start": "2025-01-09T17:01",
+  "end": "2025-01-09T19:37",
+  "dakika": 156,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5111",
+  "desc": "Saat 10 30 itibariyle alt pompa 2 ariza yapmistir",
+  "start": "2025-01-13T11:05",
+  "end": "2025-01-13T17:27",
+  "dakika": 382,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5112",
+  "desc": "Mekanik Ariza (LeanSys'te açıklama girilmemiş)",
+  "start": "2025-01-14T11:23",
+  "end": "2025-01-14T15:52",
+  "dakika": 269,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5115",
+  "desc": "Üst robot sikismasindan dolayi makina kapatildi",
+  "start": "2025-01-21T12:50",
+  "end": "2025-01-21T13:55",
+  "dakika": 65,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5117",
+  "desc": "Alt pompa 2arizasi için üretim durdu",
+  "start": "2025-01-28T09:31",
+  "end": "2025-01-28T11:13",
+  "dakika": 102,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.138",
+  "key": "5123",
+  "desc": "saat 08,00 da itbaren mekanik ariza var",
+  "start": "2025-02-05T10:18",
+  "end": "2025-02-05T11:48",
+  "dakika": 90,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5129",
+  "desc": "Keçe kesme piçagi arizalandi 19:00 ile 19:40 arasi",
+  "start": "2025-02-17T19:45",
+  "end": "2025-02-17T19:47",
+  "dakika": 2,
+  "kaynakTip": "Elektrik Arizasi",
+  "type": "electrical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5132",
+  "desc": "Alt pompa 2 arizasi nedeniyle makina kapandi",
+  "start": "2025-03-06T10:35",
+  "end": "2025-03-06T14:49",
+  "dakika": 254,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5134",
+  "desc": "Mekanik Ariza (LeanSys'te açıklama girilmemiş)",
+  "start": "2025-04-08T14:16",
+  "end": "2025-04-08T16:55",
+  "dakika": 159,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5135",
+  "desc": "Alt pompa 2arizasi icin makina kapatildi",
+  "start": "2025-04-17T10:38",
+  "end": "2025-04-17T15:58",
+  "dakika": 320,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5136",
+  "desc": "Mekanik Ariza (LeanSys'te açıklama girilmemiş)",
+  "start": "2025-04-25T09:36",
+  "end": "2025-04-26T10:58",
+  "dakika": 1522,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5137",
+  "desc": "zincir koptu",
+  "start": "2025-05-08T14:18",
+  "end": "2025-05-10T07:46",
+  "dakika": 2488,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5138",
+  "desc": "Üst robot sikismasindan dolayi makina kapatildi",
+  "start": "2025-05-15T16:05",
+  "end": "2025-05-15T17:25",
+  "dakika": 80,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5139",
+  "desc": "Alt pompa 2arizasi için üretim durdu",
+  "start": "2025-06-17T09:25",
+  "end": "2025-06-17T12:45",
+  "dakika": 200,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5140",
+  "desc": "Alt robot 2 çikis tarafi ariza yapmistir",
+  "start": "2025-06-26T11:23",
+  "end": "2025-06-26T12:56",
+  "dakika": 93,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5141",
+  "desc": "Alt pompa 2arizasi için makina kapatildi",
+  "start": "2025-06-28T14:23",
+  "end": "2025-06-28T15:35",
+  "dakika": 72,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5142",
+  "desc": "Alt robot 2arizasi içinmakina durdu",
+  "start": "2025-06-30T08:35",
+  "end": "2025-06-30T12:43",
+  "dakika": 248,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5144",
+  "desc": "Merdane zinciri koptu",
+  "start": "2025-09-06T13:57",
+  "end": "2025-09-06T15:41",
+  "dakika": 104,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5145",
+  "desc": "Üst pompa arizasi nedeniyle üretim durdu",
+  "start": "2025-09-18T10:35",
+  "end": "2025-09-18T19:24",
+  "dakika": 529,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5146",
+  "desc": "Alt çikis robot sikismasi dan dolayi makina durdu",
+  "start": "2025-09-25T11:00",
+  "end": "2025-09-25T12:56",
+  "dakika": 116,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5147",
+  "desc": "Alt robot arizasi oldugu için üretim durdu",
+  "start": "2025-10-03T12:42",
+  "end": "2025-10-03T16:48",
+  "dakika": 246,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.094",
+  "key": "5149",
+  "desc": "Mekanik Ariza (LeanSys'te açıklama girilmemiş)",
+  "start": "2025-12-10T11:07",
+  "end": "2025-12-10T15:33",
+  "dakika": 266,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5150",
+  "desc": "Alt pompa 1 arizasi nedeniyle makina durdu",
+  "start": "2025-12-18T09:39",
+  "end": "2025-12-18T13:02",
+  "dakika": 203,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5168",
+  "desc": "Elektrik Arizasi (LeanSys'te açıklama girilmemiş)",
+  "start": "2026-04-16T07:43",
+  "end": "2026-04-16T23:01",
+  "dakika": 918,
+  "kaynakTip": "Elektrik Arizasi",
+  "type": "electrical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5169",
+  "desc": "Elektrik Arizasi (LeanSys'te açıklama girilmemiş)",
+  "start": "2026-04-20T19:35",
+  "end": "2026-04-27T22:23",
+  "dakika": 10248,
+  "kaynakTip": "Elektrik Arizasi",
+  "type": "electrical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5170",
+  "desc": "Silindir bakimi",
+  "start": "2026-05-05T13:27",
+  "end": "2026-05-05T14:52",
+  "dakika": 85,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5172",
+  "desc": "Elektrik Arizasi (LeanSys'te açıklama girilmemiş)",
+  "start": "2026-06-19T07:40",
+  "end": "2026-06-22T19:43",
+  "dakika": 5043,
+  "kaynakTip": "Elektrik Arizasi",
+  "type": "electrical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5173",
+  "desc": "Mekanik Ariza (LeanSys'te açıklama girilmemiş)",
+  "start": "2026-07-14T11:22",
+  "end": "2026-07-14T15:53",
+  "dakika": 271,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.029",
+  "key": "5174",
+  "desc": "Elektrik Arizasi (LeanSys'te açıklama girilmemiş)",
+  "start": "2026-08-25T07:40",
+  "end": "2026-08-29T20:31",
+  "dakika": 6531,
+  "kaynakTip": "Elektrik Arizasi",
+  "type": "electrical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5175",
+  "desc": "Pompa  1 arizasi nedeniyle makina kapandi",
+  "start": "2026-08-26T10:26",
+  "end": "2026-08-26T12:55",
+  "dakika": 149,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5176",
+  "desc": "Üst çikis robot arizasi nedeniyle makina kapandi",
+  "start": "2026-08-31T10:56",
+  "end": "2026-08-31T13:46",
+  "dakika": 170,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": false
+ },
+ {
+  "sk": "910.5.118",
+  "key": "5177",
+  "desc": "Alt pompa 1 arizasi nedeniyle makina kapandi",
+  "start": "2026-09-14T10:53",
+  "end": "2026-09-14T12:47",
+  "dakika": 114,
+  "kaynakTip": "Mekanik Ariza",
+  "type": "mechanical",
+  "tekrar": true
+ }
+];
+const VELIKOY_ONERI_BAS = '2026-11-02';   // PL15'te olmayan makineler icin 2026 onerilen baslangic
+
+// Yalniz Velikoy kaydi: Sanifoam kodu ya da notlardaki kisa kod. Baska lokasyon ASLA eslesmez.
+function _velBul(m){
+  return db.machines.find(x=>String(x.location||'').trim()==='Veliköy'
+      && (String(x.code||'').trim()===m.sk || String(x.notes||'').indexOf('Makina Kodu: '+m.code+' ')===0));
+}
+// Ayni Sanifoam kodu baska lokasyonda aktif makinede varsa (orn. FRT 910.5.019 Ankara'da) Velikoy'e acilmaz
+function _velBaskaLok(m){
+  return db.machines.find(x=>String(x.location||'').trim()!=='Veliköy'
+      && String(x.code||'').trim()===m.sk && x.status!=='passive');
+}
+function _velGun(t){ return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
+function _velSet(setId){ return (db.taskSets||[]).find(x=>x.id===setId); }
+function _velEstH(setId){ const s=_velSet(setId); return s?Math.max(0.5,Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10):1; }
+function _velTasks(setId){ const s=_velSet(setId);
+  return s?(s.tasks||[]).map((t,i)=>({id:uid(),no:i+1,title:t.title,note:t.note||'',mins:t.mins||0,done:false,doneBy:'',doneAt:null})):[]; }
+
+// Plan satirlari: PL15'teki ay/gun 2025 ve 2026'ya; PL15'te olmayan uretim makinesine (ve metal
+// dedektore) yalniz 2026 icin ONERILEN tarih. Saatlik bakimlilara tarih uydurulmaz.
+function _velPlanlar(){
+  const out=[]; const on=new Date(VELIKOY_ONERI_BAS+'T12:00:00');
+  VELIKOY_MACHINES.forEach(m=>{
+    const k=m.code.replace(/[^A-Za-z0-9]/g,'');
+    if(m.ay_gun.length){
+      const per=m.ay_gun.length>1?Math.round(12/m.ay_gun.length):12;
+      [2025,2026].forEach(y=>m.ay_gun.forEach((ag,i)=>out.push({m, y, per, oneri:false,
+        id:'vel_p_'+k+'_'+y+'_'+(i+1), date:y+'-'+String(ag[0]).padStart(2,'0')+'-'+String(ag[1]).padStart(2,'0')})));
+    } else if(!m.saatlik && m.oner){
+      while(on.getDay()===0||on.getDay()===6) on.setDate(on.getDate()+1);
+      out.push({m, y:2026, per:12, oneri:true, id:'vel_p_'+k+'_2026_1', date:_velGun(on)});
+      on.setDate(on.getDate()+1);
+    }
+  });
+  return out;
+}
+
+function loadVelikoyPlan(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  const plan=_velPlanlar(), nOn=plan.filter(p=>p.oneri).length;
+  const nSaat=VELIKOY_MACHINES.filter(m=>m.saatlik).length;
+  if(!confirm('VELİKÖY makine listesi ve 2025–2026 planlı bakımları yüklenecek:\n\n'
+    +'• '+VELIKOY_MACHINES.length+' makine (PL15 Veliköy 2024 + LeanSys makine kartı; VT hatları hariç)\n'
+    +'• '+(plan.length-nOn)+' PL15 bakımı — 2025 ve 2026, tarih PL15 2024 satırından\n'
+    +'• '+nOn+' makine PL15\'te YOK → yalnız 2026 için ÖNERİLEN tarih (Kasım–Aralık)\n'
+    +'• Gerçekleşme kaydı olmadığı için hepsi "planlandı" — yaptıklarınızı tarihleyerek kapatın\n'
+    +'• '+nSaat+' saatlik bakımlı makine (forklift/jeneratör/kompresör): sayaç verisi yok, tarih verilmez\n\n'
+    +'Başka lokasyondaki makineye dokunulmaz. Kapattığınız bakımlar tekrar yüklemede korunur. Devam?')) return;
+
+  db.machines=db.machines||[]; db.maintenance=db.maintenance||[]; db.taskSets=db.taskSets||[];
+  if(!db.taskSets.some(t=>String(t.id||'').startsWith('sfm_'))) db.taskSets.push(...JSON.parse(JSON.stringify(SANIFOAM_TASK_SETS)));
+  const macId={}, atla=[]; let nM=0;
+  VELIKOY_MACHINES.forEach(m=>{
+    let ex=_velBul(m);
+    if(!ex){
+      const b=_velBaskaLok(m);
+      if(b){ atla.push(m.code+' → '+b.location); return; }
+      ex={id:'vel_'+m.code.replace(/[^A-Za-z0-9]/g,'')}; db.machines.push(ex); nM++;
+    }
+    Object.assign(ex,{ name:m.name, code:m.sk, dept:ex.dept||m.dept, location:'Veliköy',
+      criticality:ex.criticality||(m.uretim?'high':'medium'), status:ex.status||'running',
+      notes:'Makina Kodu: '+m.code+' · '+m.kaynak });
+    macId[m.code]=ex.id;
+  });
+
+  const gecerli=new Set(plan.map(p=>p.id));
+  // Yukleyiciye ait ama artik uretilmeyen, KULLANICININ KAPATMADIGI kayitlar temizlenir
+  const once=db.maintenance.length;
+  db.maintenance=db.maintenance.filter(x=>{ const id=String(x.id||'');
+    return !(id.indexOf('vel_p_')===0 && !gecerli.has(id) && x.status!=='completed'); });
+  const nS=once-db.maintenance.length;
+  let nP=0, korunan=0;
+  plan.forEach(p=>{
+    const mid=macId[p.m.code]; if(!mid) return;
+    let ex=db.maintenance.find(x=>x.id===p.id);
+    if(!ex){ ex={id:p.id}; db.maintenance.push(ex); nP++; }
+    const kapali=ex.status==='completed' && !!ex.comp;
+    if(kapali) korunan++;
+    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date', sched:p.date,
+      period:p.per, periodUnit:'month',
+      desc:p.oneri?'Önerilen yıllık bakım — PL15\'e eklenecek (Veliköy)':'PL15 yıllık planlı bakım — Veliköy',
+      notes:p.oneri?'PL15 Veliköy 2024\'te bu makine yok; 2026 tarihi ÖNERİDİR.'
+                   :'Tarih PL15 Veliköy 2024 satırından ('+p.m.pl15_yil+' tarihi). Gerçekleşme ERP\'ye işlenmedi.',
+      assetType:'makine', assetName:null, fixtureId:'', taskSetId:p.m.set||'',
+      tech:ex.tech||'', external:false, wo:ex.wo||'', partsUsed:ex.partsUsed||'' });
+    if(!kapali) Object.assign(ex,{ comp:null, status:'scheduled', cost:0, estDur:_velEstH(p.m.set), actDur:0,
+      checklist:_velTasks(p.m.set) });
+    // 2025 kaydinin "sonraki donem"i zaten 2026 satiri — uygulama kopya uretmesin
+    if(p.y===2025) ex._spawnedNext=true;
+  });
+  save(); updateSelects(); nav('maintenance');
+  toast('Veliköy: '+nM+' yeni makine, '+nP+' yeni bakım kaydı'
+    +(korunan?(' · '+korunan+' kapatılmış bakım korundu'):'')
+    +(nS?(' · '+nS+' kaynaksız kayıt silindi'):'')
+    +(atla.length?(' · atlandı (başka lokasyonda): '+atla.join(', ')):''));
+}
+
+function loadVelikoyAriza(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  const macId={};
+  VELIKOY_MACHINES.forEach(m=>{ const ex=_velBul(m); if(ex) macId[m.sk]=ex.id; });
+  if(!Object.keys(macId).length){ toast('Önce Veliköy makine listesini yükleyin.','warning'); return; }
+  if(!confirm('VELİKÖY 2025–2026 arızaları yüklenecek (LeanSys web duruş modülü):\n\n'
+    +'• '+VELIKOY_ARIZA.length+' mekanik/elektrik arıza — tarih, süre ve açıklama LeanSys\'ten\n'
+    +'• "Hammadde yok" ve "makine hazırlık" duruşları arıza sayılmadığı için alınmaz\n'
+    +'• Maliyet ve teknisyen kaynakta yok — boş/0 gelir, sonradan girebilirsiniz\n\n'
+    +'Aynı kayıt iki kez eklenmez; girdiğiniz maliyet/kök neden korunur. Devam?')) return;
+  db.failures=db.failures||[];
+  let n=0, g=0, atl=0;
+  VELIKOY_ARIZA.forEach(f=>{
+    const mid=macId[f.sk]; if(!mid){ atl++; return; }        // makinesi yoksa uydurma kayit acma
+    const id='vel_a_'+f.key;
+    let ex=db.failures.find(x=>x.id===id);
+    if(!ex){ ex={id:id}; db.failures.push(ex); n++; } else g++;
+    Object.assign(ex,{ machineId:mid, failureType:f.type, startTime:f.start, endTime:f.end, desc:f.desc,
+      rootCause:ex.rootCause||f.kaynakTip, detect:'operator', recurring:ex.recurring||!!f.tekrar,
+      qtyDefect:0, qtyScrap:0, lossType:'downtime', tech:ex.tech||'', cost:ex.cost||0,
+      resolution:ex.resolution||'', status:'closed', wo:ex.wo||'', rca:ex.rca||null,
+      notes:'LeanSys duruş #'+f.key+' · '+f.kaynakTip });
+  });
+  save(); updateSelects(); nav('failures');
+  toast('Veliköy: '+n+' arıza yüklendi'+(g?(' · '+g+' güncellendi'):'')+(atl?(' · '+atl+' kayıt makinesiz atlandı'):''));
+}
+/* VELIKOY-BITIS */
 
 // ══════════════════════════════════════════
 //  ANKARA — YEDEK PARÇA STOĞU
