@@ -746,6 +746,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       <button class="btn btn-outline-info btn-sm" onclick="loadAnkaraAksiyon()" title="Ankara KPI sapmalarına karşı aksiyon kayıtları (Raporlar ekranında görünür)"><i class="bi bi-clipboard-plus me-1"></i>Ankara KPI Aksiyonları</button>
       <button class="btn btn-outline-primary btn-sm" onclick="loadVelikoyPlan()" title="PL15 Veliköy + LeanSys makine kartı: makineler ve 2025–2026 planlı bakımlar"><i class="bi bi-calendar-check me-1"></i>Veliköy Planı</button>
       <button class="btn btn-outline-danger btn-sm" onclick="loadVelikoyAriza()" title="LeanSys web duruş modülü: 2025–2026 Veliköy arızaları"><i class="bi bi-exclamation-triangle me-1"></i>Veliköy Arızaları</button>
+      <button class="btn btn-outline-success btn-sm" onclick="loadVelikoyParts()" title="PL65 Veliköy kritik ekipman listesi (2021) + LeanSys (2019): 22 yedek parça"><i class="bi bi-box-seam me-1"></i>Veliköy Yedek Parçaları</button>
       <button class="btn btn-primary btn-sm" onclick="openTaskSetModal()"><i class="bi bi-plus-lg me-1"></i>Yeni Bakım Seti</button>
     </div>
   </div>
@@ -3725,6 +3726,8 @@ function locMachines(){ const t=db.machines.filter(m=>m.status!=='passive');
   return gLocFilter ? t.filter(m=>m.location===gLocFilter) : t; }
 function locFails(){ const l=locMids(); return l ? db.failures.filter(f=>l.has(f.machineId)) : db.failures; }
 function locMaint(){ const l=locMids(); return l ? db.maintenance.filter(p=>l.has(p.machineId)) : db.maintenance; }
+// Yedek parca: makinesi o lokasyonda olan + makinesiz ama lokasyonu o olan (or. Veliköy 'tum makineler' kritik parcalari)
+function locPartsList(){ const l=locMids(); return l ? (db.parts||[]).filter(p=>l.has(p.machineId) || (!p.machineId && p.location===gLocFilter)) : (db.parts||[]); }
 function locFix(){ return gLocFilter ? (db.fixtures||[]).filter(f=>f.location===gLocFilter) : (db.fixtures||[]); }
 
 // ══════════════════════════════════════════
@@ -4762,7 +4765,7 @@ function renderDashboard(){
   // ── TPM / IATF 8.5.1.5 Dashboard Widget ──
   const _allF = dashFails();
   const _allM = locMaint();
-  const _allP = (()=>{const _lp=locMids();return _lp?db.parts.filter(p=>_lp.has(p.machineId)):db.parts;})();
+  const _allP = locPartsList();
   const recurringCount = _allF.filter(f=>f.recurring).length;
   const rcaCount = _allF.filter(f=>f.rca&&(f.rca.w1||f.rca.action)).length;
   const autonomousCount = _allM.filter(p=>p.type==='autonomous').length;
@@ -6184,8 +6187,7 @@ function _ptCell(p, key, total, dd, warn, isLow){
 //  YEDEK PARÇALAR
 // ══════════════════════════════════════════
 function renderParts(){
-  const _lp = locMids();
-  const locParts = _lp ? db.parts.filter(p=>_lp.has(p.machineId)) : db.parts;
+  const locParts = locPartsList();
   const q=(document.getElementById('pSearch')?.value||'').trim().toLowerCase();
   const filteredParts=!q?locParts:locParts.filter(p=>{
     const mach=(db.machines||[]).find(m=>m.id===p.machineId)?.name||'';
@@ -6339,8 +6341,7 @@ function _ptDeleteSelected(){
 // ── Yedek Parça PDF / Yazdır ──
 function printPartsList(onlySelected){ _askPrintDate(()=>_printPartsListImpl(onlySelected)); }
 function _printPartsListImpl(onlySelected){
-  const _lp=locMids();
-  let parts=_lp ? db.parts.filter(p=>_lp.has(p.machineId)) : db.parts;
+  let parts=locPartsList();
   if(onlySelected){
     const ids=new Set([...document.querySelectorAll('.pt-row-chk:checked')].map(c=>c.dataset.id));
     if(ids.size) parts=parts.filter(p=>ids.has(p.id));
@@ -6469,8 +6470,7 @@ function _printPartsListImpl(onlySelected){
 //  COSTS
 // ══════════════════════════════════════════
 function renderCosts(){
-  const _lp2 = locMids();
-  const locParts2 = _lp2 ? db.parts.filter(p=>_lp2.has(p.machineId)) : db.parts;
+  const locParts2 = locPartsList();
   const fc=locFails().reduce((s,f)=>s+(f.cost||0),0);
   const pc=locMaint().reduce((s,p)=>s+(p.cost||0),0);
   const ptc=locParts2.reduce((s,p)=>s+(p.unitCost||0)*(p.qty||1),0);
@@ -8229,7 +8229,7 @@ function renderReports(){
              .filter(f=>f.startTime&&new Date(f.startTime)>=d0&&new Date(f.startTime)<d1);
     const pM=(mids6?db.maintenance.filter(p=>mids6.has(p.machineId)):db.maintenance)
              .filter(p=>p.sched&&new Date(p.sched)>=d0&&new Date(p.sched)<d1);
-    const pP=(mids6?(db.parts||[]).filter(p=>mids6.has(p.machineId)):(db.parts||[]))
+    const pP=(mids6?(db.parts||[]).filter(p=>mids6.has(p.machineId) || (!p.machineId && p.location===locVal)):(db.parts||[]))
              .filter(p=>p.replDate&&new Date(p.replDate)>=d0&&new Date(p.replDate)<d1);
     const fc=pF.reduce((s,f)=>s+(f.cost||0),0);
     const mc=pM.reduce((s,p)=>s+(p.cost||0),0);
@@ -11652,6 +11652,253 @@ const VELIKOY_ARIZA = [
   "tekrar": true
  }
 ];
+const VELIKOY_PARTS = [
+ {
+  "no": "930.5.038",
+  "ad": "FOUR WAY SWİCHT",
+  "m": "ISM3",
+  "grup": "",
+  "min": 1,
+  "q2019": 1,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "930.5.714",
+  "ad": "1,5 KW HIDREL HID.SANT POMPA",
+  "m": "KP7",
+  "grup": "",
+  "min": 1,
+  "q2019": 1,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.5.622",
+  "ad": "140*165*46 TAKIM KEÇE",
+  "m": "KP7",
+  "grup": "",
+  "min": 2,
+  "q2019": 6,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.1.404",
+  "ad": "ZCMD21 TELEMECANIQUE NIHAYET SALTERI",
+  "m": "YTY2",
+  "grup": "",
+  "min": 1,
+  "q2019": 1,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "900.5.435",
+  "ad": "START BUTONU",
+  "m": "",
+  "grup": "Tüm makineler",
+  "min": 2,
+  "q2019": 2,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "900.5.436",
+  "ad": "STOP BUTONU",
+  "m": "",
+  "grup": "Tüm makineler",
+  "min": 2,
+  "q2019": 2,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "900.5.439",
+  "ad": "XCK -M NIHAYET SIWICHT",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 1,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ },
+ {
+  "no": "900.5.609",
+  "ad": "ISI KONTROL RÖLESİ",
+  "m": "",
+  "grup": "Paketleme makineleri (MP4 / MP5 / MP7 / MP8)",
+  "min": 1,
+  "q2019": 1,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "900.5.817",
+  "ad": "9 A KONTAKTÖR 220 V",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 1,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ },
+ {
+  "no": "900.5.820",
+  "ad": "9 A KONTAKTÖR 24 DCV",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 2,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ },
+ {
+  "no": "900.5.861",
+  "ad": "3*100 A PAKO SALTER",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 1,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ },
+ {
+  "no": "900.5.921",
+  "ad": "220/24 VOLT DC GÜÇ KAYNAGI",
+  "m": "",
+  "grup": "Tüm makineler",
+  "min": 1,
+  "q2019": 2,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021",
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "930.4.020",
+  "ad": "PAKETLEME MAKİNASI ISI REZİSTANSI",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 1,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ },
+ {
+  "no": "930.5.767",
+  "ad": "17*3200 V KAYIS",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 1,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ },
+ {
+  "no": "960.1.003",
+  "ad": "3RT1024-1AP00 12A SIEMENS KONTAKTÖR",
+  "m": "",
+  "grup": "Tüm makineler",
+  "min": 1,
+  "q2019": 1,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.1.004",
+  "ad": "3RT1016-1BB41 9A SIEMENS KONTAKTÖR",
+  "m": "",
+  "grup": "Tüm makineler",
+  "min": 2,
+  "q2019": 2,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.1.118",
+  "ad": "KRAUS C26-A202 TRIFAZE PAKO SALTER",
+  "m": "",
+  "grup": "Tüm makineler",
+  "min": 1,
+  "q2019": 1,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.2.005",
+  "ad": "6004 RULMAN",
+  "m": "",
+  "grup": "Paketleme makineleri (MP4 / MP5 / MP7 / MP8)",
+  "min": 4,
+  "q2019": 6,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021",
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.2.013",
+  "ad": "6205 RULMAN",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 2,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ },
+ {
+  "no": "960.2.014",
+  "ad": "6206 RULMAN",
+  "m": "",
+  "grup": "Tüm makineler",
+  "min": 2,
+  "q2019": 2,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021",
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.2.305",
+  "ad": "1/2\"*1*15 DISLI",
+  "m": "",
+  "grup": "Paketleme makineleri (MP4 / MP5 / MP7 / MP8)",
+  "min": 2,
+  "q2019": 3,
+  "kaynak": [
+   "LeanSys kritik ekipman 2019-10-04"
+  ]
+ },
+ {
+  "no": "960.5.165",
+  "ad": "16AT10 AÇIK UÇLU KAYIS",
+  "m": "",
+  "grup": "Genel (PL65 makine: U.Y.)",
+  "min": 1,
+  "q2019": null,
+  "kaynak": [
+   "PL65 Veliköy rev 01.06.2021"
+  ]
+ }
+];
 const VELIKOY_ONERI_BAS = '2026-11-02';   // PL15'te olmayan makineler icin 2026 onerilen baslangic
 
 // Yalniz Velikoy kaydi: Sanifoam kodu ya da notlardaki kisa kod. Baska lokasyon ASLA eslesmez.
@@ -11774,6 +12021,39 @@ function loadVelikoyAriza(){
   });
   save(); updateSelects(); nav('failures');
   toast('Veliköy: '+n+' arıza yüklendi'+(g?(' · '+g+' güncellendi'):'')+(atl?(' · '+atl+' kayıt makinesiz atlandı'):''));
+}
+
+// Yedek parca (kritik ekipman): makineye bagli olanlar o makineye, "tum makineler / paketleme" olanlar makinesiz
+// ama lokasyon Velikoy (locParts bunlari Velikoy filtresinde gosterir). Guncel miktar kaynakta yok → 0 + sayim notu.
+// Ayni stok kodlu Velikoy parcasi varsa (kullanicinin girdigi dahil) DOKUNULMAZ; baska lokasyonun parcasina hic bakilmaz.
+function loadVelikoyParts(){
+  if(!canWrite()){ toast('Görüntüleme modundasınız — yüklenemedi.','warning'); return; }
+  const macId={};
+  VELIKOY_MACHINES.forEach(m=>{ const ex=_velBul(m); if(ex) macId[m.code]=ex.id; });
+  if(!Object.keys(macId).length){ toast('Önce Veliköy makine listesini yükleyin (Veliköy Planı).','warning'); return; }
+  db.parts=db.parts||[];
+  const velMids=new Set(db.machines.filter(m=>String(m.location||'').trim()==='Veliköy').map(m=>m.id));
+  const velde=no=>db.parts.some(p=>String(p.partNo||'').trim()===no
+      && (velMids.has(p.machineId) || String(p.location||'').trim()==='Veliköy'));
+  const yeni=VELIKOY_PARTS.filter(p=>!velde(p.no) && (!p.m || macId[p.m]));
+  const atl=VELIKOY_PARTS.filter(p=>p.m && !macId[p.m]).length;
+  if(!yeni.length){ toast('Veliköy yedek parçaları zaten listede.','warning'); return; }
+  if(!confirm('VELİKÖY yedek parçaları (kritik ekipman) yüklenecek:\n\n'
+    +'• '+yeni.length+' parça — PL65 Veliköy kritik ekipman listesi (rev 01.06.2021) + LeanSys kritik ekipman kaydı (04.10.2019)\n'
+    +'• '+yeni.filter(p=>p.m).length+' parça makineye bağlı (ISM3, KP7, YTY2), '+yeni.filter(p=>!p.m).length+' parça genel (tüm makineler / paketleme)\n'
+    +'• Min. stok listeden; GÜNCEL MİKTAR kaynakta yok → 0 girilir, sayım yapılıp güncellenmeli\n'
+    +'• Hepsi kritik olarak işaretlenir\n\n'
+    +'Aynı stok kodlu Veliköy parçasına dokunulmaz; başka lokasyonlar etkilenmez. Devam?')) return;
+  yeni.forEach(p=>{
+    db.parts.push({ id:'velp_'+p.no.replace(/[^0-9A-Za-z]/g,''), partName:p.ad, partNo:p.no,
+      machineId:p.m?macId[p.m]:'', location:'Veliköy', qty:0, minQty:p.min, unitCost:0,
+      supplier:'', supPhone:'', supMail:'', supAddr:'', repDate:'', nextDate:null,
+      notes:'Kritik ekipman — '+p.kaynak.join(' + ')+(p.grup?(' · '+p.grup):'')
+        +' · Güncel miktar bilinmiyor: sayım yapılıp girilmeli'+(p.q2019!=null?(' (2019 kaydı: '+p.q2019+' adet)'):''),
+      isCritical:true, leadTime:0, img:'' });
+  });
+  save(); updateSelects(); renderParts();
+  toast('Veliköy: '+yeni.length+' yedek parça eklendi'+(atl?(' · makinesi bulunamayan '+atl+' parça atlandı'):''),'success');
 }
 /* VELIKOY-BITIS */
 
@@ -13403,8 +13683,7 @@ function renderCalendar(){
   }) : [];
 
   // ── Yedek Parça (değişim tarihi + min stok uyarısı) ──
-  const _lpCal = locMids();
-  const locPartsCal = _lpCal ? db.parts.filter(p=>_lpCal.has(p.machineId)) : db.parts;
+  const locPartsCal = locPartsList();
   const partItems = calFilters.parts ? (() => {
     const items = [];
     // Sonraki değişim tarihi bu ay olan parçalar
@@ -14274,8 +14553,7 @@ function _exportMachineExcelImpl(){
 function exportPartsExcel(){ _askPrintDate(()=>_exportPartsExcelImpl()); }
 function _exportPartsExcelImpl(){
   loadFormSettings();
-  const _lp=locMids();
-  const list=_lp?db.parts.filter(p=>_lp.has(p.machineId)):db.parts;
+  const list=locPartsList();
   genExcelReport({
     sheet:'Yedek Parça', formName:'YEDEK PARÇA LİSTESİ', reportTitle:'YEDEK PARÇA LİSTESİ',
     docNo:formSettings.ptDocNo, revNo:formSettings.ptRevNo,

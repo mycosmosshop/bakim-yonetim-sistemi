@@ -7,20 +7,20 @@ const src = fs.readFileSync(__dirname + '/bakim_yonetim_sistemi.html', 'utf8');
 const bas = src.indexOf('/* VELIKOY-BASLA'), son = src.indexOf('/* VELIKOY-BITIS */');
 assert(bas > 0 && son > bas, 'Veliköy bloğu bulunamadı');
 const kod = src.slice(bas, son);
-assert(src.includes('onclick="loadVelikoyPlan()"') && src.includes('onclick="loadVelikoyAriza()"'), 'butonlar yok');
+assert(src.includes('onclick="loadVelikoyPlan()"') && src.includes('onclick="loadVelikoyAriza()"') && src.includes('onclick="loadVelikoyParts()"'), 'butonlar yok');
 const SETLER = (() => { const i = src.indexOf('const SANIFOAM_TASK_SETS'), j = src.indexOf('\n];', i) + 3;
   return new Function(src.slice(i, j) + '\nreturn SANIFOAM_TASK_SETS;')(); })();
 
 function ortam(db) {
   let n = 0;
   const g = { db, canWrite: () => true, save: () => { g._kayit = true; }, updateSelects() {}, nav(x) { g._ekran = x; },
-    toast: (m) => { g._mesaj = m; }, confirm: () => true, uid: () => 'u' + (++n), SANIFOAM_TASK_SETS: SETLER };
+    toast: (m) => { g._mesaj = m; }, confirm: () => true, renderParts() {}, uid: () => 'u' + (++n), SANIFOAM_TASK_SETS: SETLER };
   // Tanimsiz ad SESSIZCE undefined olmasin (onceki testte 2 hata boyle kacti): yoksa ReferenceError
   const px = new Proxy(g, { has: (t, p) => p !== '__k', get: (t, p) => {
     if (p in t) return t[p]; if (p in globalThis) return globalThis[p]; if (p === Symbol.unscopables) return undefined;
     throw new ReferenceError(String(p) + ' tanımsız'); } });
   return [g, new Function('__k', 'with (__k) {\n' + kod +
-    '\nreturn { plan: loadVelikoyPlan, ariza: loadVelikoyAriza, MAK: VELIKOY_MACHINES, ARZ: VELIKOY_ARIZA, planlar: _velPlanlar };\n}')(px)];
+    '\nreturn { plan: loadVelikoyPlan, ariza: loadVelikoyAriza, parca: loadVelikoyParts, MAK: VELIKOY_MACHINES, ARZ: VELIKOY_ARIZA, PRC: VELIKOY_PARTS, planlar: _velPlanlar };\n}')(px)];
 }
 
 // 1) Diger lokasyonlar dolu bir veritabani: Ankara'da ayni Sanifoam kodlu forklift (910.5.019) var
@@ -84,4 +84,29 @@ assert.strictEqual(db.failures.filter(f => String(f.id).startsWith('vel_a_')).le
 assert(va[0].cost === 1234 && va[0].rootCause === 'Kullanıcı kök nedeni', '3g: kullanıcı girdisi ezildi');
 assert(db.failures.find(f => f.id === 'ank_a_0').desc === 'x', '3h: Ankara arızası değişti');
 
-console.log('TAMAM — Veliköy:', vel.length, 'makine,', vb.length, 'bakım (', on.length, 'önerilen ),', va.length, 'arıza');
+// 4) Yedek parca: Ankara'da ayni stok kodlu parca ve kullanicinin elle girdigi Velikoy parcasi var
+const ankParca = { id: 'ank_p1', partName: '6206 RULMAN', partNo: '960.2.014', machineId: 'ank_FRT', location: 'Ankara', qty: 9, minQty: 2 };
+const elle = { id: 'u_elle', partName: 'START BUTONU (sayıldı)', partNo: '900.5.435', machineId: '', location: 'Veliköy', qty: 5, minQty: 2 };
+db.parts = [JSON.parse(JSON.stringify(ankParca)), JSON.parse(JSON.stringify(elle))];
+api.parca();
+const vp = db.parts.filter(x => String(x.id).startsWith('velp_'));
+assert.strictEqual(vp.length, api.PRC.length - 1, '4a: Veliköy parça sayısı ' + vp.length);
+assert.deepStrictEqual(db.parts.find(x => x.id === 'ank_p1'), ankParca, '4b: Ankara parçası değişti');
+assert.deepStrictEqual(db.parts.find(x => x.id === 'u_elle'), elle, '4c: elle girilen Veliköy parçası değişti');
+assert(!vp.some(x => x.partNo === '900.5.435'), '4c: elle girilen parça çift eklendi');
+assert(vp.some(x => x.partNo === '960.2.014' && x.location === 'Veliköy'), '4d: Ankara\'daki kod yüzünden Veliköy parçası atlandı');
+assert(vp.every(x => x.location === 'Veliköy' && x.isCritical && x.qty === 0 && x.minQty > 0 && /sayım yapılıp girilmeli/.test(x.notes)), '4e: biçim / miktar uyduruldu');
+const bagli = vp.filter(x => x.machineId);
+assert(bagli.length === 4 && bagli.every(x => ['vel_ISM3', 'vel_KP7', 'vel_YTY2'].includes(x.machineId)), '4f: makine bağı ' + bagli.map(x => x.machineId));
+assert(vp.find(x => x.partNo === '960.2.005').minQty === 4, '4g: 6004 rulman min PL65 2021 değil');
+api.parca();
+assert.strictEqual(db.parts.filter(x => String(x.id).startsWith('velp_')).length, vp.length, '4h: ikinci yüklemede çift kayıt');
+// 5) locPartsList: Velikoy filtresi makinesiz Velikoy parcalarini gosterir, Ankara parcasini gostermez
+const lp = (() => { const i = src.indexOf('function locMids()'), j = src.indexOf('\n', src.indexOf('function locPartsList()'));
+  return new Function('db', 'gLocFilter', src.slice(i, src.indexOf('\n', i)) + '\n' + src.slice(src.indexOf('function locPartsList()'), j) + '\nreturn locPartsList();'); })();
+const velList = lp(db, 'Veliköy'), ankList = lp(db, 'Ankara');
+assert(velList.some(x => x.id === 'u_elle') && velList.filter(x => String(x.id).startsWith('velp_')).length === vp.length, '5a: Veliköy genel parçaları görünmüyor');
+assert(!velList.some(x => x.id === 'ank_p1') && ankList.some(x => x.id === 'ank_p1') && !ankList.some(x => x.location === 'Veliköy'), '5b: lokasyon karıştı');
+assert.strictEqual(lp(db, '').length, db.parts.length, '5c: filtresiz liste');
+
+console.log('TAMAM — Veliköy:', vel.length, 'makine,', vb.length, 'bakım (', on.length, 'önerilen ),', va.length, 'arıza,', vp.length, 'yedek parça');
