@@ -2848,7 +2848,7 @@ let db = { machines:[], failures:[], maintenance:[], parts:[], oee:[], workorder
 // ── KPI Configuration ──
 // higherBetter: true = yeşil renk için hedefin üzerinde olmak lazım
 const KPI_DEFS = {
-  mtbf:        { label:'MTBF',               unit:'saat', icon:'bi-clock-history',        color:'#69f0ae', higherBetter:true,  defaultTarget:200,  desc:'Ortalama arızalar arası çalışma süresi' },
+  mtbf:        { label:'MTBF',               unit:'saat', icon:'bi-clock-history',        color:'#69f0ae', higherBetter:true,  defaultTarget:200,  desc:'Tesiste iki arıza arası ortalama çalışma süresi (vardiya saati ÷ arıza sayısı)' },
   mttr:        { label:'MTTR',               unit:'saat', icon:'bi-tools',                color:'#ff9800', higherBetter:false, defaultTarget:4,    desc:'Ortalama tamir / müdahale süresi' },
   mttf:        { label:'MTTF',               unit:'saat', icon:'bi-hourglass-split',       color:'#42a5f5', higherBetter:true,  defaultTarget:500,  desc:'Ortalama ilk arızaya kadar geçen süre (tamir edilemeyen ekipman)' },
   availability:{ label:'Kullanılabilirlik',  unit:'%',    icon:'bi-activity',              color:'#26c6da', higherBetter:true,  defaultTarget:95,   desc:'Makinenin çalışabilir olduğu sürenin toplam süreye oranı' },
@@ -3498,6 +3498,39 @@ function _mttfSebep(fleet){
   return 'Ölçülemiyor — ' + p.join(', ');
 }
 
+// TESİS MTBF: lokasyonun ÇALIŞMA saati (vardiya) ÷ arıza sayısı. Önce makine başı çalışma saatleri
+// toplanıyordu (havuz): Ankara'da 8 makine × ~217 sa ÷ ayda ~3 arıza ≈ 580 sa çıkıyordu — tesis ayda
+// ~217 saat çalışırken. "Tesiste kaç çalışma saatinde bir arıza oluyor" sorusu TESİS saatiyle cevaplanır;
+// makine başı MTBF makine kartında ve tablolarda kalır (orada soru "bu makine").
+// Pencere: lokasyonun ilk KAYDINDAN (arıza/bakım) — kurulum tarihi değil: kayıt tutmadan önceki dönem
+// "arızasız çalıştı" sayılmaz (sansürlü veri). Dashboard aralığı varsa onunla kesişir.
+function _tesisBaslangic(ml){
+  const ids = new Set(ml.map(m=>m.id)), t = [];
+  (db.failures||[]).forEach(f=>{ if(ids.has(f.machineId) && f.startTime) t.push(new Date(f.startTime)); });
+  (db.maintenance||[]).forEach(p=>{ const d = p.comp || p.sched; if(ids.has(p.machineId) && d) t.push(new Date(d)); });
+  return t.filter(d=>!isNaN(d.getTime())).sort((a,b)=>a-b)[0] || null;
+}
+// Lokasyon(lar)ın tesis çalışma saati: her lokasyon kendi vardiyasıyla, arıza duruşu (vardiya içi) düşülür.
+function _tesisCalismaH(ml, fails){
+  const lokler = {};
+  ml.forEach(m=>{ const l = m.location || ''; (lokler[l] = lokler[l] || []).push(m); });
+  let toplam = 0;
+  Object.keys(lokler).forEach(l=>{
+    let bas = _tesisBaslangic(lokler[l]), bit = new Date();
+    if(!bas) return;
+    if(_dashRangeActive){
+      if(_dashRange.from && _dashRange.from > bas) bas = _dashRange.from;
+      if(_dashRange.to && _dashRange.to < bit) bit = _dashRange.to;
+    }
+    if(bit <= bas) return;
+    const plan = (bit - bas)/3600000 * _vardiyaCarpan(l);
+    const ids = new Set(lokler[l].map(m=>m.id));
+    const durus = fails.filter(f=>ids.has(f.machineId)).reduce((s,f)=>s+_durusVardiyaH(f, l), 0);
+    toplam += Math.max(0, plan - durus);
+  });
+  return toplam;
+}
+
 function calcFleetKPIs(forLoc){
   const loc = forLoc !== undefined ? forLoc : gLocFilter;
   const _mids = loc ? new Set(db.machines.filter(m=>m.location===loc).map(m=>m.id)) : null;
@@ -3542,6 +3575,7 @@ function calcFleetKPIs(forLoc){
     }
   });
   const n = _ml.length||1;
+  const _tesisH = _tesisCalismaH(_ml, _lf);
 
   // Eğer lokasyonda hiç makine/veri yoksa anlamsız değerler gösterme
   const hasData = _ml.length > 0;
@@ -3591,7 +3625,8 @@ function calcFleetKPIs(forLoc){
     // MTTR = toplam onarim suresi / kapanmis ariza sayisi. Once her
     // makinenin kendi degeri agirliksiz ortalaniyordu ve payda yalniz
     // arizali makinelerdi.
-    mtbf:         poolFail>0      ? +(poolOperH/poolFail).toFixed(0)           : null,
+    mtbf:         poolFail>0      ? +(_tesisH/poolFail).toFixed(0)              : null,
+    mtbfFilo:     poolFail>0      ? +(poolOperH/poolFail).toFixed(0)           : null,   // eski: makine saatleri toplamı
     mttr:         poolClosedCnt>0 ? +(poolClosedDown/poolClosedCnt).toFixed(1) : null,
     // Bakim maliyeti (ariza + planli bakim + yedek parca) — KPI'ya taşinir
     cost:         hasData ? +poolCost.toFixed(0) : null,
@@ -3610,7 +3645,7 @@ function calcFleetKPIs(forLoc){
       machineCount:n, failMachineCount:cntF,
       // Havuz girdileri — detay ekrani bunlari gosterir (makine-basi
       // toplamlar yalniz karsilastirma icin duruyor).
-      poolOperH:+poolOperH.toFixed(0), poolFail:poolFail,
+      poolOperH:+poolOperH.toFixed(0), poolFail:poolFail, tesisH:+_tesisH.toFixed(0),
       poolClosedDown:+poolClosedDown.toFixed(1), poolClosedCnt:poolClosedCnt,
       poolCost:+poolCost.toFixed(0),
       sumMtbf:+sumMtbf.toFixed(0), sumMttr:+sumMttr.toFixed(1), sumMttf:+sumMttf.toFixed(0), sumAvail:+sumAvail.toFixed(1),
@@ -13609,7 +13644,8 @@ function openKpiDetail(key){
   const _u = def.unit==='%'?'%':' '+def.unit;
   const calcText = (()=>{
     switch(key){
-      case 'mtbf':         return `${c.poolOperH} ${def.unit} çalışma ÷ ${c.poolFail} arıza = <b>${fleetVal}${_u}</b>`;
+      case 'mtbf':         return `${c.tesisH} ${def.unit} tesis çalışması ÷ ${c.poolFail} arıza = <b>${fleetVal}${_u}</b>`
+                                  + `<div style="font-size:.75rem;color:var(--muted);margin-top:.35rem">Tesis çalışması = vardiya saatleri (KPI Hedefleri → Çalışma takvimi) − arıza duruşu. Makine başına bakış (${c.poolOperH} makine-saati ÷ ${c.poolFail} arıza = ${fleet.mtbfFilo}${_u}) makine kartlarında ve tablolarda gösterilir.</div>`;
       case 'mttr':         return `${c.poolClosedDown} ${def.unit} onarım ÷ ${c.poolClosedCnt} kapanmış arıza = <b>${fleetVal}${_u}</b>`;
       case 'mttf':         return `${c.sumMttf} ${def.unit} ÷ ${c.mttfSayi} makine = <b>${fleetVal}${_u}</b>`
                                   + (c.mttfSayi === 1
