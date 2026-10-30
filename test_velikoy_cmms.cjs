@@ -10,17 +10,19 @@ const kod = src.slice(bas, son);
 assert(src.includes('onclick="loadVelikoyPlan()"') && src.includes('onclick="loadVelikoyAriza()"') && src.includes('onclick="loadVelikoyParts()"'), 'butonlar yok');
 const SETLER = (() => { const i = src.indexOf('const SANIFOAM_TASK_SETS'), j = src.indexOf('\n];', i) + 3;
   return new Function(src.slice(i, j) + '\nreturn SANIFOAM_TASK_SETS;')(); })();
+const HAZIR = (() => { const i = src.indexOf('const DEFAULT_TASK_SETS'), j = src.indexOf('\n];', i) + 3;
+  return new Function(src.slice(i, j) + '\nreturn DEFAULT_TASK_SETS;')(); })();
 
 function ortam(db) {
   let n = 0;
   const g = { db, canWrite: () => true, save: () => { g._kayit = true; }, updateSelects() {}, nav(x) { g._ekran = x; },
-    toast: (m) => { g._mesaj = m; }, confirm: () => true, renderParts() {}, uid: () => 'u' + (++n), SANIFOAM_TASK_SETS: SETLER };
+    toast: (m) => { g._mesaj = m; }, confirm: () => true, renderParts() {}, uid: () => 'u' + (++n), SANIFOAM_TASK_SETS: SETLER, DEFAULT_TASK_SETS: HAZIR };
   // Tanimsiz ad SESSIZCE undefined olmasin (onceki testte 2 hata boyle kacti): yoksa ReferenceError
   const px = new Proxy(g, { has: (t, p) => p !== '__k', get: (t, p) => {
     if (p in t) return t[p]; if (p in globalThis) return globalThis[p]; if (p === Symbol.unscopables) return undefined;
     throw new ReferenceError(String(p) + ' tanımsız'); } });
   return [g, new Function('__k', 'with (__k) {\n' + kod +
-    '\nreturn { plan: loadVelikoyPlan, ariza: loadVelikoyAriza, parca: loadVelikoyParts, MAK: VELIKOY_MACHINES, ARZ: VELIKOY_ARIZA, PRC: VELIKOY_PARTS, planlar: _velPlanlar };\n}')(px)];
+    '\nreturn { plan: loadVelikoyPlan, ariza: loadVelikoyAriza, parca: loadVelikoyParts, MAK: VELIKOY_MACHINES, ARZ: VELIKOY_ARIZA, PRC: VELIKOY_PARTS, planlar: _velPlanlar, setUygula: velikoySetleriUygula, setId: _velSetId };\n}')(px)];
 }
 
 // 1) Diger lokasyonlar dolu bir veritabani: Ankara'da ayni Sanifoam kodlu forklift (910.5.019) var
@@ -67,6 +69,36 @@ assert.strictEqual(db.machines.length, mak, '2a: tekrar yüklemede makine arttı
 const k2 = db.maintenance.find(p => p.id === 'vel_p_ISM3_2025_1');
 assert(k2.status === 'completed' && k2.comp === '2025-11-20' && k2.cost === 750, '2b: kapatılan bakım ezildi');
 assert(/korundu/.test(g._mesaj), '2c: korunma bildirilmedi');
+
+// 2d) Her Velikoy makinesinin seti var ve set listede tanimli; yukleme kontrol listesini dolu getirir
+const tumSet = new Set([...SETLER, ...HAZIR].map(x => x.id));
+const setsiz = api.MAK.filter(m => !tumSet.has(api.setId(m)));
+assert(!setsiz.length, '2d: seti olmayan makine: ' + setsiz.map(m => m.code));
+assert(vb.filter(p => p.status !== 'completed').every(p => p.checklist.length && p.taskSetId), '2d: boş kontrol listesi');
+
+// 2e) Eski yuklemeden kalan durum: yeni setler veritabaninda yok, acik bakimlarin listesi bos
+const fr5b = db.maintenance.filter(p => p.machineId === 'vel_FR5');
+fr5b.forEach(p => { p.checklist = []; p.taskSetId = ''; p.estDur = 1; });
+const kapaliBos = db.maintenance.find(p => p.machineId === 'vel_MP4');
+Object.assign(kapaliBos, { status: 'completed', comp: '2025-01-20', checklist: [] });
+const dolu = db.maintenance.find(p => p.machineId === 'vel_EHU3');
+dolu.checklist = [{ id: 'x1', title: 'Kullanıcı görevi', done: true }];
+db.taskSets = db.taskSets.filter(t => t.id !== 'sfm_firin' && t.id !== 'sfm_paketleme');
+const czOnce = JSON.stringify(db.maintenance.find(m => m.id === 'cz_m_ISM2_2026'));
+const nU = api.setUygula();
+assert(nU >= fr5b.length && fr5b.every(p => p.taskSetId === 'sfm_firin' && p.checklist.length === 13 && p.estDur > 1), '2e: FR5 seti atanmadı');
+assert(db.taskSets.some(t => t.id === 'sfm_firin'), '2e: set veritabanına eklenmedi');
+assert(kapaliBos.checklist.length === 0, '2f: kapatılmış bakıma liste yazıldı');
+assert(dolu.checklist.length === 1 && dolu.checklist[0].title === 'Kullanıcı görevi', '2g: dolu liste ezildi');
+assert.strictEqual(JSON.stringify(db.maintenance.find(m => m.id === 'cz_m_ISM2_2026')), czOnce, '2h: Çerkezköy bakımı değişti');
+assert.strictEqual(api.setUygula(), 0, '2i: ikinci çalıştırma yine yazdı');
+// 2j) Canlida metal dedektorun bakim kaydi yok: acilista onerilen 2026 bakimi seti dolu acilir
+db.maintenance = db.maintenance.filter(p => p.machineId !== 'vel_MDT');
+assert(api.setUygula() >= 1, '2j: metal dedektör bakımı açılmadı');
+const mdt = db.maintenance.filter(p => p.machineId === 'vel_MDT');
+assert(mdt.length === 1 && mdt[0].sched === '2026-11-02' && mdt[0].status === 'scheduled'
+  && mdt[0].taskSetId === 'sfm_metal_dedektor' && mdt[0].checklist.length === 10, '2j: ' + JSON.stringify(mdt[0]));
+assert.strictEqual(api.setUygula(), 0, '2j: ikinci açılışta çift kayıt');
 
 // 3) Arizalar: hepsi Velikoy makinesine bagli, kimlik LeanSys durus no'su, ikinci yuklemede cift yok
 api.ariza();

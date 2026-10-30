@@ -9468,7 +9468,8 @@ const TASKSET_CODES = {
   dts_gun:'BST-OTN-01', dts_rev:'BST-REV-01', dts_pres:'BST-PRS-01', dts_cnc:'BST-CNC-01',
   dts_komp:'BST-KMP-01', dts_fork:'BST-FRK-01',
   sfm_dilimleme:'BSM-KSM-01', sfm_acili:'BSM-KSM-02', sfm_cnc_kesim:'BSM-KSM-03', sfm_yatay_kesim:'BSM-KSM-04',
-  sfm_kesme_pres:'BSM-PRS-01', sfm_sjt:'BSM-SUJ-01', sfm_laminasyon:'BSM-LAM-01', sfm_kalip:'BSM-KAL-01'
+  sfm_kesme_pres:'BSM-PRS-01', sfm_sjt:'BSM-SUJ-01', sfm_laminasyon:'BSM-LAM-01', sfm_kalip:'BSM-KAL-01',
+  sfm_paketleme:'BSM-PKT-01', sfm_strec:'BSM-PKT-02', sfm_tarak:'BSM-NWV-01', sfm_bondex:'BSM-NWV-02', sfm_firin:'BSM-FRN-01', sfm_bez_kesme:'BSM-KSM-05', sfm_kenar_oluk:'BSM-KSM-06', sfm_inkjet:'BSM-BSK-01', sfm_metal_dedektor:'BSM-KLT-01', sfm_dikis:'BSM-DKS-01', sfm_ultrasonik:'BSM-KYN-01', sfm_test_cihazi:'BSM-LAB-01', sfm_dezenfeksiyon:'BSM-HJY-01', sfm_jenerator:'BSM-ENR-01'
 };
 function _tsCode(ts){ return (ts&&ts.code) || (ts&&TASKSET_CODES[ts.id]) || ''; }
 function _nextBsoCode(){ const used=new Set((db.taskSets||[]).map(t=>(t.code||TASKSET_CODES[t.id])).filter(Boolean)); let n=1; while(used.has('BSO-'+String(n).padStart(2,'0'))) n++; return 'BSO-'+String(n).padStart(2,'0'); }
@@ -9840,6 +9841,191 @@ const SANIFOAM_TASK_SETS = [
     {id:'sfm_yatay_kesim_12',title:'Makine ölçü sistemini kontrol et',note:'',mins:10},
     {id:'sfm_yatay_kesim_13',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
     {id:'sfm_yatay_kesim_14',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  // Veliköy makine türleri (30.10.2026)
+  { id:'sfm_paketleme', name:'Paketleme / Ambalaj Makinesi — Periyodik Bakım (MP / OKP / Poşet Kapatma)', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Form-dolum-kapama paketleme ve otomatik kesme-paketleme', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_paketleme_1',title:'Film bobin açıcı mili, fren ve gergi (dans kolu) kontrolü',note:'',mins:10},
+    {id:'sfm_paketleme_2',title:'Form omzu / tüp şekillendirici ve film yolu merdaneleri kontrolü',note:'',mins:10},
+    {id:'sfm_paketleme_3',title:'Kaynak çeneleri: rezistans, teflon bant ve sıcaklık değeri kontrolü',note:'Ayar değeri ile termometre ölçümü karşılaştırılır',mins:15},
+    {id:'sfm_paketleme_4',title:'Kaynak çenesi baskı ve paralellik ayarı; numune poşette kaynak sağlamlığı kontrolü',note:'',mins:10},
+    {id:'sfm_paketleme_5',title:'Kesme bıçağı keskinlik, boşluk ve bağlantı kontrolü',note:'',mins:10},
+    {id:'sfm_paketleme_6',title:'Film çekme kayışları, tahrik zinciri ve dişliler: gerginlik ve aşınma kontrolü',note:'',mins:10},
+    {id:'sfm_paketleme_7',title:'Baskı işareti fotoseli ve sensörlerin temizliği ve testi',note:'',mins:10},
+    {id:'sfm_paketleme_8',title:'Pnömatik silindir, valf ve hava şartlandırıcı (filtre-regülatör) kontrolü',note:'',mins:10},
+    {id:'sfm_paketleme_9',title:'Rulman, kızak ve hareketli parçaların yağlanması',note:'',mins:10},
+    {id:'sfm_paketleme_10',title:'Acil stop, kapı emniyet switch\'leri ve koruyucu kapakların testi',note:'',mins:10},
+    {id:'sfm_paketleme_11',title:'Elektrik panosu, sıcaklık kontrolcüleri ve kablaj kontrolü',note:'',mins:10},
+    {id:'sfm_paketleme_12',title:'Makine temizliği (film artığı ve tozdan arındırma)',note:'',mins:15},
+    {id:'sfm_paketleme_13',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_paketleme_14',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_strec', name:'Palet Streç Sarma Makinesi — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Yarı otomatik palet streç makinesi', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_strec_1',title:'Döner tabla rulmanı, tahrik zinciri/dişlisi gerginlik ve yağlama',note:'',mins:10},
+    {id:'sfm_strec_2',title:'Tabla ve kule redüktörü yağ seviyesi ve sızıntı kontrolü',note:'',mins:10},
+    {id:'sfm_strec_3',title:'Film arabası ön germe merdaneleri ve fren kontrolü',note:'',mins:10},
+    {id:'sfm_strec_4',title:'Film arabası kaldırma zinciri/kayışı, kılavuz makaraları kontrolü',note:'',mins:10},
+    {id:'sfm_strec_5',title:'Palet yükseklik fotoseli ve limit switch testi',note:'',mins:5},
+    {id:'sfm_strec_6',title:'Acil stop ve tabla çevresi emniyet testi',note:'',mins:5},
+    {id:'sfm_strec_7',title:'Kumanda panosu ve kablaj kontrolü',note:'',mins:10},
+    {id:'sfm_strec_8',title:'Makine temizliği',note:'',mins:10},
+    {id:'sfm_strec_9',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_strec_10',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_tarak', name:'Elyaf Hazırlama / Tarak (Nonwoven) — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Elyaf açma, besleme ve tarak ünitesi', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_tarak_1',title:'Elyaf açıcı ve besleme silindirleri, besleme bandı kontrolü',note:'',mins:10},
+    {id:'sfm_tarak_2',title:'Tarak ana tambur, işçi ve sıyırıcı silindir garnitür (diş teli) aşınma kontrolü',note:'Ezik/kırık diş, sarma (sarılmış elyaf) var mı',mins:20},
+    {id:'sfm_tarak_3',title:'Silindirler arası mesafe (ayar) kontrolü',note:'Ayar mastarı ile',mins:15},
+    {id:'sfm_tarak_4',title:'Besleme kutusu / tartı ve seviye sensörü kontrolü',note:'',mins:10},
+    {id:'sfm_tarak_5',title:'Tülbent çıkışı ve katlama (cross-lapper) ünitesi kontrolü',note:'',mins:10},
+    {id:'sfm_tarak_6',title:'Zincir, dişli ve kayışlar: gerginlik ve aşınma kontrolü',note:'',mins:10},
+    {id:'sfm_tarak_7',title:'Rulman yataklarının yağlanması; ses ve sıcaklık kontrolü',note:'',mins:15},
+    {id:'sfm_tarak_8',title:'Fan, hava kanalları ve toz filtrelerinin temizliği',note:'',mins:15},
+    {id:'sfm_tarak_9',title:'Statik elektrik topraklaması kontrolü',note:'',mins:5},
+    {id:'sfm_tarak_10',title:'Motor, sürücü (inverter) ve kablaj kontrolü',note:'',mins:10},
+    {id:'sfm_tarak_11',title:'Acil stop, koruyucu kapak ve kapı switch\'lerinin testi',note:'',mins:10},
+    {id:'sfm_tarak_12',title:'Elyaf/toz birikiminin temizlenmesi (yangın riski)',note:'Motor, pano ve yatak çevresi öncelikli',mins:20},
+    {id:'sfm_tarak_13',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_tarak_14',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_bondex', name:'Bondex Döküm / Emprenye Hattı — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Bağlayıcı (bondex) döküm ve emprenye hattı', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_bondex_1',title:'Bağlayıcı/reçine pompası, hortum ve bağlantılarda sızıntı kontrolü',note:'',mins:10},
+    {id:'sfm_bondex_2',title:'Döküm ağzı / püskürtme nozullarının temizliği ve akış kontrolü',note:'',mins:15},
+    {id:'sfm_bondex_3',title:'Fular (sıkma) merdaneleri: yüzey, basınç ve paralellik kontrolü',note:'',mins:15},
+    {id:'sfm_bondex_4',title:'Karıştırma tankı ve karıştırıcı motoru kontrolü',note:'',mins:10},
+    {id:'sfm_bondex_5',title:'Hat filtrelerinin temizliği veya değişimi',note:'',mins:10},
+    {id:'sfm_bondex_6',title:'Konveyör bandı/teli: izleme (kaçıklık) ve gerginlik kontrolü',note:'',mins:10},
+    {id:'sfm_bondex_7',title:'Rulman ve zincirlerin yağlanması',note:'',mins:10},
+    {id:'sfm_bondex_8',title:'Döküm havuzu ve zeminde kimyasal sızıntı kontrolü',note:'',mins:5},
+    {id:'sfm_bondex_9',title:'Elektrik panosu ve kablaj kontrolü (nem/kimyasal teması)',note:'',mins:10},
+    {id:'sfm_bondex_10',title:'Acil stop ve koruyucu testleri',note:'',mins:5},
+    {id:'sfm_bondex_11',title:'Kurumuş bağlayıcı artıklarının temizlenmesi',note:'',mins:20},
+    {id:'sfm_bondex_12',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_bondex_13',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_firin', name:'Keçe Fırını — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Keçe kurutma / termofiksaj fırını', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_firin_1',title:'Brülör veya rezistansların kontrolü; yanma ayarı (gazlı ise)',note:'',mins:15},
+    {id:'sfm_firin_2',title:'Sıcaklık kontrol cihazı ve termokupl doğrulaması',note:'Referans termometre ile karşılaştırılır',mins:15},
+    {id:'sfm_firin_3',title:'Aşırı sıcaklık emniyet termostatı testi',note:'',mins:10},
+    {id:'sfm_firin_4',title:'Sirkülasyon ve egzoz fanları: rulman, kayış ve titreşim kontrolü',note:'',mins:15},
+    {id:'sfm_firin_5',title:'Hava kanalları ve filtrelerin temizliği',note:'',mins:15},
+    {id:'sfm_firin_6',title:'Konveyör (tel bant/zincir): gerginlik, izleme ve yağlama',note:'',mins:15},
+    {id:'sfm_firin_7',title:'Kapak contaları ve yalıtım kontrolü',note:'',mins:10},
+    {id:'sfm_firin_8',title:'Gaz hattı kaçak kontrolü (gazlı ise)',note:'Köpük testi veya dedektör',mins:10},
+    {id:'sfm_firin_9',title:'Elektrik panosu ve kablaj kontrolü',note:'',mins:10},
+    {id:'sfm_firin_10',title:'Acil stop testi',note:'',mins:5},
+    {id:'sfm_firin_11',title:'Fırın içi elyaf/toz birikiminin temizlenmesi (yangın riski)',note:'',mins:20},
+    {id:'sfm_firin_12',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_firin_13',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_bez_kesme', name:'Bez Kesme-Katlama / Sarma Makinesi — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Bez/keçe kesme, katlama, perfore ve sarım makineleri', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_bez_kesme_1',title:'Bobin açıcı mili, havalı şaft ve fren kontrolü',note:'',mins:10},
+    {id:'sfm_bez_kesme_2',title:'Gergi merdaneleri ve kenar hizalama (kılavuz) kontrolü',note:'',mins:10},
+    {id:'sfm_bez_kesme_3',title:'Kesme bıçağı (rotatif/giyotin/dilme) keskinlik ve boşluk kontrolü',note:'',mins:15},
+    {id:'sfm_bez_kesme_4',title:'Perfore / kesme merdanesi ve karşı merdane kontrolü',note:'',mins:10},
+    {id:'sfm_bez_kesme_5',title:'Katlama plakaları/parmakları ve sarım mili ayarı',note:'',mins:10},
+    {id:'sfm_bez_kesme_6',title:'Ölçü enkoderi, sayıcı ve sensörlerin testi',note:'Numune ölçüsü kontrol edilir',mins:10},
+    {id:'sfm_bez_kesme_7',title:'Tahrik kayışı, zincir ve dişliler: gerginlik ve aşınma',note:'',mins:10},
+    {id:'sfm_bez_kesme_8',title:'Rulman ve kızakların yağlanması',note:'',mins:10},
+    {id:'sfm_bez_kesme_9',title:'Pnömatik silindir, valf ve hava şartlandırıcı kontrolü',note:'',mins:10},
+    {id:'sfm_bez_kesme_10',title:'Acil stop ve koruyucu kapakların testi',note:'',mins:5},
+    {id:'sfm_bez_kesme_11',title:'Elektrik panosu ve kablaj kontrolü',note:'',mins:10},
+    {id:'sfm_bez_kesme_12',title:'Makine temizliği (elyaf tozu ve kesim artığı)',note:'',mins:15},
+    {id:'sfm_bez_kesme_13',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_bez_kesme_14',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_kenar_oluk', name:'Kenar / Oluk Açma Makinesi — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Kenar ve oluk açma makineleri', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_kenar_oluk_1',title:'Kesici bıçak/freze takımının keskinlik ve bağlantı kontrolü',note:'',mins:10},
+    {id:'sfm_kenar_oluk_2',title:'Kesim derinliği ve yükseklik ayarı kontrolü',note:'Numune kesimi ile',mins:10},
+    {id:'sfm_kenar_oluk_3',title:'Besleme bandı ve baskı merdaneleri kontrolü',note:'',mins:10},
+    {id:'sfm_kenar_oluk_4',title:'Kılavuz cetveli ve dayamaların kontrolü',note:'',mins:5},
+    {id:'sfm_kenar_oluk_5',title:'Toz emiş fanı ve hortumlarının temizliği',note:'',mins:10},
+    {id:'sfm_kenar_oluk_6',title:'Kayış gerginliği ve aşınma kontrolü',note:'',mins:10},
+    {id:'sfm_kenar_oluk_7',title:'Rulmanların yağlanması',note:'',mins:10},
+    {id:'sfm_kenar_oluk_8',title:'Acil stop ve bıçak koruyucusunun testi',note:'',mins:5},
+    {id:'sfm_kenar_oluk_9',title:'Elektrik panosu ve kablaj kontrolü',note:'',mins:10},
+    {id:'sfm_kenar_oluk_10',title:'Makine temizliği',note:'',mins:10},
+    {id:'sfm_kenar_oluk_11',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_kenar_oluk_12',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_inkjet', name:'Inkjet Baskı Makinesi — Periyodik Bakım', desc:'Makine Elektrik Periyodik Bakım Kartı — Manuel inkjet baskı makinesi', type:'preventive', techDisc:'electrical', tasks:[
+    {id:'sfm_inkjet_1',title:'Baskı kafası temizliği ve nozul testi',note:'',mins:10},
+    {id:'sfm_inkjet_2',title:'Mürekkep ve solvent seviyesi, son kullanma tarihi kontrolü',note:'',mins:5},
+    {id:'sfm_inkjet_3',title:'Mürekkep filtresinin kontrolü veya değişimi',note:'',mins:10},
+    {id:'sfm_inkjet_4',title:'Hortum ve bağlantılarda sızıntı kontrolü',note:'',mins:5},
+    {id:'sfm_inkjet_5',title:'Tetik fotoseli / sensör testi',note:'',mins:5},
+    {id:'sfm_inkjet_6',title:'Kafa-ürün mesafesi ayarı ve numune baskıda okunurluk kontrolü',note:'',mins:10},
+    {id:'sfm_inkjet_7',title:'Kablaj ve güç kaynağı kontrolü',note:'',mins:5},
+    {id:'sfm_inkjet_8',title:'Cihaz temizliği',note:'',mins:10},
+    {id:'sfm_inkjet_9',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_inkjet_10',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_metal_dedektor', name:'Metal Dedektör (Konveyörlü) — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Konveyörlü metal dedektör', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_metal_dedektor_1',title:'Test kartlarıyla (Fe / Non-Fe / SS) hassasiyet testi ve kaydı',note:'Sonuç forma işlenir; geçmezse makine üretime verilmez',mins:15},
+    {id:'sfm_metal_dedektor_2',title:'Ayırma (red) mekanizması ve alarmın testi',note:'',mins:10},
+    {id:'sfm_metal_dedektor_3',title:'Konveyör bandı: izleme ve gerginlik kontrolü',note:'',mins:10},
+    {id:'sfm_metal_dedektor_4',title:'Tambur rulmanları ve motor-redüktör kontrolü',note:'',mins:10},
+    {id:'sfm_metal_dedektor_5',title:'Dedektör kafası çevresinde gevşek metal parça ve titreşim kontrolü',note:'',mins:5},
+    {id:'sfm_metal_dedektor_6',title:'Kablaj ve topraklama kontrolü',note:'',mins:5},
+    {id:'sfm_metal_dedektor_7',title:'Acil stop testi',note:'',mins:5},
+    {id:'sfm_metal_dedektor_8',title:'Bant ve kafa açıklığının temizliği',note:'',mins:10},
+    {id:'sfm_metal_dedektor_9',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_metal_dedektor_10',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_dikis', name:'Endüstriyel Dikiş Makinesi — Periyodik Bakım', desc:'Makine Mekanik Periyodik Bakım Kartı — Overlok / endüstriyel dikiş makinesi', type:'preventive', techDisc:'mechanical', tasks:[
+    {id:'sfm_dikis_1',title:'Yağ seviyesi kontrolü; gerekiyorsa yağ değişimi',note:'',mins:10},
+    {id:'sfm_dikis_2',title:'İğne, baskı ayağı ve transport dişlisi kontrolü',note:'',mins:10},
+    {id:'sfm_dikis_3',title:'Lüper / ilmek ayarı kontrolü',note:'',mins:10},
+    {id:'sfm_dikis_4',title:'Kenar kesme bıçağının keskinlik kontrolü',note:'',mins:5},
+    {id:'sfm_dikis_5',title:'İplik yolları ve gerginlik ayarı kontrolü',note:'',mins:5},
+    {id:'sfm_dikis_6',title:'Motor, pedal ve kablo kontrolü',note:'',mins:5},
+    {id:'sfm_dikis_7',title:'Elyaf ve iplik tozunun temizlenmesi',note:'',mins:10},
+    {id:'sfm_dikis_8',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_dikis_9',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_ultrasonik', name:'Ultrasonik Kaynak Makinesi — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Ultrasonik kaynak makinesi', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_ultrasonik_1',title:'Sonotrot (horn) yüzeyi, çatlak ve bağlantı torku kontrolü',note:'',mins:10},
+    {id:'sfm_ultrasonik_2',title:'Örs (anvil) yüzeyi ve hizalama kontrolü',note:'',mins:10},
+    {id:'sfm_ultrasonik_3',title:'Jeneratör frekans ayarı ve hata kayıtlarının kontrolü',note:'',mins:10},
+    {id:'sfm_ultrasonik_4',title:'Pnömatik basınç ve silindir kontrolü',note:'',mins:10},
+    {id:'sfm_ultrasonik_5',title:'Soğutma fanı ve hava filtresinin temizliği',note:'',mins:5},
+    {id:'sfm_ultrasonik_6',title:'Numune kaynakta dayanım kontrolü',note:'',mins:10},
+    {id:'sfm_ultrasonik_7',title:'Kablaj ve topraklama kontrolü',note:'',mins:5},
+    {id:'sfm_ultrasonik_8',title:'Acil stop ve iki el kumanda testi',note:'',mins:5},
+    {id:'sfm_ultrasonik_9',title:'Makine temizliği',note:'',mins:10},
+    {id:'sfm_ultrasonik_10',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_ultrasonik_11',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_test_cihazi', name:'Laboratuvar Test Cihazı — Periyodik Bakım', desc:'Makine Mekanik Periyodik Bakım Kartı — Aşınma test cihazı', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_test_cihazi_1',title:'Tahrik mekanizması ve devir sayacının kontrolü',note:'',mins:10},
+    {id:'sfm_test_cihazi_2',title:'Yük ağırlıkları ve aşındırıcı (abrasif) durumunun kontrolü',note:'',mins:10},
+    {id:'sfm_test_cihazi_3',title:'Numune tutucu ve mekanik boşluk kontrolü',note:'',mins:10},
+    {id:'sfm_test_cihazi_4',title:'Kalibrasyon durumunun kontrolü',note:'Kalibrasyon modülünde geçerli kayıt var mı',mins:5},
+    {id:'sfm_test_cihazi_5',title:'Kablaj kontrolü',note:'',mins:5},
+    {id:'sfm_test_cihazi_6',title:'Cihaz temizliği',note:'',mins:10},
+    {id:'sfm_test_cihazi_7',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_test_cihazi_8',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_dezenfeksiyon', name:'Dezenfeksiyon Kabini — Periyodik Bakım', desc:'Makine Elektrik Periyodik Bakım Kartı — Dezenfeksiyon kabini', type:'preventive', techDisc:'electrical', tasks:[
+    {id:'sfm_dezenfeksiyon_1',title:'UV lambaların çalışma kontrolü ve çalışma saati (ömür) takibi',note:'',mins:10},
+    {id:'sfm_dezenfeksiyon_2',title:'Kapı emniyet switch\'i testi (kapı açılınca UV kapanmalı)',note:'',mins:5},
+    {id:'sfm_dezenfeksiyon_3',title:'Fan ve hava filtresinin temizliği',note:'',mins:10},
+    {id:'sfm_dezenfeksiyon_4',title:'Püskürtme nozulları ve sıvı haznesi kontrolü (varsa)',note:'',mins:10},
+    {id:'sfm_dezenfeksiyon_5',title:'Zamanlayıcı ve kumanda panosu kontrolü',note:'',mins:5},
+    {id:'sfm_dezenfeksiyon_6',title:'Kabin iç yüzey temizliği',note:'',mins:10},
+    {id:'sfm_dezenfeksiyon_7',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_dezenfeksiyon_8',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
+  ]},
+  { id:'sfm_jenerator', name:'Jeneratör — Periyodik Bakım', desc:'Makine Elektrik-Mekanik Periyodik Bakım Kartı — Dizel jeneratör (çalışma saatine göre)', type:'preventive', techDisc:'mechanical+electrical', tasks:[
+    {id:'sfm_jenerator_1',title:'Motor yağı seviyesi; periyodunda yağ ve yağ filtresi değişimi',note:'',mins:15},
+    {id:'sfm_jenerator_2',title:'Yakıt filtresi ve su ayırıcının kontrolü',note:'',mins:10},
+    {id:'sfm_jenerator_3',title:'Hava filtresinin temizliği veya değişimi',note:'',mins:10},
+    {id:'sfm_jenerator_4',title:'Soğutma suyu (antifriz) seviyesi ve radyatör temizliği',note:'',mins:10},
+    {id:'sfm_jenerator_5',title:'Akü voltajı, şarj ve kutup başlarının kontrolü',note:'',mins:10},
+    {id:'sfm_jenerator_6',title:'V-kayış gerginliği ve aşınma kontrolü',note:'',mins:5},
+    {id:'sfm_jenerator_7',title:'Yakıt seviyesi, hat ve egzozda sızıntı kontrolü',note:'',mins:10},
+    {id:'sfm_jenerator_8',title:'Otomatik transfer panosu (ATS) testi ve yükte deneme çalıştırması',note:'',mins:20},
+    {id:'sfm_jenerator_9',title:'Bakım sonrası kullanılan ekipmanların toplanması',note:'',mins:5},
+    {id:'sfm_jenerator_10',title:'Bakım sonrası kontaminasyon riskini önlemek için temizlik yapılması',note:'',mins:10},
   ]},
 ];
 
@@ -11912,7 +12098,46 @@ function _velBaskaLok(m){
       && String(x.code||'').trim()===m.sk && x.status!=='passive');
 }
 function _velGun(t){ return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); }
+// Uretilen listede seti olmayan makinelere makine turune gore set (kisa kod → set id)
+const VELIKOY_SET_ATAMA = {
+  MP4:'sfm_paketleme', MP5:'sfm_paketleme', MP7:'sfm_paketleme', MP8:'sfm_paketleme', OKP1:'sfm_paketleme', OKP2:'sfm_paketleme', SKB2:'sfm_paketleme',
+  STC1:'sfm_strec', EHU3:'sfm_tarak', BDX:'sfm_bondex', FR5:'sfm_firin',
+  BKM1:'sfm_bez_kesme', Bkm3:'sfm_bez_kesme', BKM4:'sfm_bez_kesme', KANSA:'sfm_bez_kesme', BPK:'sfm_bez_kesme', KSK:'sfm_bez_kesme', AKSOY:'sfm_bez_kesme',
+  SFT2:'sfm_kenar_oluk', SFT3:'sfm_kenar_oluk', KAM:'sfm_kenar_oluk',
+  INKJET:'sfm_inkjet', MDT:'sfm_metal_dedektor', SIRUB:'sfm_dikis', ULTRA:'sfm_ultrasonik', LAB:'sfm_test_cihazi', 'ISTEC-':'sfm_dezenfeksiyon',
+  JNR1:'sfm_jenerator', KOMP1:'dts_komp', FRT:'dts_fork', FRT2:'dts_fork', FILE:'dts_mek'
+};
+function _velSetId(m){ return m.set||VELIKOY_SET_ATAMA[m.code]||''; }
 function _velSet(setId){ return (db.taskSets||[]).find(x=>x.id===setId); }
+// Set veritabaninda yoksa sabit listeden (Sanifoam / hazir sablon) kopyalanir
+function _velSetEkle(setId){
+  db.taskSets=db.taskSets||[];
+  if(_velSet(setId)) return true;
+  const k=[...SANIFOAM_TASK_SETS, ...DEFAULT_TASK_SETS].find(x=>x.id===setId);
+  if(k) db.taskSets.push(JSON.parse(JSON.stringify(k)));
+  return !!k;
+}
+// Acilista: Velikoy makinesinin ACIK ve kontrol listesi BOS bakimina makinenin seti atanir.
+// Kapatilmis bakima, dolu listeye ve baska lokasyona dokunulmaz. Donus: guncellenen kayit sayisi.
+function velikoySetleriUygula(){
+  let n=0; db.maintenance=db.maintenance||[];
+  // Plani olan ama HIC bakim kaydi olmayan Velikoy makinesine (orn. metal dedektor) plan satirlari acilir
+  const plan=_velPlanlar();
+  VELIKOY_MACHINES.forEach(m=>{
+    const mak=_velBul(m); if(!mak || db.maintenance.some(p=>p.machineId===mak.id)) return;
+    plan.filter(p=>p.m===m).forEach(p=>{ const sid=_velSetId(m); if(sid) _velSetEkle(sid); if(_velKayitYaz(p, mak.id)==='yeni') n++; });
+  });
+  VELIKOY_MACHINES.forEach(m=>{
+    const setId=_velSetId(m), mak=setId&&_velBul(m); if(!mak) return;
+    (db.maintenance||[]).forEach(p=>{
+      if(p.machineId!==mak.id || p.status==='completed' || (p.checklist||[]).length || !_velSetEkle(setId)) return;
+      p.taskSetId=setId; p.checklist=_velTasks(setId);
+      if(!(p.estDur>1)) p.estDur=_velEstH(setId);
+      n++;
+    });
+  });
+  return n;
+}
 function _velEstH(setId){ const s=_velSet(setId); return s?Math.max(0.5,Math.round(((s.tasks||[]).reduce((a,t)=>a+(t.mins||0),0)/60)*10)/10):1; }
 function _velTasks(setId){ const s=_velSet(setId);
   return s?(s.tasks||[]).map((t,i)=>({id:uid(),no:i+1,title:t.title,note:t.note||'',mins:t.mins||0,done:false,doneBy:'',doneAt:null})):[]; }
@@ -11950,6 +12175,7 @@ function loadVelikoyPlan(){
 
   db.machines=db.machines||[]; db.maintenance=db.maintenance||[]; db.taskSets=db.taskSets||[];
   if(!db.taskSets.some(t=>String(t.id||'').startsWith('sfm_'))) db.taskSets.push(...JSON.parse(JSON.stringify(SANIFOAM_TASK_SETS)));
+  VELIKOY_MACHINES.forEach(m=>{ const sid=_velSetId(m); if(sid) _velSetEkle(sid); });
   const macId={}, atla=[]; let nM=0;
   VELIKOY_MACHINES.forEach(m=>{
     let ex=_velBul(m);
@@ -11973,27 +12199,33 @@ function loadVelikoyPlan(){
   let nP=0, korunan=0;
   plan.forEach(p=>{
     const mid=macId[p.m.code]; if(!mid) return;
-    let ex=db.maintenance.find(x=>x.id===p.id);
-    if(!ex){ ex={id:p.id}; db.maintenance.push(ex); nP++; }
-    const kapali=ex.status==='completed' && !!ex.comp;
-    if(kapali) korunan++;
-    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date', sched:p.date,
-      period:p.per, periodUnit:'month',
-      desc:p.oneri?'Önerilen yıllık bakım — PL15\'e eklenecek (Veliköy)':'PL15 yıllık planlı bakım — Veliköy',
-      notes:p.oneri?'PL15 Veliköy 2024\'te bu makine yok; 2026 tarihi ÖNERİDİR.'
-                   :'Tarih PL15 Veliköy 2024 satırından ('+p.m.pl15_yil+' tarihi). Gerçekleşme ERP\'ye işlenmedi.',
-      assetType:'makine', assetName:null, fixtureId:'', taskSetId:p.m.set||'',
-      tech:ex.tech||'', external:false, wo:ex.wo||'', partsUsed:ex.partsUsed||'' });
-    if(!kapali) Object.assign(ex,{ comp:null, status:'scheduled', cost:0, estDur:_velEstH(p.m.set), actDur:0,
-      checklist:_velTasks(p.m.set) });
-    // 2025 kaydinin "sonraki donem"i zaten 2026 satiri — uygulama kopya uretmesin
-    if(p.y===2025) ex._spawnedNext=true;
+    const r=_velKayitYaz(p, mid);
+    if(r==='yeni') nP++; else if(r==='kapali') korunan++;
   });
   save(); updateSelects(); nav('maintenance');
   toast('Veliköy: '+nM+' yeni makine, '+nP+' yeni bakım kaydı'
     +(korunan?(' · '+korunan+' kapatılmış bakım korundu'):'')
     +(nS?(' · '+nS+' kaynaksız kayıt silindi'):'')
     +(atla.length?(' · atlandı (başka lokasyonda): '+atla.join(', ')):''));
+}
+
+// Plan satirini bakim kaydina yazar (yoksa acar). Kapatilmis kaydin sonucu korunur. Donus: 'yeni' | 'kapali' | ''
+function _velKayitYaz(p, mid){
+    let ex=db.maintenance.find(x=>x.id===p.id), yeni=!ex;
+    if(yeni){ ex={id:p.id}; db.maintenance.push(ex); }
+    const kapali=ex.status==='completed' && !!ex.comp;
+    Object.assign(ex,{ machineId:mid, type:'preventive', basis:'date', sched:p.date,
+      period:p.per, periodUnit:'month',
+      desc:p.oneri?'Önerilen yıllık bakım — PL15\'e eklenecek (Veliköy)':'PL15 yıllık planlı bakım — Veliköy',
+      notes:p.oneri?'PL15 Veliköy 2024\'te bu makine yok; 2026 tarihi ÖNERİDİR.'
+                   :'Tarih PL15 Veliköy 2024 satırından ('+p.m.pl15_yil+' tarihi). Gerçekleşme ERP\'ye işlenmedi.',
+      assetType:'makine', assetName:null, fixtureId:'', taskSetId:_velSetId(p.m),
+      tech:ex.tech||'', external:false, wo:ex.wo||'', partsUsed:ex.partsUsed||'' });
+    if(!kapali) Object.assign(ex,{ comp:null, status:'scheduled', cost:0, estDur:_velEstH(_velSetId(p.m)), actDur:0,
+      checklist:_velTasks(_velSetId(p.m)) });
+    // 2025 kaydinin "sonraki donem"i zaten 2026 satiri — uygulama kopya uretmesin
+    if(p.y===2025) ex._spawnedNext=true;
+    return yeni?'yeni':(kapali?'kapali':'');
 }
 
 function loadVelikoyAriza(){
@@ -15290,6 +15522,7 @@ async function _onLoggedIn(user){
   // Metrikler veri degismese de guncel kalsin: hesap kurali degistiginde
   // (HESAP_SURUMU) ya da yeni gunde bir kez yeniden yazilir.
   syncCmmsMetricsAcilista();
+  try{ if(velikoySetleriUygula() && canWrite()) save(); }catch(e){ console.warn('Veliköy setleri', e); }
   hideAuthOverlay();
   hidePendingOverlay();
   bootAppUI();
