@@ -2664,8 +2664,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <div class="col-md-6"><label class="form-label">Bakım Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsMaintRevNo" placeholder="00 / 21.04.2026"></div>
           <div class="col-md-6"><label class="form-label">İş Emri Formu Doküman No</label><input type="text" class="form-control" id="fsWoDocNo" placeholder="BYS-WO-001"></div>
           <div class="col-md-6"><label class="form-label">İş Emri Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsWoRevNo" placeholder="00 / 21.04.2026"></div>
-          <div class="col-md-6"><label class="form-label">Makine Kartı Doküman No</label><input type="text" class="form-control" id="fsMknDocNo" placeholder="BYS-MKN-001"></div>
-          <div class="col-md-6"><label class="form-label">Makine Kartı Rev. No / Tarihi</label><input type="text" class="form-control" id="fsMknRevNo" placeholder="00 / 21.04.2026"></div>
+          <div class="col-md-6"><label class="form-label">Makine Kartı Doküman No</label><input type="text" class="form-control" id="fsMknDocNo" placeholder="FR253"></div>
+          <div class="col-md-6"><label class="form-label">Makine Kartı Rev. No / Tarihi</label><input type="text" class="form-control" id="fsMknRevNo" placeholder="00 / 13.11.2026"></div>
           <div class="col-md-6"><label class="form-label">Yedek Parça Listesi Doküman No</label><input type="text" class="form-control" id="fsPtDocNo" placeholder="BYS-YP-001"></div>
           <div class="col-md-6"><label class="form-label">Yedek Parça Listesi Rev. No / Tarihi</label><input type="text" class="form-control" id="fsPtRevNo" placeholder="00 / 21.04.2026"></div>
           <div class="col-md-6"><label class="form-label">Makine Listesi (Excel) Doküman No</label><input type="text" class="form-control" id="fsMlistDocNo" placeholder="BYS-MKL-001"></div>
@@ -5030,44 +5030,440 @@ function downloadMachineQR(){
   toast('QR kod indirildi');
 }
 
+/* SICIL-DOK-BAS */
+// FR253 sicil kartı — bağlı dokümanlar (betikler\cmms_sicil_karti.py üretir; elle düzenleme)
+const MAKINE_SICIL_DOK = {
+ "910.5.160": {
+  "tal": "TL243",
+  "kart": "TL337",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 6PAKETLEME MAKİNALARI",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.029": {
+  "tal": "TL37, TL181",
+  "kart": "TL338",
+  "kim": "TL340",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 7DİĞER MAKİNALAR-GENEL",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "04-LMN1 Düz Bul. Süngeri; 05-LMN1 Selülozik Bulaşık Süngeri; 06-LMN1 Silgi Sünger"
+ },
+ "910.5.117": {
+  "tal": "TL257",
+  "kart": "TL341",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 2yatay&dikey",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "00-YTY2 Glitzi Yeşil Oluklu Sünger; 01-YTY2 Düz Bulaşık Süngeri; 02-YTY2 Selüluzik Oluklu Sünger; 03-YTY2 Silgi Sünger"
+ },
+ "910.5.138": {
+  "tal": "TL242",
+  "kart": "TL342",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 2yatay&dikey",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "07-ISM3 Düz Bul. Süngeri; 08-ISM3 5 li Oluklu Bul. Süngeri"
+ },
+ "910.5.129": {
+  "tal": "TL234",
+  "kart": "TL342",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 2yatay&dikey",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "12-DSD3 Oluklu Bul. Süngeri; 13-DSD3 Antiscratch Sünger"
+ },
+ "910.5.127": {
+  "tal": "TL205",
+  "kart": "TL343",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 5KESME PRESLERİ",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "09-KP7 Selülozik Oluklu Bulaşık Süngeri"
+ },
+ "910.5.058": {
+  "tal": "TL352",
+  "kart": "TL344",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 7DİĞER MAKİNALAR-GENEL",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "10-SFT2 5 li Oluklu CF"
+ },
+ "910.5.080": {
+  "tal": "TL352",
+  "kart": "TL344",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 7DİĞER MAKİNALAR-GENEL",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "11-SFT3 Oluklu Bul. Süngeri"
+ },
+ "910.5.074": {
+  "tal": "TL91",
+  "kart": "TL345",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 6PAKETLEME MAKİNALARI",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "14-MP4 8li Oluklu Bul. Süngeri; 15-MP4 Düz Bul. Süngeri"
+ },
+ "910.5.025": {
+  "tal": "TL191",
+  "kart": "TL345",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 6PAKETLEME MAKİNALARI",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "16-MP5 2'li Selülozik oluklu; 17-MP5 Silgi Sünger; 18-MP5 2'li Düz Sünger"
+ },
+ "910.5.137": {
+  "tal": "TL190",
+  "kart": "TL345",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 6PAKETLEME MAKİNALARI",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "20-MP7 Antiscratch Sünger"
+ },
+ "910.5.139": {
+  "tal": "TL233",
+  "kart": "TL345",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 6PAKETLEME MAKİNALARI",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "21-MP8 5 li oluklu Bul Sünger; 22-MP8 5 li düz Bulaşık Sünger"
+ },
+ "910.5.009": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "19-STREÇ Rainbow 5li Sünger"
+ },
+ "910.5.094": {
+  "tal": "TL184",
+  "kart": "TL350",
+  "kim": "TL340",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 3elyaf hattı",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "24-EHU3 Keçe İmalatı 1.Aşama"
+ },
+ "910.5.118": {
+  "tal": "TL216",
+  "kart": "TL348",
+  "kim": "TL340",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 4KURUTMA FIRINLARI",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "25-FR5 Keçe İmalatı 2.Aşama"
+ },
+ "910.5.121": {
+  "tal": "TL224",
+  "kart": "TL349",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5 — sayfa 7DİĞER MAKİNALAR-GENEL",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "26-KSK Keçe İmalatı 3.Aşama"
+ },
+ "910.5.026": {
+  "tal": "TL351",
+  "kart": "",
+  "kim": "TL340",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.075": {
+  "tal": "TL351",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.059": {
+  "tal": "TL48",
+  "kart": "TL346",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.113": {
+  "tal": "TL211",
+  "kart": "TL346",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.116": {
+  "tal": "TL48",
+  "kart": "TL346",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.039": {
+  "tal": "TL196",
+  "kart": "TL347",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.155": {
+  "tal": "TL353",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.957": {
+  "tal": "TL294",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.007": {
+  "tal": "TL252",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.008": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.036": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.072": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.108": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.215": {
+  "tal": "TL16, TL217",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.322": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.959": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.966": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.967": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.970": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.971": {
+  "tal": "",
+  "kart": "",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev02 (Veliköy)",
+  "f45": "FR45 rev5",
+  "per": "FR79 · PL15 Veliköy bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": ""
+ },
+ "910.5.162": {
+  "tal": "TL276",
+  "kart": "TL358",
+  "kim": "",
+  "kkd": "ISG.LS.02 rev00 (Hendek)",
+  "f45": "FR45 rev5 — sayfa 6PAKETLEME MAKİNALARI",
+  "per": "FR79 · PL15 Hendek bakım planı",
+  "pol": "PL136 Makine Polivalans Listesi",
+  "val": "H23-OKP2 5li Oluklu Bul. Süngeri"
+ }
+};
+/* SICIL-DOK-BITIS */
+// Kritik yedek parçalar: makineye bağlı db.parts + Veliköy için VELIKOY_PARTS (LeanSys BKM006 2019 + PL65 2021; ERP'de makinesiz yüklü)
+function sicilParcalari(m){
+  const rows=(db.parts||[]).filter(p=>p.machineId&&p.machineId===m.id)
+    .map(p=>[p.partName,p.partNo,p.minQty,'adet',String(p.notes||'').slice(0,60)]);
+  if(String(m.location||'').trim()==='Veliköy' && typeof VELIKOY_PARTS!=='undefined'){
+    const kisa=((typeof VELIKOY_MACHINES!=='undefined'?VELIKOY_MACHINES:[]).find(x=>x.sk===String(m.code||'').trim())||{}).code||'';
+    const pk=['MP4','MP5','MP7','MP8'].includes(kisa), var_=new Set(rows.map(r=>String(r[1]).trim()));
+    let ortak=0;
+    VELIKOY_PARTS.forEach(p=>{
+      const rez=/PAKETLEME/i.test(p.ad), grupPk=/^Paketleme/i.test(p.grup||'');
+      if((p.m&&p.m===kisa) || (pk&&grupPk) || (rez&&(pk||kisa==='OKP1'))){ if(!var_.has(p.no)) rows.push([p.ad,p.no,p.min,'adet',(p.kaynak||[]).join(' + ')]); }
+      else if(!p.m && !grupPk && !rez) ortak++;
+    });
+    if(ortak) rows.push(['Ortak kritik parçalar (kontaktör, rulman, kayış, şalter…)','—','—','—',ortak+' kalem, tüm makineler — PL65 + LeanSys BKM006']);
+  }
+  return rows;
+}
+
 function printMachineCard(){
   loadFormSettings();
   const m  = db.machines.find(x=>x.id===currentCardMachineId)||{};
   const mx = machMetrics(currentCardMachineId);
-  fillAntet('MAKİNE TANIMI KARTI', formSettings.mknDocNo, formSettings.mknRevNo);
-  const mFails = db.failures.filter(f=>f.machineId===currentCardMachineId);
-  const mMaint = db.maintenance.filter(p=>p.machineId===currentCardMachineId);
+  fillAntet('MAKİNE TANIMI (SİCİL) KARTI', formSettings.mknDocNo, formSettings.mknRevNo);
+  document.getElementById('pEffDate').textContent = formSettings.mknEffDate || formSettings.effDate;
+  const esc=v=>String(v==null||v===''?'—':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const yeni=k=>(a,b)=>String(b[k]||'').localeCompare(String(a[k]||''));
+  const mFails = db.failures.filter(f=>f.machineId===currentCardMachineId).sort(yeni('startTime'));
+  const mMaint = db.maintenance.filter(p=>p.machineId===currentCardMachineId).sort(yeni('sched'));
+  const dok = (typeof MAKINE_SICIL_DOK!=='undefined' && MAKINE_SICIL_DOK[String(m.code||'').trim()]) || null;
+  const alan=(l,v,st='')=>`<div class="print-field"><div class="print-field-lbl">${l}</div><div class="print-field-val"${st}>${esc(v)}</div></div>`;
+  const bas=t=>`<div style="margin:8px 0 6px;font-weight:700;font-size:11px;border-bottom:1px solid #000;padding-bottom:3px">${t}</div>`;
+  const N=5, td='border:1px solid #ddd;padding:3px 6px';
+  const tablo=(baslik,hs,rows)=>bas(baslik+(rows.length>N?` (son ${N} / toplam ${rows.length})`:(rows.length?` (${rows.length})`:'')))
+    +`<table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px"><thead><tr style="background:#eee">${hs.map(h=>`<th style="border:1px solid #ccc;padding:3px 6px">${h}</th>`).join('')}</tr></thead><tbody>`
+    +rows.slice(0,N).map(r=>`<tr>${r.map(v=>`<td style="${td}">${esc(String(v==null?'':v).slice(0,70))}</td>`).join('')}</tr>`).join('')
+    +`<tr>${hs.map(()=>`<td style="${td};height:14px"></td>`).join('')}</tr>`.repeat(Math.max(0,N-rows.length))+'</tbody></table>';
   document.getElementById('printContent').innerHTML = `
-    <div style="margin:12px 0;font-size:11px;color:#444">
+    <div style="margin:4px 0;font-size:11px;color:#444">
       <div class="print-row2">
-        <div class="print-field"><div class="print-field-lbl">Makine Adı</div><div class="print-field-val" style="font-weight:700;font-size:14px">${m.name||'—'}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Makine Kodu</div><div class="print-field-val">${m.code||'—'}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Model</div><div class="print-field-val">${m.model||'—'}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Seri No</div><div class="print-field-val">${m.serial||'—'}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Üretici</div><div class="print-field-val">${m.mfg||'—'}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Lokasyon</div><div class="print-field-val">${m.location||'—'}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Departman</div><div class="print-field-val">${m.dept||'—'}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Kurulum Tarihi</div><div class="print-field-val">${fmtD(m.installDate)}</div></div>
-        <div class="print-field"><div class="print-field-lbl">Kritiklik</div><div class="print-field-val">${CRIT_LBL[m.criticality]||'—'}</div></div>
+        ${alan('Makine Adı',m.name,' style="font-weight:700;font-size:14px"')}${alan('Makine Kodu',m.code)}${alan('Model',m.model)}${alan('Seri No',m.serial)}
+        ${alan('Üretici',m.mfg)}${alan('Lokasyon',m.location)}${alan('Departman',m.dept)}${alan('Kurulum Tarihi',m.installDate?fmtD(m.installDate):'')}
+        ${alan('Kritiklik',CRIT_LBL[m.criticality])}${alan('Bakım Sorumlusu','')}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px">
         <div class="print-field" style="text-align:center"><div class="print-field-lbl">MTBF</div><div class="print-field-val" style="font-size:16px;font-weight:700">${mx.mtbf}h</div></div>
         <div class="print-field" style="text-align:center"><div class="print-field-lbl">MTTR</div><div class="print-field-val" style="font-size:16px;font-weight:700">${mx.mttr}h</div></div>
         <div class="print-field" style="text-align:center"><div class="print-field-lbl">Kullanılabilirlik</div><div class="print-field-val" style="font-size:16px;font-weight:700">${mx.avail}%</div></div>
         <div class="print-field" style="text-align:center"><div class="print-field-lbl">Toplam Maliyet</div><div class="print-field-val" style="font-size:14px;font-weight:700">${fmt(mx.totalCost)}</div></div>
       </div>
-      <div style="margin-bottom:8px;font-weight:700;font-size:11px;border-bottom:1px solid #000;padding-bottom:3px">ARİZA KAYITLARI (${mFails.length})</div>
-      <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:12px">
-        <thead><tr style="background:#eee">${['Tip','Başlangıç','Duruş','Açıklama','Maliyet','Durum'].map(h=>`<th style="border:1px solid #ccc;padding:3px 6px">${h}</th>`).join('')}</tr></thead>
-        <tbody>${mFails.map(f=>`<tr>${[TYPE_LBL[f.failureType]||f.failureType,fmtDt(f.startTime),downtimeH(f).toFixed(1)+'h',f.desc||'—',fmt(f.cost),STAT_FL[f.status]||f.status].map(v=>`<td style="border:1px solid #ddd;padding:3px 6px">${v}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>
-      <div style="margin-bottom:8px;font-weight:700;font-size:11px;border-bottom:1px solid #000;padding-bottom:3px">BAKIM KAYITLARI (${mMaint.length})</div>
-      <table style="width:100%;border-collapse:collapse;font-size:10px">
-        <thead><tr style="background:#eee">${['Tip','Plan Tarihi','Süre','Teknisyen','Maliyet','Durum'].map(h=>`<th style="border:1px solid #ccc;padding:3px 6px">${h}</th>`).join('')}</tr></thead>
-        <tbody>${mMaint.map(p=>`<tr>${[TYPE_PL[p.type]||p.type,fmtD(p.sched),(p.actDur||p.estDur||0)+'h',p.tech||'—',fmt(p.cost),STAT_PL[p.status]||p.status].map(v=>`<td style="border:1px solid #ddd;padding:3px 6px">${v}</td>`).join('')}</tr>`).join('')}</tbody>
-      </table>
+      ${dok?bas('BAĞLI DOKÜMANLAR')+`<div class="print-row2">${alan('Kullanma ve Bakım Talimatı',dok.tal)}${alan('Makine Güvenlik Kartı',dok.kart)}${alan('Kimyasal Güvenlik Kartı',dok.kim)}${alan('KKD',dok.kkd)}${alan('Günlük / Haftalık Bakım',dok.f45)}${alan('Periyodik Bakım',dok.per)}${alan('Polivalans',dok.pol)}${alan('Validasyon Seti',dok.val)}</div>`:''}
+      ${tablo('KRİTİK YEDEK PARÇALAR',['Parça','Stok Kodu','Min. Stok','Birim','Not'],sicilParcalari(m))}
+      ${tablo('ARIZA KAYITLARI',['Tip','Başlangıç','Duruş','Açıklama','Maliyet','Durum'],mFails.map(f=>[TYPE_LBL[f.failureType]||f.failureType,fmtDt(f.startTime),downtimeH(f).toFixed(1)+'h',f.desc||'—',fmt(f.cost),STAT_FL[f.status]||f.status]))}
+      ${tablo('BAKIM KAYITLARI',['Tip','Plan Tarihi','Süre','Teknisyen','Maliyet','Durum'],mMaint.map(p=>[TYPE_PL[p.type]||p.type,fmtD(p.sched),(p.actDur||p.estDur||0)+'h',p.tech||'—',fmt(p.cost),STAT_PL[p.status]||p.status]))}
+      <div style="display:grid;grid-template-columns:1fr 1fr;margin-top:10px;border:1px solid #000">
+        <div style="text-align:center;padding:4px 0 24px;border-right:1px solid #000"><b>Hazırlayan</b><br>${esc(formSettings.mknHazirlayan)}</div>
+        <div style="text-align:center;padding:4px 0 24px"><b>Onaylayan</b><br>${esc(formSettings.mknOnaylayan)}</div>
+      </div>
     </div>`;
-  const pa=document.getElementById('printArea'); pa.style.display='block'; window.print(); pa.style.display='none';
+  const pa=document.getElementById('printArea'); pa.style.display='block'; pa.style.zoom='.72'; window.print(); pa.style.zoom=''; pa.style.display='none';
 }
 
 // ══════════════════════════════════════════
@@ -14256,8 +14652,12 @@ function loadFormSettings(){
   if(!formSettings.maintRevNo) formSettings.maintRevNo = '00 / '+formSettings.effDate;
   if(!formSettings.woDocNo)    formSettings.woDocNo    = 'BYS-WO-001';
   if(!formSettings.woRevNo)    formSettings.woRevNo    = '00 / '+formSettings.effDate;
-  if(!formSettings.mknDocNo)   formSettings.mknDocNo   = 'BYS-MKN-001';
-  if(!formSettings.mknRevNo)   formSettings.mknRevNo   = '00 / '+formSettings.effDate;
+  // FR253 Makine Tanımı (Sicil) Kartı (13.11.2026): eski varsayılan BYS-MKN-001 kayıtlıysa FR253'e geçer
+  if(!formSettings.mknDocNo || formSettings.mknDocNo==='BYS-MKN-001'){ formSettings.mknDocNo='FR253'; formSettings.mknRevNo='00 / 13.11.2026'; }
+  if(!formSettings.mknRevNo)   formSettings.mknRevNo   = '00 / 13.11.2026';
+  if(!formSettings.mknEffDate) formSettings.mknEffDate = '13.11.2026';
+  if(!formSettings.mknHazirlayan) formSettings.mknHazirlayan = 'Volkan Pekatik (KGM)';
+  if(!formSettings.mknOnaylayan)  formSettings.mknOnaylayan  = 'Ünal Ürkmez (ÜK)';
   if(!formSettings.ptDocNo)    formSettings.ptDocNo    = 'BYS-YP-001';
   if(!formSettings.ptRevNo)    formSettings.ptRevNo    = '00 / '+formSettings.effDate;
   if(!formSettings.mlistDocNo) formSettings.mlistDocNo = 'BYS-MKL-001';
@@ -14305,8 +14705,8 @@ function saveFormSettings(){
   formSettings.maintRevNo = document.getElementById('fsMaintRevNo').value || '00 / '+formSettings.effDate;
   formSettings.woDocNo    = document.getElementById('fsWoDocNo').value    || 'BYS-WO-001';
   formSettings.woRevNo    = document.getElementById('fsWoRevNo').value    || '00 / '+formSettings.effDate;
-  formSettings.mknDocNo   = document.getElementById('fsMknDocNo').value   || 'BYS-MKN-001';
-  formSettings.mknRevNo   = document.getElementById('fsMknRevNo').value   || '00 / '+formSettings.effDate;
+  formSettings.mknDocNo   = document.getElementById('fsMknDocNo').value   || 'FR253';
+  formSettings.mknRevNo   = document.getElementById('fsMknRevNo').value   || '00 / 13.11.2026';
   formSettings.ptDocNo    = document.getElementById('fsPtDocNo').value    || 'BYS-YP-001';
   formSettings.ptRevNo    = document.getElementById('fsPtRevNo').value    || '00 / '+formSettings.effDate;
   formSettings.mlistDocNo = document.getElementById('fsMlistDocNo').value || 'BYS-MKL-001';
