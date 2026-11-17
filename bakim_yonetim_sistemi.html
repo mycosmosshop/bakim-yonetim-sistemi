@@ -344,7 +344,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
     <select id="gLocFilterEl" class="form-select form-select-sm" onchange="applyGlobalLoc(this.value)" style="background:var(--bg3);border-color:var(--border);color:var(--text);font-size:.78rem">
       <option value="">Tüm Lokasyonlar</option>
       <option value="Çerkezköy">Çerkezköy</option><option value="Veliköy">Veliköy</option>
-      <option value="Ankara">Ankara</option><option value="Adapazarı">Adapazarı</option>
+      <option value="Ankara">Ankara</option><option value="Hendek">Hendek</option>
       <option value="Bursa">Bursa</option><option value="Eskişehir">Eskişehir</option>
       <option value="Adana">Adana</option><option value="Sanifoam">Sanifoam</option>
       <option value="Ultech1">Ultech1</option><option value="Ultech2">Ultech2</option>
@@ -476,7 +476,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       </select>
       <select class="form-select form-select-sm" style="width:auto" id="mLocF" onchange="renderMachines()">
         <option value="">Tüm Lokasyonlar</option>
-        <option>Çerkezköy</option><option>Veliköy</option><option>Ankara</option><option>Adapazarı</option>
+        <option>Çerkezköy</option><option>Veliköy</option><option>Ankara</option><option>Hendek</option>
         <option>Bursa</option><option>Eskişehir</option><option>Adana</option>
         <option>Sanifoam</option><option>Ultech1</option><option>Ultech2</option>
       </select>
@@ -1034,7 +1034,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
       </select>
       <select class="form-select form-select-sm" style="width:auto" id="fixLocF" onchange="renderFixtures()">
         <option value="">Tüm Lokasyonlar</option>
-        <option>Çerkezköy</option><option>Veliköy</option><option>Ankara</option><option>Adapazarı</option>
+        <option>Çerkezköy</option><option>Veliköy</option><option>Ankara</option><option>Hendek</option>
         <option>Bursa</option><option>Eskişehir</option><option>Adana</option>
         <option>Sanifoam</option><option>Ultech1</option><option>Ultech2</option>
       </select>
@@ -1366,7 +1366,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
             <select class="form-select" id="mFixLoc">
               <option value="">— Seçiniz —</option>
               <option value="Çerkezköy">Çerkezköy</option><option value="Veliköy">Veliköy</option>
-              <option value="Ankara">Ankara</option><option value="Adapazarı">Adapazarı</option>
+              <option value="Ankara">Ankara</option><option value="Hendek">Hendek</option>
               <option value="Bursa">Bursa</option><option value="Eskişehir">Eskişehir</option>
               <option value="Adana">Adana</option><option value="Sanifoam">Sanifoam</option>
               <option value="Ultech1">Ultech1</option><option value="Ultech2">Ultech2</option>
@@ -1635,7 +1635,7 @@ body.tech-mode #mobileMenuBtn{display:none !important}
             <select class="form-select" id="mMachLoc">
               <option value="">— Seçiniz —</option>
               <option value="Çerkezköy">Çerkezköy</option><option value="Veliköy">Veliköy</option>
-              <option value="Ankara">Ankara</option><option value="Adapazarı">Adapazarı</option>
+              <option value="Ankara">Ankara</option><option value="Hendek">Hendek</option>
               <option value="Bursa">Bursa</option><option value="Eskişehir">Eskişehir</option>
               <option value="Adana">Adana</option><option value="Sanifoam">Sanifoam</option>
               <option value="Ultech1">Ultech1</option><option value="Ultech2">Ultech2</option>
@@ -3685,7 +3685,7 @@ const STAT_P = {scheduled:'b-scheduled','in-progress':'b-inprogress',completed:'
 const STAT_PL = {scheduled:'Planlandı','in-progress':'Devam Ediyor',completed:'Tamamlandı',overdue:'Gecikmiş',cancelled:'İptal'};
 const TYPE_PL = {preventive:'Önleyici',predictive:'Öngörülü',corrective:'Düzeltici',overhaul:'Revizyon',autonomous:'Otonom'};
 const CRIT_CL = {critical:'crit-critical',high:'crit-high',medium:'crit-medium',low:'crit-low'};
-const LOCATIONS = ['Çerkezköy','Veliköy','Ankara','Adapazarı','Bursa','Eskişehir','Adana','Sanifoam','Ultech1','Ultech2'];
+const LOCATIONS = ['Çerkezköy','Veliköy','Ankara','Hendek','Bursa','Eskişehir','Adana','Sanifoam','Ultech1','Ultech2'];
 const LOC_OPTIONS_MODAL = '<option value="">— Seçiniz —</option>'+LOCATIONS.map(l=>`<option value="${l}">${l}</option>`).join('');
 const LOC_OPTIONS_FILTER = '<option value="">Tüm Lokasyonlar</option>'+LOCATIONS.map(l=>`<option value="${l}">${l}</option>`).join('');
 function fmtPeriod(p,unit){if(!p)return '—';return `${p} ${{day:'gün',month:'ay',year:'yıl'}[unit||'day']||'gün'}`;}
@@ -15974,7 +15974,7 @@ async function openAdminPanel(){
   if(error){ list.innerHTML = '<div style="color:#e53935">Hata: '+error.message+'</div>'; return; }
   if(!data || !data.length){ list.innerHTML = '<div style="color:var(--muted)">Kullanıcı yok.</div>'; return; }
   const ROLE_LBL={admin:'Yönetici',technician:'Teknisyen',viewer:'İzleyici'};
-  const LOC_LIST=['Çerkezköy','Veliköy','Ankara','Adapazarı','Bursa','Eskişehir','Adana','Sanifoam','Ultech1','Ultech2'];
+  const LOC_LIST=['Çerkezköy','Veliköy','Ankara','Hendek','Bursa','Eskişehir','Adana','Sanifoam','Ultech1','Ultech2'];
   list.innerHTML = data.map(u=>{
     const me = u.id === currentUser.id;
     const role = u.role || 'viewer';
