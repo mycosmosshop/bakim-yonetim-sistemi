@@ -2662,6 +2662,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <div class="col-md-6"><label class="form-label">Arıza Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsFailRevNo" placeholder="00 / 21.04.2026"></div>
           <div class="col-md-6"><label class="form-label">Bakım Formu Doküman No</label><input type="text" class="form-control" id="fsMaintDocNo" placeholder="BYS-BKM-001"></div>
           <div class="col-md-6"><label class="form-label">Bakım Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsMaintRevNo" placeholder="00 / 21.04.2026"></div>
+          <div class="col-md-6"><label class="form-label">Günlük Operatör Formu Doküman No</label><input type="text" class="form-control" id="fsGobDocNo" placeholder="BYS-BKM-002"></div>
+          <div class="col-md-6"><label class="form-label">Günlük Operatör Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsGobRevNo" placeholder="00 / 23.11.2026"></div>
           <div class="col-md-6"><label class="form-label">İş Emri Formu Doküman No</label><input type="text" class="form-control" id="fsWoDocNo" placeholder="BYS-WO-001"></div>
           <div class="col-md-6"><label class="form-label">İş Emri Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsWoRevNo" placeholder="00 / 21.04.2026"></div>
           <div class="col-md-6"><label class="form-label">Makine Kartı Doküman No</label><input type="text" class="form-control" id="fsMknDocNo" placeholder="FR253"></div>
@@ -7913,6 +7915,41 @@ function _doPrintSelected(){
 }
 
 // ── Yazdır — makine bazlı baskı ──────────────────────────────────────────
+function printGunlukForm(machineId){
+  loadFormSettings();
+  const m=(db.machines||[]).find(x=>x.id===machineId); if(!m){ toast('Makine bulunamadı','danger'); return; }
+  const ts=(db.taskSets||[]).find(t=>t.machineId===machineId && t.type==='autonomous');
+  if(!ts||!(ts.tasks||[]).length){ toast('Bu makineye günlük (otonom) bakım seti yok','warning'); return; }
+  const DOC=formSettings.gobDocNo||'BYS-BKM-002', REV=formSettings.gobRevNo||('00 / '+formSettings.effDate), EFF=formSettings.effDate;
+  const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const rows=(ts.tasks||[]).map((t,i)=>`<tr><td style="text-align:center;width:26px">${i+1}</td><td style="text-align:center;width:38px"><span class="chk"></span></td><td>${esc(t.title||'')}${t.note?`<br><span style="color:#666;font-size:9px">${esc(t.note)}</span>`:''}</td><td style="width:150px"></td></tr>`).join('');
+  const win=window.open('','_blank','width=900,height=950');
+  win.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Günlük Operatör Bakım Formu — ${esc(m.name)}</title><style>
+    @page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;padding:14mm 14mm}
+    .antet{width:100%;border-collapse:collapse;margin-bottom:8px}.antet td{border:1px solid #333;padding:5px 8px;vertical-align:middle}
+    .logo{width:30%;text-align:center}.logo .b{font-size:22px;font-weight:900;letter-spacing:3px;color:#1a237e;line-height:1.1}.logo .s{font-size:9px;color:#777;margin-top:4px;letter-spacing:1px}
+    .title{text-align:center;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+    .meta{padding:0!important}.meta table{width:100%;border-collapse:collapse}.meta td{border:none;border-bottom:1px solid #ccc;padding:3px 7px;font-size:9.5px}.meta td:first-child{color:#555}.meta td:last-child{font-weight:700;text-align:right}
+    .info{font-size:10.5px;color:#333;margin:4px 0 7px;padding:5px 8px;background:#f7f7f7;border:1px solid #ddd}.info b{color:#000}
+    table.g{width:100%;border-collapse:collapse;font-size:10.5px}.g th{background:#e8edf2;border:1px solid #aaa;padding:5px 6px;text-align:left;font-size:9px;text-transform:uppercase;color:#333}.g td{border:1px solid #bbb;padding:6px;vertical-align:middle}
+    .chk{width:14px;height:14px;border:1.5px solid #555;display:inline-block}
+    .note{color:#777;font-size:9px;margin-top:3px}.sign{display:flex;justify-content:space-between;gap:18px;margin-top:14px;font-size:10px}.sign div{flex:1;border-top:1px solid #000;padding-top:4px}
+    .foot{margin-top:10px;font-size:8.5px;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:5px}
+    @media print{body{padding:14mm}}
+  </style></head><body>
+  <table class="antet"><tr><td class="logo" rowspan="2"><div class="b">SANİFOAM</div><div class="s">BAKIM YÖNETİM SİSTEMİ</div></td><td class="title">GÜNLÜK OPERATÖR BAKIM VE KONTROL FORMU</td></tr>
+  <tr><td class="meta"><table><tr><td>DOKÜMAN NO</td><td>${esc(DOC)}</td></tr><tr><td>REV. NO / TARİHİ</td><td>${esc(REV)}</td></tr><tr><td>YÜRÜRLÜK TARİHİ</td><td>${esc(EFF)}</td></tr><tr><td>SAYFA NO</td><td>1 / 1</td></tr></table></td></tr></table>
+  <div class="info"><b>Makine:</b> ${esc(m.code||'')} — ${esc(m.name||'')} &nbsp;|&nbsp; <b>Lokasyon:</b> ${esc(m.location||'—')} &nbsp;|&nbsp; <b>Bölüm:</b> ${esc(m.dept||'—')} &nbsp;|&nbsp; <b>Tarih:</b> ……/……/20…… &nbsp;|&nbsp; <b>Vardiya:</b> ………</div>
+  <table class="g"><thead><tr><th style="width:26px">No</th><th style="width:38px">✓</th><th>Günlük Bakım / Kontrol Maddesi</th><th style="width:150px">Açıklama / Aksiyon</th></tr></thead><tbody>${rows}</tbody></table>
+  <div class="note">Operatör, her vardiya/gün maddeleri kontrol edip yapılanı ✓ ile işaretler. Arıza/eksiklik varsa Açıklama'ya yazıp sıra no ile bakım personeline bildirir.</div>
+  <div class="sign"><div>Operatör (Ad-Soyad / İmza)</div><div>Vardiya Amiri (Ad-Soyad / İmza)</div></div>
+  <div class="foot">CMMS Pro — Bakım Yönetim Sistemi · ${esc(DOC)} · ${esc(m.location||'')} · Günlük operatör bakım ve kontrolleri (makineye özel)</div>
+  </body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),300);
+}
+
 function printPlanForm(id, selMachineIds){
   const f=(db.planForms||[]).find(x=>x.id===id); if(!f) return;
   const formNo=f.formNo||'—', rev=f.rev||'—', revNo=f.revNo||'—', docName=f.docName||f.title;
@@ -9937,6 +9974,7 @@ function renderTaskSets(){
           </div>
         </div>
         <div class="d-flex gap-2">
+          ${ts.type==='autonomous'&&ts.machineId?`<button class="btn btn-sm btn-outline-success" style="padding:3px 10px" onclick="printGunlukForm('${ts.machineId}')" title="Günlük Operatör Formu Yazdır"><i class="bi bi-printer"></i></button>`:''}
           <button class="btn btn-sm btn-outline-primary" style="padding:3px 10px" onclick='openTaskSetModal(${attrJson(ts)})'><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-outline-danger" style="padding:3px 10px" onclick="delTaskSet('${ts.id}')"><i class="bi bi-trash"></i></button>
         </div>
@@ -14688,6 +14726,8 @@ function loadFormSettings(){
   if(!formSettings.rptRevNo)   formSettings.rptRevNo   = '00 / '+formSettings.effDate;
   if(!formSettings.fixDocNo)   formSettings.fixDocNo   = 'BYS-FIX-001';
   if(!formSettings.fixRevNo)   formSettings.fixRevNo   = '00 / '+formSettings.effDate;
+  if(!formSettings.gobDocNo)   formSettings.gobDocNo   = 'BYS-BKM-002';
+  if(!formSettings.gobRevNo)   formSettings.gobRevNo   = '00 / '+formSettings.effDate;
 }
 
 function openFormSettings(){
@@ -14699,6 +14739,8 @@ function openFormSettings(){
   document.getElementById('fsFailRevNo').value  = formSettings.failRevNo||'';
   document.getElementById('fsMaintDocNo').value = formSettings.maintDocNo||'';
   document.getElementById('fsMaintRevNo').value = formSettings.maintRevNo||'';
+  if(document.getElementById('fsGobDocNo')) document.getElementById('fsGobDocNo').value = formSettings.gobDocNo||'';
+  if(document.getElementById('fsGobRevNo')) document.getElementById('fsGobRevNo').value = formSettings.gobRevNo||'';
   document.getElementById('fsWoDocNo').value     = formSettings.woDocNo||'';
   document.getElementById('fsWoRevNo').value     = formSettings.woRevNo||'';
   document.getElementById('fsMknDocNo').value    = formSettings.mknDocNo||'';
@@ -14737,6 +14779,8 @@ function saveFormSettings(){
   formSettings.rptRevNo   = document.getElementById('fsRptRevNo').value   || '00 / '+formSettings.effDate;
   formSettings.fixDocNo   = document.getElementById('fsFixDocNo').value   || 'BYS-FIX-001';
   formSettings.fixRevNo   = document.getElementById('fsFixRevNo').value   || '00 / '+formSettings.effDate;
+  formSettings.gobDocNo   = document.getElementById('fsGobDocNo').value   || 'BYS-BKM-002';
+  formSettings.gobRevNo   = document.getElementById('fsGobRevNo').value   || '00 / '+formSettings.effDate;
   localStorage.setItem(PRINT_FORM_KEY, JSON.stringify(formSettings));
   bootstrap.Modal.getInstance(document.getElementById('modalFormSettings')).hide();
   toast('Form ayarları kaydedildi');
