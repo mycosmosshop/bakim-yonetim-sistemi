@@ -7915,39 +7915,54 @@ function _doPrintSelected(){
 }
 
 // ── Yazdır — makine bazlı baskı ──────────────────────────────────────────
-function printGunlukForm(machineId){
+async function printGunlukForm(machineId){
   loadFormSettings();
+  if(typeof ExcelJS==='undefined'){ toast('Excel kütüphanesi yüklenemedi, internet bağlantını kontrol et.','danger'); return; }
   const m=(db.machines||[]).find(x=>x.id===machineId); if(!m){ toast('Makine bulunamadı','danger'); return; }
   const ts=(db.taskSets||[]).find(t=>t.machineId===machineId && t.type==='autonomous');
   if(!ts||!(ts.tasks||[]).length){ toast('Bu makineye günlük (otonom) bakım seti yok','warning'); return; }
   const DOC=formSettings.gobDocNo||'BYS-BKM-002', REV=formSettings.gobRevNo||('00 / '+formSettings.effDate), EFF=formSettings.effDate;
-  const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const rows=(ts.tasks||[]).map((t,i)=>`<tr><td style="text-align:center;width:26px">${i+1}</td><td style="text-align:center;width:38px"><span class="chk"></span></td><td>${esc(t.title||'')}${t.note?`<br><span style="color:#666;font-size:9px">${esc(t.note)}</span>`:''}</td><td style="width:150px"></td></tr>`).join('');
-  const win=window.open('','_blank','width=900,height=950');
-  win.document.write(`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Günlük Operatör Bakım Formu — ${esc(m.name)}</title><style>
-    @page{size:A4;margin:0}*{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:Arial,Helvetica,sans-serif;font-size:11px;color:#000;background:#fff;padding:14mm 14mm}
-    .antet{width:100%;border-collapse:collapse;margin-bottom:8px}.antet td{border:1px solid #333;padding:5px 8px;vertical-align:middle}
-    .logo{width:30%;text-align:center}.logo .b{font-size:22px;font-weight:900;letter-spacing:3px;color:#1a237e;line-height:1.1}.logo .s{font-size:9px;color:#777;margin-top:4px;letter-spacing:1px}
-    .title{text-align:center;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
-    .meta{padding:0!important}.meta table{width:100%;border-collapse:collapse}.meta td{border:none;border-bottom:1px solid #ccc;padding:3px 7px;font-size:9.5px}.meta td:first-child{color:#555}.meta td:last-child{font-weight:700;text-align:right}
-    .info{font-size:10.5px;color:#333;margin:4px 0 7px;padding:5px 8px;background:#f7f7f7;border:1px solid #ddd}.info b{color:#000}
-    table.g{width:100%;border-collapse:collapse;font-size:10.5px}.g th{background:#e8edf2;border:1px solid #aaa;padding:5px 6px;text-align:left;font-size:9px;text-transform:uppercase;color:#333}.g td{border:1px solid #bbb;padding:6px;vertical-align:middle}
-    .chk{width:14px;height:14px;border:1.5px solid #555;display:inline-block}
-    .note{color:#777;font-size:9px;margin-top:3px}.sign{display:flex;justify-content:space-between;gap:18px;margin-top:14px;font-size:10px}.sign div{flex:1;border-top:1px solid #000;padding-top:4px}
-    .foot{margin-top:10px;font-size:8.5px;color:#999;text-align:center;border-top:1px solid #ddd;padding-top:5px}
-    @media print{body{padding:14mm}}
-  </style></head><body>
-  <table class="antet"><tr><td class="logo" rowspan="2"><div class="b">SANİFOAM</div><div class="s">BAKIM YÖNETİM SİSTEMİ</div></td><td class="title">GÜNLÜK OPERATÖR BAKIM VE KONTROL FORMU</td></tr>
-  <tr><td class="meta"><table><tr><td>DOKÜMAN NO</td><td>${esc(DOC)}</td></tr><tr><td>REV. NO / TARİHİ</td><td>${esc(REV)}</td></tr><tr><td>YÜRÜRLÜK TARİHİ</td><td>${esc(EFF)}</td></tr><tr><td>SAYFA NO</td><td>1 / 1</td></tr></table></td></tr></table>
-  <div class="info"><b>Makine:</b> ${esc(m.code||'')} — ${esc(m.name||'')} &nbsp;|&nbsp; <b>Lokasyon:</b> ${esc(m.location||'—')} &nbsp;|&nbsp; <b>Bölüm:</b> ${esc(m.dept||'—')} &nbsp;|&nbsp; <b>Tarih:</b> ……/……/20…… &nbsp;|&nbsp; <b>Vardiya:</b> ………</div>
-  <table class="g"><thead><tr><th style="width:26px">No</th><th style="width:38px">✓</th><th>Günlük Bakım / Kontrol Maddesi</th><th style="width:150px">Açıklama / Aksiyon</th></tr></thead><tbody>${rows}</tbody></table>
-  <div class="note">Operatör, her vardiya/gün maddeleri kontrol edip yapılanı ✓ ile işaretler. Arıza/eksiklik varsa Açıklama'ya yazıp sıra no ile bakım personeline bildirir.</div>
-  <div class="sign"><div>Operatör (Ad-Soyad / İmza)</div><div>Vardiya Amiri (Ad-Soyad / İmza)</div></div>
-  <div class="foot">CMMS Pro — Bakım Yönetim Sistemi · ${esc(DOC)} · ${esc(m.location||'')} · Günlük operatör bakım ve kontrolleri (makineye özel)</div>
-  </body></html>`);
-  win.document.close();
-  setTimeout(()=>win.print(),300);
+  const BRD={top:{style:'thin',color:{argb:'FF808080'}},left:{style:'thin',color:{argb:'FF808080'}},bottom:{style:'thin',color:{argb:'FF808080'}},right:{style:'thin',color:{argb:'FF808080'}}};
+  const wb=new ExcelJS.Workbook(); wb.creator='Sanifoam CMMS Pro';
+  const ws=wb.addWorksheet('Günlük Form',{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
+  ws.columns=[{width:5},{width:6},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:13},{width:13},{width:13}];
+  const box=(r1,c1,r2,c2)=>{ for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) ws.getCell(r,c).border=BRD; };
+  // Antet — logo A1:C4
+  ws.mergeCells('A1:C4'); ws.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
+  try{ if(SANIFOAM_LOGO_B64 && SANIFOAM_LOGO_B64.indexOf('__')!==0){ const id=wb.addImage({base64:SANIFOAM_LOGO_B64,extension:'png'}); ws.addImage(id,{tl:{col:0.25,row:0.6},ext:{width:215,height:50}}); } }catch(e){}
+  box(1,1,4,3);
+  // Başlık D1:H4
+  ws.mergeCells('D1:H4'); const fnc=ws.getCell('D1'); fnc.value='GÜNLÜK OPERATÖR BAKIM VE KONTROL FORMU'; fnc.font={name:'Calibri',size:14,bold:true}; fnc.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+  box(1,4,4,8);
+  // Meta I:L
+  const info=[['DOKÜMAN NO',DOC],['REV. NO / TARİHİ',REV],['YÜRÜRLÜK TARİHİ',EFF],['SAYFA NO','1 / 1']];
+  info.forEach((it,i)=>{ const r=i+1; ws.mergeCells('I'+r+':J'+r); ws.mergeCells('K'+r+':L'+r); const lc=ws.getCell('I'+r); lc.value=it[0]; lc.font={name:'Calibri',size:9,bold:true}; lc.alignment={horizontal:'left',vertical:'middle',indent:1}; const vc=ws.getCell('K'+r); vc.value=it[1]; vc.font={name:'Calibri',size:9}; vc.alignment={horizontal:'left',vertical:'middle',indent:1}; });
+  box(1,9,4,12);
+  // Makine bilgi satırı (6)
+  ws.mergeCells('A6:L6'); const mc=ws.getCell('A6'); mc.value='Makine: '+(m.code||'')+' — '+(m.name||'')+'    |    Lokasyon: '+(m.location||'—')+'    |    Bölüm: '+(m.dept||'—')+'    |    Tarih: ……/……/20……    |    Vardiya: ………'; mc.font={name:'Calibri',size:10,bold:true}; mc.alignment={horizontal:'left',vertical:'middle'}; mc.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2F2F2'}}; box(6,1,6,12); ws.getRow(6).height=20;
+  // Tablo başlığı (8)
+  ws.getCell('A8').value='No'; ws.getCell('B8').value='✓'; ws.mergeCells('C8:I8'); ws.getCell('C8').value='GÜNLÜK BAKIM / KONTROL MADDESİ'; ws.mergeCells('J8:L8'); ws.getCell('J8').value='AÇIKLAMA / AKSİYON';
+  ['A8','B8','C8','J8'].forEach(a=>{ const c=ws.getCell(a); c.font={name:'Calibri',size:9,bold:true}; c.alignment={horizontal:(a==='C8'||a==='J8')?'left':'center',vertical:'middle'}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EDF2'}}; });
+  box(8,1,8,12); ws.getRow(8).height=18;
+  // Görev satırları
+  let r=9;
+  (ts.tasks||[]).forEach((t,i)=>{
+    ws.getCell('A'+r).value=i+1; ws.getCell('A'+r).alignment={horizontal:'center',vertical:'middle'};
+    ws.getCell('B'+r).alignment={horizontal:'center',vertical:'middle'};
+    ws.mergeCells('C'+r+':I'+r); const tc=ws.getCell('C'+r); tc.value=t.title||''; tc.font={name:'Calibri',size:10}; tc.alignment={horizontal:'left',vertical:'middle',wrapText:true};
+    ws.mergeCells('J'+r+':L'+r);
+    box(r,1,r,12); ws.getRow(r).height=26;
+    r++;
+  });
+  // Not
+  r++; ws.mergeCells('A'+r+':L'+r); const nt=ws.getCell('A'+r); nt.value="Operatör, her vardiya/gün maddeleri kontrol edip yapılanı ✓ ile işaretler. Arıza/eksiklik varsa Açıklama'ya yazıp sıra no ile bakım personeline bildirir."; nt.font={name:'Calibri',size:8,italic:true,color:{argb:'FF777777'}}; nt.alignment={horizontal:'left',vertical:'middle',wrapText:true};
+  // İmza
+  r+=2; ws.mergeCells('A'+r+':F'+r); ws.getCell('A'+r).value='Operatör (Ad-Soyad / İmza): ______________________'; ws.getCell('A'+r).font={name:'Calibri',size:10}; ws.mergeCells('G'+r+':L'+r); ws.getCell('G'+r).value='Vardiya Amiri (Ad-Soyad / İmza): ______________________'; ws.getCell('G'+r).font={name:'Calibri',size:10}; ws.getRow(r).height=28;
+  // İndir
+  const buf=await wb.xlsx.writeBuffer();
+  const url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const a=document.createElement('a'); a.href=url; a.download='Gunluk Operator Formu - '+String(m.code||m.name||'makine').replace(/[\/:*?"<>|]/g,'_')+'.xlsx'; a.click(); URL.revokeObjectURL(url);
+  toast('Günlük form Excel indirildi ✓','success');
 }
 
 function printPlanForm(id, selMachineIds){
@@ -9974,7 +9989,7 @@ function renderTaskSets(){
           </div>
         </div>
         <div class="d-flex gap-2">
-          ${ts.type==='autonomous'&&ts.machineId?`<button class="btn btn-sm btn-outline-success" style="padding:3px 10px" onclick="printGunlukForm('${ts.machineId}')" title="Günlük Operatör Formu Yazdır"><i class="bi bi-printer"></i></button>`:''}
+          ${ts.type==='autonomous'&&ts.machineId?`<button class="btn btn-sm btn-outline-success" style="padding:3px 10px" onclick="printGunlukForm('${ts.machineId}')" title="Günlük Formu Excel İndir"><i class="bi bi-file-earmark-excel"></i></button>`:''}
           <button class="btn btn-sm btn-outline-primary" style="padding:3px 10px" onclick='openTaskSetModal(${attrJson(ts)})'><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-outline-danger" style="padding:3px 10px" onclick="delTaskSet('${ts.id}')"><i class="bi bi-trash"></i></button>
         </div>
