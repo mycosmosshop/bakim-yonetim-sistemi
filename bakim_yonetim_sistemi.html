@@ -7925,11 +7925,11 @@ async function printGunlukForm(machineId){
   const BRD={top:{style:'thin',color:{argb:'FF808080'}},left:{style:'thin',color:{argb:'FF808080'}},bottom:{style:'thin',color:{argb:'FF808080'}},right:{style:'thin',color:{argb:'FF808080'}}};
   const wb=new ExcelJS.Workbook(); wb.creator='Sanifoam CMMS Pro';
   const ws=wb.addWorksheet('Günlük Form',{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
-  ws.columns=[{width:5},{width:6},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:13},{width:13},{width:13}];
+  ws.columns=[{width:6},{width:5},{width:16},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:13},{width:13}]; ws.getRow(1).height=16; ws.getRow(2).height=16; ws.getRow(3).height=16; ws.getRow(4).height=16;
   const box=(r1,c1,r2,c2)=>{ for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) ws.getCell(r,c).border=BRD; };
   // Antet — logo A1:C4
   ws.mergeCells('A1:C4'); ws.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
-  try{ if(SANIFOAM_LOGO_B64 && SANIFOAM_LOGO_B64.indexOf('__')!==0){ const id=wb.addImage({base64:SANIFOAM_LOGO_B64,extension:'png'}); ws.addImage(id,{tl:{col:0.25,row:0.6},ext:{width:215,height:50}}); } }catch(e){}
+  try{ if(SANIFOAM_LOGO_B64 && SANIFOAM_LOGO_B64.indexOf('__')!==0){ const id=wb.addImage({base64:SANIFOAM_LOGO_B64,extension:'png'}); ws.addImage(id,{tl:{col:0.12,row:0.4},ext:{width:172,height:40}}); } }catch(e){}
   box(1,1,4,3);
   // Başlık D1:H4
   ws.mergeCells('D1:H4'); const fnc=ws.getCell('D1'); fnc.value='GÜNLÜK OPERATÖR BAKIM VE KONTROL FORMU'; fnc.font={name:'Calibri',size:14,bold:true}; fnc.alignment={horizontal:'center',vertical:'middle',wrapText:true};
@@ -7954,10 +7954,15 @@ async function printGunlukForm(machineId){
     box(r,1,r,12); ws.getRow(r).height=26;
     r++;
   });
-  // Not
-  r++; ws.mergeCells('A'+r+':L'+r); const nt=ws.getCell('A'+r); nt.value="Operatör, her vardiya/gün maddeleri kontrol edip yapılanı ✓ ile işaretler. Arıza/eksiklik varsa Açıklama'ya yazıp sıra no ile bakım personeline bildirir."; nt.font={name:'Calibri',size:8,italic:true,color:{argb:'FF777777'}}; nt.alignment={horizontal:'left',vertical:'middle',wrapText:true};
-  // İmza
-  r+=2; ws.mergeCells('A'+r+':F'+r); ws.getCell('A'+r).value='Operatör (Ad-Soyad / İmza): ______________________'; ws.getCell('A'+r).font={name:'Calibri',size:10}; ws.mergeCells('G'+r+':L'+r); ws.getCell('G'+r).value='Vardiya Amiri (Ad-Soyad / İmza): ______________________'; ws.getCell('G'+r).font={name:'Calibri',size:10}; ws.getRow(r).height=28;
+  // Not (tablonun hemen altı)
+  ws.mergeCells('A'+r+':L'+r); const nt=ws.getCell('A'+r); nt.value="Operatör, her vardiya/gün maddeleri kontrol edip yapılanı ✓ ile işaretler. Arıza/eksiklik varsa Açıklama'ya yazıp sıra no ile bakım personeline bildirir."; nt.font={name:'Calibri',size:8,italic:true,color:{argb:'FF777777'}}; nt.alignment={horizontal:'left',vertical:'middle',wrapText:true}; ws.getRow(r).height=22;
+  // İmza — çerçeveli iki kutu, forma sıkı
+  r+=2; ws.mergeCells('A'+r+':F'+(r+1)); ws.mergeCells('G'+r+':L'+(r+1));
+  const op=ws.getCell('A'+r); op.value='Operatör (Ad-Soyad / İmza)'; op.font={name:'Calibri',size:10,bold:true}; op.alignment={horizontal:'left',vertical:'top',indent:1,wrapText:true};
+  const va=ws.getCell('G'+r); va.value='Vardiya Amiri (Ad-Soyad / İmza)'; va.font={name:'Calibri',size:10,bold:true}; va.alignment={horizontal:'left',vertical:'top',indent:1,wrapText:true};
+  box(r,1,r+1,12); ws.getRow(r).height=16; ws.getRow(r+1).height=26; r+=1;
+  // Baskı alanı forma sabit (altta boşluk/taşma görünmesin)
+  ws.pageSetup.printArea='A1:L'+r;
   // İndir
   const buf=await wb.xlsx.writeBuffer();
   const url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
