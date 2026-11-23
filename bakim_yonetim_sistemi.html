@@ -2662,8 +2662,8 @@ body.tech-mode #mobileMenuBtn{display:none !important}
           <div class="col-md-6"><label class="form-label">Arıza Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsFailRevNo" placeholder="00 / 21.04.2026"></div>
           <div class="col-md-6"><label class="form-label">Bakım Formu Doküman No</label><input type="text" class="form-control" id="fsMaintDocNo" placeholder="BYS-BKM-001"></div>
           <div class="col-md-6"><label class="form-label">Bakım Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsMaintRevNo" placeholder="00 / 21.04.2026"></div>
-          <div class="col-md-6"><label class="form-label">Günlük Operatör Formu Doküman No</label><input type="text" class="form-control" id="fsGobDocNo" placeholder="BYS-BKM-002"></div>
-          <div class="col-md-6"><label class="form-label">Günlük Operatör Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsGobRevNo" placeholder="00 / 23.11.2026"></div>
+          <div class="col-md-6"><label class="form-label">Günlük Operatör Formu Doküman No</label><input type="text" class="form-control" id="fsGobDocNo" placeholder="FR45"></div>
+          <div class="col-md-6"><label class="form-label">Günlük Operatör Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsGobRevNo" placeholder="05 / 27.03.2026"></div>
           <div class="col-md-6"><label class="form-label">İş Emri Formu Doküman No</label><input type="text" class="form-control" id="fsWoDocNo" placeholder="BYS-WO-001"></div>
           <div class="col-md-6"><label class="form-label">İş Emri Formu Rev. No / Tarihi</label><input type="text" class="form-control" id="fsWoRevNo" placeholder="00 / 21.04.2026"></div>
           <div class="col-md-6"><label class="form-label">Makine Kartı Doküman No</label><input type="text" class="form-control" id="fsMknDocNo" placeholder="FR253"></div>
@@ -7921,7 +7921,7 @@ async function printGunlukForm(machineId){
   const m=(db.machines||[]).find(x=>x.id===machineId); if(!m){ toast('Makine bulunamadı','danger'); return; }
   const ts=(db.taskSets||[]).find(t=>t.machineId===machineId && t.type==='autonomous');
   if(!ts||!(ts.tasks||[]).length){ toast('Bu makineye günlük (otonom) bakım seti yok','warning'); return; }
-  const DOC=formSettings.gobDocNo||'BYS-BKM-002', REV=formSettings.gobRevNo||('00 / '+formSettings.effDate), EFF=formSettings.effDate;
+  const DOC=formSettings.gobDocNo||'FR45', REV=formSettings.gobRevNo||'05 / 27.03.2026', EFF=formSettings.gobEffDate||formSettings.effDate;
   const BRD={top:{style:'thin',color:{argb:'FF808080'}},left:{style:'thin',color:{argb:'FF808080'}},bottom:{style:'thin',color:{argb:'FF808080'}},right:{style:'thin',color:{argb:'FF808080'}}};
   const wb=new ExcelJS.Workbook(); wb.creator='Sanifoam CMMS Pro';
   const ws=wb.addWorksheet('Günlük Form',{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
@@ -14746,8 +14746,9 @@ function loadFormSettings(){
   if(!formSettings.rptRevNo)   formSettings.rptRevNo   = '00 / '+formSettings.effDate;
   if(!formSettings.fixDocNo)   formSettings.fixDocNo   = 'BYS-FIX-001';
   if(!formSettings.fixRevNo)   formSettings.fixRevNo   = '00 / '+formSettings.effDate;
-  if(!formSettings.gobDocNo)   formSettings.gobDocNo   = 'BYS-BKM-002';
-  if(!formSettings.gobRevNo)   formSettings.gobRevNo   = '00 / '+formSettings.effDate;
+  if(!formSettings.gobDocNo || formSettings.gobDocNo==='BYS-BKM-002'){ formSettings.gobDocNo='FR45'; formSettings.gobRevNo='05 / 27.03.2026'; formSettings.gobEffDate='02.04.2013'; }
+  if(!formSettings.gobRevNo)   formSettings.gobRevNo   = '05 / 27.03.2026';
+  if(!formSettings.gobEffDate) formSettings.gobEffDate = '02.04.2013';
 }
 
 function openFormSettings(){
@@ -14799,8 +14800,8 @@ function saveFormSettings(){
   formSettings.rptRevNo   = document.getElementById('fsRptRevNo').value   || '00 / '+formSettings.effDate;
   formSettings.fixDocNo   = document.getElementById('fsFixDocNo').value   || 'BYS-FIX-001';
   formSettings.fixRevNo   = document.getElementById('fsFixRevNo').value   || '00 / '+formSettings.effDate;
-  formSettings.gobDocNo   = document.getElementById('fsGobDocNo').value   || 'BYS-BKM-002';
-  formSettings.gobRevNo   = document.getElementById('fsGobRevNo').value   || '00 / '+formSettings.effDate;
+  formSettings.gobDocNo   = document.getElementById('fsGobDocNo').value   || 'FR45';
+  formSettings.gobRevNo   = document.getElementById('fsGobRevNo').value   || '05 / 27.03.2026';
   localStorage.setItem(PRINT_FORM_KEY, JSON.stringify(formSettings));
   bootstrap.Modal.getInstance(document.getElementById('modalFormSettings')).hide();
   toast('Form ayarları kaydedildi');
