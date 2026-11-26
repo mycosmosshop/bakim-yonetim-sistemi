@@ -5389,7 +5389,7 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL358",
   "kim": "",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": "H29-OKP1 MP6 Otomatik Kesme ve Paketleme"
@@ -5399,7 +5399,7 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL358",
   "kim": "",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": "H29-OKP1 MP6 Otomatik Kesme ve Paketleme"
@@ -5409,7 +5409,7 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL358",
   "kim": "",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": "H23-OKP2 5li Oluklu Bul. Süngeri"
@@ -5419,7 +5419,7 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL358",
   "kim": "",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": "H23-OKP2 5li Oluklu Bul. Süngeri"
@@ -5429,7 +5429,7 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL359",
   "kim": "TL362",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": "H04-LMN5 Düz Bul. Süngeri; H05-LMN5 Selülozik Bulaşık Süngeri; H06-LMN5 Glitzi 5li Oluklu Sünger"
@@ -5439,7 +5439,7 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL360",
   "kim": "TL362",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": "H30-Laminasyon Presi ve Mengene"
@@ -5449,7 +5449,7 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL361",
   "kim": "",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": ""
@@ -5459,17 +5459,17 @@ const MAKINE_SICIL_DOK = {
   "kart": "TL368",
   "kim": "",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": ""
  },
  "910.5.501": {
-  "tal": "",
-  "kart": "",
+  "tal": "TL369",
+  "kart": "TL370",
   "kim": "",
   "kkd": "ISG.LS.02 rev00 (Hendek)",
-  "f45": "FR45 Günlük Operatör Bakım ve Kontrol Formu",
+  "f45": "FR45 Haftalık & Günlük Makina Bakım Kartı",
   "per": "BYS-BKM-001 · PL15 Hendek bakım planı",
   "pol": "PL136 Makine Polivalans Listesi",
   "val": ""
@@ -7965,58 +7965,66 @@ function _doPrintSelected(){
 
 // ── Yazdır — makine bazlı baskı ──────────────────────────────────────────
 async function printGunlukForm(machineId){
+  // FR45 HAFTALIK & GÜNLÜK MAKİNA BAKIM KARTI — firmanın aylık kart düzeni (madde × 31 gün × 2 vardiya); kullanıcı 26.11.2026: tek günlük form iptal.
   loadFormSettings();
   if(typeof ExcelJS==='undefined'){ toast('Excel kütüphanesi yüklenemedi, internet bağlantını kontrol et.','danger'); return; }
   const m=(db.machines||[]).find(x=>x.id===machineId); if(!m){ toast('Makine bulunamadı','danger'); return; }
   const ts=(db.taskSets||[]).find(t=>t.machineId===machineId && t.type==='autonomous');
   if(!ts||!(ts.tasks||[]).length){ toast('Bu makineye günlük (otonom) bakım seti yok','warning'); return; }
-  const DOC=formSettings.gobDocNo||'FR45', REV=formSettings.gobRevNo||'05 / 27.03.2026', EFF=formSettings.gobEffDate||formSettings.effDate;
+  const DOC=formSettings.gobDocNo||'FR45', REV=formSettings.gobRevNo||'05 / 27.03.2026', EFF=formSettings.gobEffDate||formSettings.effDate||'02.04.2013';
+  const tech=((db.maintenance||[]).find(p=>p.machineId===machineId&&p.tech)||{}).tech||'';
+  const GUN=31, SON=1+GUN*2;                                   // A: madde, B..: gün × 1.VRD / 2.VRD
   const BRD={top:{style:'thin',color:{argb:'FF808080'}},left:{style:'thin',color:{argb:'FF808080'}},bottom:{style:'thin',color:{argb:'FF808080'}},right:{style:'thin',color:{argb:'FF808080'}}};
+  const F=(sz,b,it)=>({name:'Calibri',size:sz,bold:!!b,italic:!!it});
+  const ORTA={horizontal:'center',vertical:'middle',wrapText:true}, SOL={horizontal:'left',vertical:'middle',wrapText:true,indent:1};
   const wb=new ExcelJS.Workbook(); wb.creator='Sanifoam CMMS Pro';
-  const ws=wb.addWorksheet('Günlük Form',{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'portrait',fitToPage:true,fitToWidth:1,margins:{left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2}}});
-  ws.columns=[{width:6},{width:5},{width:16},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:11},{width:13},{width:13}]; ws.getRow(1).height=16; ws.getRow(2).height=16; ws.getRow(3).height=16; ws.getRow(4).height=16;
+  const ws=wb.addWorksheet('FR45',{views:[{showGridLines:false}],pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:1,margins:{left:0.3,right:0.3,top:0.4,bottom:0.4,header:0.2,footer:0.2}}});
+  ws.columns=[{width:36}].concat(Array.from({length:GUN*2},()=>({width:2.7})));
+  const L=c=>ws.getColumn(c).letter;
   const box=(r1,c1,r2,c2)=>{ for(let r=r1;r<=r2;r++) for(let c=c1;c<=c2;c++) ws.getCell(r,c).border=BRD; };
-  // Antet — logo A1:C4
-  ws.mergeCells('A1:C4'); ws.getCell('A1').alignment={horizontal:'center',vertical:'middle'};
-  try{ if(SANIFOAM_LOGO_B64 && SANIFOAM_LOGO_B64.indexOf('__')!==0){ const id=wb.addImage({base64:SANIFOAM_LOGO_B64,extension:'png'}); ws.addImage(id,{tl:{col:0.12,row:0.4},ext:{width:172,height:40}}); } }catch(e){}
-  box(1,1,4,3);
-  // Başlık D1:H4
-  ws.mergeCells('D1:H4'); const fnc=ws.getCell('D1'); fnc.value='GÜNLÜK OPERATÖR BAKIM VE KONTROL FORMU'; fnc.font={name:'Calibri',size:14,bold:true}; fnc.alignment={horizontal:'center',vertical:'middle',wrapText:true};
-  box(1,4,4,8);
-  // Meta I:L
-  const info=[['DOKÜMAN NO',DOC],['REV. NO / TARİHİ',REV],['YÜRÜRLÜK TARİHİ',EFF],['SAYFA NO','1 / 1']];
-  info.forEach((it,i)=>{ const r=i+1; ws.mergeCells('I'+r+':J'+r); ws.mergeCells('K'+r+':L'+r); const lc=ws.getCell('I'+r); lc.value=it[0]; lc.font={name:'Calibri',size:9,bold:true}; lc.alignment={horizontal:'left',vertical:'middle',indent:1}; const vc=ws.getCell('K'+r); vc.value=it[1]; vc.font={name:'Calibri',size:9}; vc.alignment={horizontal:'left',vertical:'middle',indent:1}; });
-  box(1,9,4,12);
-  // Makine bilgi satırı (6)
-  ws.mergeCells('A6:L6'); const mc=ws.getCell('A6'); mc.value='Makine: '+(m.code||'')+' — '+(m.name||'')+'    |    Lokasyon: '+(m.location||'—')+'    |    Bölüm: '+(m.dept||'—')+'    |    Tarih: ……/……/20……    |    Vardiya: ………'; mc.font={name:'Calibri',size:10,bold:true}; mc.alignment={horizontal:'left',vertical:'middle'}; mc.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2F2F2'}}; box(6,1,6,12); ws.getRow(6).height=20;
-  // Tablo başlığı (8)
-  ws.getCell('A8').value='No'; ws.getCell('B8').value='✓'; ws.mergeCells('C8:I8'); ws.getCell('C8').value='GÜNLÜK BAKIM / KONTROL MADDESİ'; ws.mergeCells('J8:L8'); ws.getCell('J8').value='AÇIKLAMA / AKSİYON';
-  ['A8','B8','C8','J8'].forEach(a=>{ const c=ws.getCell(a); c.font={name:'Calibri',size:9,bold:true}; c.alignment={horizontal:(a==='C8'||a==='J8')?'left':'center',vertical:'middle'}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFE8EDF2'}}; });
-  box(8,1,8,12); ws.getRow(8).height=18;
-  // Görev satırları
-  let r=9;
-  (ts.tasks||[]).forEach((t,i)=>{
-    ws.getCell('A'+r).value=i+1; ws.getCell('A'+r).alignment={horizontal:'center',vertical:'middle'};
-    ws.getCell('B'+r).alignment={horizontal:'center',vertical:'middle'};
-    ws.mergeCells('C'+r+':I'+r); const tc=ws.getCell('C'+r); tc.value=t.title||''; tc.font={name:'Calibri',size:10}; tc.alignment={horizontal:'left',vertical:'middle',wrapText:true};
-    ws.mergeCells('J'+r+':L'+r);
-    box(r,1,r,12); ws.getRow(r).height=26;
-    r++;
+  const kutu=(r1,c1,r2,c2,v,font,al,fill)=>{ if(r1!==r2||c1!==c2) ws.mergeCells(L(c1)+r1+':'+L(c2)+r2); const x=ws.getCell(r1,c1); if(v!==undefined&&v!==null) x.value=v; if(font) x.font=font; x.alignment=al||ORTA; if(fill) x.fill={type:'pattern',pattern:'solid',fgColor:{argb:fill}}; box(r1,c1,r2,c2); return x; };
+  const M1=SON-11;                                             // antet sağ blok: etiket 6 sütun + değer 6 sütun
+  // Antet
+  kutu(1,1,4,1);
+  try{ if(SANIFOAM_LOGO_B64 && SANIFOAM_LOGO_B64.indexOf('__')!==0){ const id=wb.addImage({base64:SANIFOAM_LOGO_B64,extension:'png'}); ws.addImage(id,{tl:{col:0.08,row:0.35},ext:{width:190,height:44}}); } }catch(e){}
+  kutu(1,2,1,M1-1,'KALİTE YÖNETİM SİSTEMİ DOKÜMANTASYONU',F(8));
+  kutu(2,2,4,M1-1,'HAFTALIK & GÜNLÜK MAKİNA BAKIM KARTI',F(15,true));
+  [['DOKÜMAN NO',DOC],['YÜRÜRLÜK TARİHİ',EFF],['REV. NO / TARİHİ',REV],['SAYFA','1 / 1']].forEach((it,i)=>{
+    kutu(i+1,M1,i+1,M1+5,it[0],F(8,true),SOL); kutu(i+1,M1+6,i+1,SON,it[1],F(9),SOL); ws.getRow(i+1).height=16; });
+  // Makine bilgileri
+  kutu(5,1,5,1,'MAKİNA GRUBU / BÖLÜM: '+(m.dept||'—'),F(9,true),SOL);
+  kutu(5,2,5,32,'MAKİNA ADI: '+(m.name||''),F(10,true),SOL);
+  kutu(5,33,5,SON,'MAKİNA MARKASI / MODELİ: '+([m.mfg,m.model].filter(Boolean).join(' / ')||'……………………………………'),F(9),SOL);
+  kutu(6,1,6,1,'LOKASYON: '+(m.location||'—'),F(9,true),SOL);
+  kutu(6,2,6,32,'MAKİNA KODU: '+(m.code||''),F(10,true),SOL);
+  kutu(6,33,6,SON,'MAKİNA İMAL YILI: '+(m.year||'……………………'),F(9),SOL);
+  kutu(7,1,7,32,'AİT OLDUĞU YIL:  20……',F(10,true),SOL); kutu(7,33,7,SON,'AİT OLDUĞU AY:  ……………………',F(10,true),SOL);
+  [5,6,7].forEach(r=>ws.getRow(r).height=18);
+  kutu(8,1,8,SON,'GÜNLER (makina operatörü tarafından doldurulur; yapılan madde ilgili gün ve vardiya hücresine ✓ ile işaretlenir)',F(9,true,true),ORTA,'FFE8EDF2');
+  // Gün / vardiya başlığı
+  kutu(9,1,9,1,'GÜNLER',F(9,true),ORTA,'FFE8EDF2');
+  for(let d=1; d<=GUN; d++) kutu(9,2*d,9,2*d+1,d,F(8,true),ORTA,'FFE8EDF2');
+  kutu(10,1,10,1,'BAKIM / KONTROL MADDESİ          VARDİYA',F(8,true),SOL,'FFE8EDF2');
+  for(let c=2; c<=SON; c++) kutu(10,c,10,c,(c%2===0?'1.VRD':'2.VRD'),F(6),{horizontal:'center',vertical:'middle',textRotation:90});
+  ws.getRow(10).height=30;
+  // Görev satırları + 2 boş satır
+  let r=11;
+  (ts.tasks||[]).concat([{title:''},{title:''}]).forEach((t,i,a)=>{
+    kutu(r,1,r,1,t.title?(i+1)+'. '+t.title:'',F(8),SOL); box(r,2,r,SON);
+    ws.getRow(r).height=(t.title||'').length>48?30:20; r++;
   });
-  // Not (tablonun hemen altı)
-  ws.mergeCells('A'+r+':L'+r); const nt=ws.getCell('A'+r); nt.value="Operatör, her vardiya/gün maddeleri kontrol edip yapılanı ✓ ile işaretler. Arıza/eksiklik varsa Açıklama'ya yazıp sıra no ile bakım personeline bildirir."; nt.font={name:'Calibri',size:8,italic:true,color:{argb:'FF777777'}}; nt.alignment={horizontal:'left',vertical:'middle',wrapText:true}; ws.getRow(r).height=22;
-  // İmza — çerçeveli iki kutu, forma sıkı
-  r+=2; ws.mergeCells('A'+r+':F'+(r+1)); ws.mergeCells('G'+r+':L'+(r+1));
-  const op=ws.getCell('A'+r); op.value='Operatör (Ad-Soyad / İmza)'; op.font={name:'Calibri',size:10,bold:true}; op.alignment={horizontal:'left',vertical:'top',indent:1,wrapText:true};
-  const va=ws.getCell('G'+r); va.value='Vardiya Amiri (Ad-Soyad / İmza)'; va.font={name:'Calibri',size:10,bold:true}; va.alignment={horizontal:'left',vertical:'top',indent:1,wrapText:true};
-  box(r,1,r+1,12); ws.getRow(r).height=16; ws.getRow(r+1).height=26; r+=1;
-  // Baskı alanı forma sabit (altta boşluk/taşma görünmesin)
-  ws.pageSetup.printArea='A1:L'+r;
-  // İndir
+  // Operatör ve arıza satırları
+  [['OPERATÖR (paraf)',34],['ARIZA TÜRÜ (MA / EA)',22],['ARIZA FORM NO (FR59)',30],['ARIZA SÜRESİ (SAAT)',22]].forEach(it=>{
+    kutu(r,1,r,1,it[0],F(8,true),SOL,'FFF2F2F2'); box(r,2,r,SON); ws.getRow(r).height=it[1]; r++; });
+  r++;
+  kutu(r,1,r,32,'Herhangi bir arıza anında bakım sorumlusuna bildir (FR59).   MA: Mekanik arıza   EA: Elektrik arıza',F(8,true),SOL);
+  kutu(r,33,r,SON,'Bakım Sorumlusu: '+tech+'          İmzası: ……………………………',F(9,true),SOL); ws.getRow(r).height=22;
+  ws.pageSetup.printArea='A1:'+L(SON)+r;
   const buf=await wb.xlsx.writeBuffer();
+  if(typeof window!=='undefined' && window.__testBuf){ window.__testBuf(buf); return; }
   const url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-  const a=document.createElement('a'); a.href=url; a.download='Gunluk Operator Formu - '+String(m.code||m.name||'makine').replace(/[\/:*?"<>|]/g,'_')+'.xlsx'; a.click(); URL.revokeObjectURL(url);
-  toast('Günlük form Excel indirildi ✓','success');
+  const a=document.createElement('a'); a.href=url; a.download='FR45 Haftalik-Gunluk Makina Bakim Karti - '+String(m.code||m.name||'makine').replace(/[\/:*?"<>|]/g,'_')+'.xlsx'; a.click(); URL.revokeObjectURL(url);
+  toast('FR45 bakım kartı Excel indirildi ✓','success');
 }
 
 function printPlanForm(id, selMachineIds){
@@ -10043,7 +10051,7 @@ function renderTaskSets(){
           </div>
         </div>
         <div class="d-flex gap-2">
-          ${ts.type==='autonomous'&&ts.machineId?`<button class="btn btn-sm btn-outline-success" style="padding:3px 10px" onclick="printGunlukForm('${ts.machineId}')" title="Günlük Formu Excel İndir"><i class="bi bi-file-earmark-excel"></i></button>`:''}
+          ${ts.type==='autonomous'&&ts.machineId?`<button class="btn btn-sm btn-outline-success" style="padding:3px 10px" onclick="printGunlukForm('${ts.machineId}')" title="FR45 Haftalık & Günlük Bakım Kartı (Excel)"><i class="bi bi-file-earmark-excel"></i></button>`:''}
           <button class="btn btn-sm btn-outline-primary" style="padding:3px 10px" onclick='openTaskSetModal(${attrJson(ts)})'><i class="bi bi-pencil"></i></button>
           <button class="btn btn-sm btn-outline-danger" style="padding:3px 10px" onclick="delTaskSet('${ts.id}')"><i class="bi bi-trash"></i></button>
         </div>
