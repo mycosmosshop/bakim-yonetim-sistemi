@@ -89,6 +89,7 @@ function ortam({ pushHata = false } = {}) {
             g.setSyncStatus(pushHata ? 'error' : 'ok');
         },
         scheduleCloudSync() { g.scheduleCagrildi++; },
+        _lsYaz(k, v) { g.localStorage.setItem(k, v); return true; },   // önbellek yazımı (kota korumalı sarmalayıcı)
         String, Object, Array, JSON, Math, Date, Number, Boolean,
         parseFloat, parseInt, isNaN, console, Promise,
     };

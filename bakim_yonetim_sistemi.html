@@ -2959,13 +2959,26 @@ function canWrite(){
 function isAdminUser(){ return _userRole()==='admin' || (typeof currentProfile!=='undefined' && currentProfile && currentProfile.is_admin); }
 function requireWrite(){ if(canWrite()) return true; toast('Yalnızca görüntüleme yetkiniz var; değişiklik yapamazsınız.','warning'); return false; }
 
+// Yerel önbellek yazımı: veri buluttan gelir, localStorage yalnız önbellektir. ERP'deki bütün modüller aynı
+// origin'i (mycosmosshop.github.io) paylaştığı için ~5 MB kota dolabiliyor; QuotaExceededError açılışı ve
+// save() → buluta yazmayı durduruyordu (Edge, 26.11.2026). Kota dolarsa eski önbellek silinir, iş devam eder.
+let _lsUyarildi=false;
+function _lsYaz(k, v){
+  try{ localStorage.setItem(k, v); return true; }
+  catch(e){
+    try{ localStorage.removeItem(k); }catch(_){}
+    if(!_lsUyarildi){ _lsUyarildi=true; console.warn('Yerel önbellek dolu, veri yalnız bulutta tutuluyor:', k, e && e.name);
+      try{ toast('Tarayıcı depolaması dolu — veriler buluttan çalışıyor (yerel önbellek kapalı).','warning'); }catch(_){} }
+    return false;
+  }
+}
 function save(){
   if(!canWrite()){ toast('Görüntüleme modundasınız — değişiklik kaydedilmedi.','warning'); return; }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync();
+  _lsYaz(STORAGE_KEY, JSON.stringify(db)); try{ logActivity(); }catch(e){} scheduleCloudSync();
   _bakimAnlikPlanla();   // otomatik WhatsApp hatirlatmasi icin sunucudaki kopyayi tazele
 }
 function saveKpiStore(){
-  localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
+  _lsYaz(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
   // BEKLEMEDEN buluta yaz — saveVardiya ile ayni gerekce: scheduleCloudSync
   // 1,2 sn geciktiriyor ve o aralikta sayfa yenilenirse hedef buluta HIC
   // gitmiyor; acilista gelen ESKI kayit hem bellegi hem localStorage'i
@@ -15740,8 +15753,8 @@ function applyRemoteData(d){
   }
   ensureDbShape();
   _lastSnapshot = _snapshot(); // uzak değişiklik bizim değil → loglama
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-  localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
+  _lsYaz(STORAGE_KEY, JSON.stringify(db));
+  _lsYaz(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
   const sec = document.querySelector('.section.active')?.id || 'dashboard';
   try{ updateSelects(); }catch(e){}
   try{ nav(sec); }catch(e){}
@@ -16052,8 +16065,8 @@ async function _onLoggedIn(user){
       loadVardiya();
     }
     ensureDbShape();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-    localStorage.setItem(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
+    _lsYaz(STORAGE_KEY, JSON.stringify(db));
+    _lsYaz(STORAGE_KPI_KEY, JSON.stringify(kpiConfig));
     cloudReady = true;
   } else {
     // İlk giriş / boş bulut → yereldeki (veya örnek) veriyi yükle ve buluta taşı
